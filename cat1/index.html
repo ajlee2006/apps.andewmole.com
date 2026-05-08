@@ -114,6 +114,43 @@
     color: #555;
     margin-left: auto;
   }
+  /* Toggle switch — visually replaces the native checkbox */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 32px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+  }
+  .switch .slider {
+    position: absolute;
+    inset: 0;
+    background: #bbb;
+    border-radius: 18px;
+    transition: background 0.15s ease;
+    cursor: pointer;
+  }
+  .switch .slider:before {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    left: 2px;
+    top: 2px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  }
+  .switch input:checked + .slider { background: #1a73e8; }
+  .switch input:checked + .slider:before { transform: translateX(14px); }
+  .switch input:focus-visible + .slider { box-shadow: 0 0 0 2px rgba(26,115,232,0.4); }
 </style>
 </head>
 <body>
@@ -284,7 +321,10 @@ legend.onAdd = function () {
     '</div>' +
     '<div id="rain-loading" class="toggle-row">Loading&hellip;</div>' +
     '<div id="rain-toggle-row" class="toggle-row" style="display:none;">' +
-      '<input type="checkbox" id="rain-toggle">' +
+      '<label class="switch">' +
+        '<input type="checkbox" id="rain-toggle">' +
+        '<span class="slider"></span>' +
+      '</label>' +
       '<label for="rain-toggle">Rain areas</label>' +
       '<span id="rain-time" class="rain-time"></span>' +
     '</div>' +
