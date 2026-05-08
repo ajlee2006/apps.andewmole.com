@@ -308,8 +308,6 @@ var latestUpdateTime = null;   // set by parseApiResponse from the API's update_
 // current colour. Unknown colour values fall back to "green".
 // =============================================================
 function applyColours() {
-  Object.assign(POLYGON_COLOURS, colours || {});
-  Object.assign(SECTOR_TOOLTIPS, tooltips || {});
   Object.assign(CAT_INFO, catInfo || {});
 
   const newColours = {};
@@ -336,6 +334,12 @@ function applyColours() {
 
   colours = newColours;
   tooltips = newTooltips;
+
+  // Update the lookups that styleFor / tooltip rendering read from,
+  // BEFORE the loops below — otherwise the very first call paints
+  // every polygon grey because POLYGON_COLOURS is still empty.
+  Object.assign(POLYGON_COLOURS, colours);
+  Object.assign(SECTOR_TOOLTIPS, tooltips);
 
   for (const name in (colours || {})) {
     const polys = polygonsByName[name];
@@ -416,14 +420,10 @@ async function refreshColours() {
     applyColours();
 
     // Reveal the colour legend on the first successful refresh.
-    // Defer to the next frame so the polygon recolour has painted first —
-    // otherwise the legend appears slightly before the polygons update.
-    requestAnimationFrame(() => {
-      const loadingEl = document.getElementById('legend-loading');
-      const bodyEl = document.getElementById('legend-body');
-      if (loadingEl) loadingEl.style.display = 'none';
-      if (bodyEl) bodyEl.style.display = '';
-    });
+    const loadingEl = document.getElementById('legend-loading');
+    const bodyEl = document.getElementById('legend-body');
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (bodyEl) bodyEl.style.display = '';
 
     // Update the legend's timestamp line.
     const el = document.getElementById('legend-timestamps');
