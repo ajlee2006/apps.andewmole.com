@@ -263,6 +263,10 @@ FEATURES.forEach(feat => {
 });
 
 map.fitBounds(layerGroup.getBounds(), { padding: [20, 20] });
+// On narrow screens, zoom in one level so the map starts a bit closer.
+if (window.innerWidth < 768) {
+  map.zoomIn(1, { animate: false });
+}
 
 // Legend
 const legend = L.control({ position: 'bottomright' });
