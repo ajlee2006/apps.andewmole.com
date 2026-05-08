@@ -289,12 +289,13 @@ const FEATURES = [{"name":"L1","polygons":[[[[1.36638864139265,103.640911801207]
 
 // Set up the map
 const map = L.map('map', {
-  minZoom: 11,
   maxBounds: L.latLngBounds(L.latLng(1.06, 103.50), L.latLng(1.58, 104.19))
 });
 
 // =============================================================
 // Basemap layers — rotated through via the switcher control below.
+// OneMap only has tiles from z11 upward; minNativeZoom lets Leaflet
+// upscale a z11 tile to fill lower zoom levels (a bit blurry but fine).
 // =============================================================
 const BASEMAPS = [
   {
@@ -311,6 +312,8 @@ const BASEMAPS = [
     key: 'onemap-default',
     label: 'OneMap',
     layer: L.tileLayer('https://www.onemap.gov.sg/maps/tiles/Default_HD/{z}/{x}/{y}.png', {
+      minNativeZoom: 11,
+      maxNativeZoom: 19,
       maxZoom: 19,
       attribution: '<a href="https://www.onemap.gov.sg" target="_blank" rel="noopener">OneMap</a> &copy; contributors | <a href="https://www.sla.gov.sg" target="_blank" rel="noopener">Singapore Land Authority</a>'
     }),
@@ -320,6 +323,8 @@ const BASEMAPS = [
     key: 'onemap-original',
     label: 'OneMap',
     layer: L.tileLayer('https://www.onemap.gov.sg/maps/tiles/Original_HD/{z}/{x}/{y}.png', {
+      minNativeZoom: 11,
+      maxNativeZoom: 19,
       maxZoom: 19,
       attribution: '<a href="https://www.onemap.gov.sg" target="_blank" rel="noopener">OneMap</a> &copy; contributors | <a href="https://www.sla.gov.sg" target="_blank" rel="noopener">Singapore Land Authority</a>'
     }),
@@ -330,6 +335,13 @@ const BASEMAPS = [
 let activeBasemapIdx = 0;
 BASEMAPS[activeBasemapIdx].layer.addTo(map);
 
+function setBasemap(idx) {
+  if (idx === activeBasemapIdx) return;
+  map.removeLayer(BASEMAPS[activeBasemapIdx].layer);
+  BASEMAPS[idx].layer.addTo(map);
+  activeBasemapIdx = idx;
+}
+
 // Switcher control — small thumbnail in the bottom-left showing the NEXT map.
 const BasemapSwitch = L.Control.extend({
   options: { position: 'bottomleft' },
@@ -339,9 +351,7 @@ const BasemapSwitch = L.Control.extend({
     L.DomEvent.disableClickPropagation(div);
     L.DomEvent.on(div, 'click', () => {
       const next = (activeBasemapIdx + 1) % BASEMAPS.length;
-      map.removeLayer(BASEMAPS[activeBasemapIdx].layer);
-      BASEMAPS[next].layer.addTo(map);
-      activeBasemapIdx = next;
+      setBasemap(next);
       updateSwitchPreview(div);
     });
     updateSwitchPreview(div);
