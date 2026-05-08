@@ -151,6 +151,38 @@
   .switch input:checked + .slider { background: #1a73e8; }
   .switch input:checked + .slider:before { transform: translateX(14px); }
   .switch input:focus-visible + .slider { box-shadow: 0 0 0 2px rgba(26,115,232,0.4); }
+  /* Basemap switcher (bottom-left) */
+  .basemap-switch {
+    width: 70px;
+    height: 70px;
+    background: #fff;
+    border: 2px solid rgba(0,0,0,0.2);
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+  }
+  .basemap-switch:hover { border-color: rgba(0,0,0,0.4); }
+  .basemap-switch img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+  }
+  .basemap-switch .label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    font-size: 10px;
+    text-align: center;
+    padding: 2px 0;
+    pointer-events: none;
+  }
 </style>
 </head>
 <body>
@@ -254,10 +286,58 @@ const FEATURES = [{"name":"L1","polygons":[[[[1.36638864139265,103.640911801207]
 // Set up the map
 const map = L.map('map');
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
+// =============================================================
+// Basemap layers — toggleable via the switcher control below.
+// =============================================================
+const BASEMAPS = {
+  osm: {
+    label: 'OSM',
+    layer: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }),
+    // Singapore tile at z11 used for the preview thumbnail.
+    thumb: 'https://tile.openstreetmap.org/11/1614/1016.png'
+  },
+  onemap: {
+    label: 'OneMap',
+    layer: L.tileLayer('https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '<a href="https://www.onemap.gov.sg" target="_blank" rel="noopener">OneMap</a> &copy; contributors | <a href="https://www.sla.gov.sg" target="_blank" rel="noopener">Singapore Land Authority</a>'
+    }),
+    thumb: 'https://www.onemap.gov.sg/maps/tiles/Default/11/1614/1016.png'
+  }
+};
+
+let activeBasemap = 'osm';
+BASEMAPS[activeBasemap].layer.addTo(map);
+
+// Switcher control — small thumbnail in the bottom-left showing the OTHER map.
+const BasemapSwitch = L.Control.extend({
+  options: { position: 'bottomleft' },
+  onAdd: function () {
+    const div = L.DomUtil.create('div', 'basemap-switch');
+    div.innerHTML = '<img alt=""><div class="label"></div>';
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.on(div, 'click', () => {
+      const next = activeBasemap === 'osm' ? 'onemap' : 'osm';
+      map.removeLayer(BASEMAPS[activeBasemap].layer);
+      BASEMAPS[next].layer.addTo(map);
+      activeBasemap = next;
+      updateSwitchPreview(div);
+    });
+    updateSwitchPreview(div);
+    return div;
+  }
+});
+
+function updateSwitchPreview(div) {
+  const other = activeBasemap === 'osm' ? 'onemap' : 'osm';
+  div.querySelector('img').src = BASEMAPS[other].thumb;
+  div.querySelector('.label').textContent = BASEMAPS[other].label;
+  div.title = 'Switch to ' + BASEMAPS[other].label;
+}
+map.addControl(new BasemapSwitch());
 
 const layerGroup = L.featureGroup().addTo(map);
 const polygonsByName = {};   // name -> array of polygon layers (for live restyling)
