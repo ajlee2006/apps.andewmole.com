@@ -274,19 +274,19 @@ const legend = L.control({ position: 'bottomright' });
 legend.onAdd = function () {
   const div = L.DomUtil.create('div', 'legend');
   div.innerHTML =
-  div.innerHTML =
-    '<div id="legend-loading">Loading&hellip;</div>' +
-    '<div id="legend-body" style="display:none;">' +
+    '<div id="colours-loading">Loading&hellip;</div>' +
+    '<div id="colours-body" style="display:none;">' +
       '<div><span class="swatch" style="background:#2ecc71"></span>CAT 3</div>' +
       '<div><span class="swatch" style="background:#fff200"></span>CAT 2</div>' +
       '<div><span class="swatch" style="background:#ff8c00"></span>CAT 1 incoming</div>' +
       '<div><span class="swatch" style="background:#b03020"></span>CAT 1</div>' +
       '<div><span class="swatch" style="background:#b03020;opacity:0.2"></span>Pending CAT clear</div>' +
-      '<div class="toggle-row">' +
-        '<input type="checkbox" id="rain-toggle">' +
-        '<label for="rain-toggle">Rain areas</label>' +
-        '<span id="rain-time" class="rain-time"></span>' +
-      '</div>' +
+    '</div>' +
+    '<div id="rain-loading" class="toggle-row" style="color:#777;">Loading&hellip;</div>' +
+    '<div id="rain-toggle-row" class="toggle-row" style="display:none;">' +
+      '<input type="checkbox" id="rain-toggle">' +
+      '<label for="rain-toggle">Rain areas</label>' +
+      '<span id="rain-time" class="rain-time"></span>' +
     '</div>' +
     '<div id="legend-timestamps" style="margin-top:6px;padding-top:6px;border-top:1px solid #ccc;font-size:11px;color:#555;">Updated &mdash; | Refreshed &mdash;</div>';
   // stop clicks on the checkbox from propagating to the map
@@ -420,8 +420,8 @@ async function refreshColours() {
     applyColours();
 
     // Reveal the colour legend on the first successful refresh.
-    const loadingEl = document.getElementById('legend-loading');
-    const bodyEl = document.getElementById('legend-body');
+    const loadingEl = document.getElementById('colours-loading');
+    const bodyEl = document.getElementById('colours-body');
     if (loadingEl) loadingEl.style.display = 'none';
     if (bodyEl) bodyEl.style.display = '';
 
@@ -540,22 +540,38 @@ async function refreshRainArea() {
     const latest = list[list.length - 1];
     const url = NEA_BASE + latest.Url;
 
-    if (rainLayer) {
-      rainLayer.setUrl(url);
-    } else {
-      // Create the layer but don't add to the map yet — toggle controls visibility.
-      rainLayer = L.imageOverlay(url, RAIN_BOUNDS, {
-        opacity: 0.6,
-        interactive: false
-      });
-      if (rainEnabled) rainLayer.addTo(map);
-    }
-    const timeEl = document.getElementById('rain-time');
-    if (timeEl) {
-      // SortingTime is ISO-like ("2026-05-05T18:35:00") — extract HH:MM and strip the colon for hhmm.
-      const m = (latest.SortingTime || '').match(/T(\d{2}):(\d{2})/);
-      timeEl.textContent = m ? (m[1] + m[2]) : '';
-    }
+    // Probe the image to confirm it actually loads before revealing the toggle.
+    // The browser will cache it, so when L.imageOverlay loads the same URL it's instant.
+    const probe = new Image();
+    probe.onload = () => {
+      if (rainLayer) {
+        rainLayer.setUrl(url);
+      } else {
+        // Create the layer but don't add to the map yet — toggle controls visibility.
+        rainLayer = L.imageOverlay(url, RAIN_BOUNDS, {
+          opacity: 0.6,
+          interactive: false
+        });
+        if (rainEnabled) rainLayer.addTo(map);
+      }
+
+      // First-time reveal of the toggle row in the legend.
+      const rainLoading = document.getElementById('rain-loading');
+      const rainRow = document.getElementById('rain-toggle-row');
+      if (rainLoading) rainLoading.style.display = 'none';
+      if (rainRow) rainRow.style.display = '';
+
+      const timeEl = document.getElementById('rain-time');
+      if (timeEl) {
+        // SortingTime is ISO-like ("2026-05-05T18:35:00") — extract HH:MM and strip the colon for hhmm.
+        const m = (latest.SortingTime || '').match(/T(\d{2}):(\d{2})/);
+        timeEl.textContent = m ? (m[1] + m[2]) : '';
+      }
+    };
+    probe.onerror = () => {
+      console.warn('Rain image failed to load:', url);
+    };
+    probe.src = url;
   } catch (err) {
     console.warn('Rain area refresh failed:', err);
   }
