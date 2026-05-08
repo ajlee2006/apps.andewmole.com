@@ -285,8 +285,8 @@ const FEATURES = [{"name":"L1","polygons":[[[[1.36638864139265,103.640911801207]
 
 // Set up the map
 const map = L.map('map', {
-  minZoom: 10,
-  maxBounds: L.latLngBounds(L.latLng(1.144, 103.535), L.latLng(1.494, 104.502))
+  minZoom: 11,
+  maxBounds: L.latLngBounds(L.latLng(1.06, 103.50), L.latLng(1.58, 104.19))
 });
 
 // =============================================================
@@ -314,7 +314,7 @@ const BASEMAPS = [
   },
   {
     key: 'onemap-original',
-    label: 'OneMap Original',
+    label: 'OneMap',
     layer: L.tileLayer('https://www.onemap.gov.sg/maps/tiles/Original_HD/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '<a href="https://www.onemap.gov.sg" target="_blank" rel="noopener">OneMap</a> &copy; contributors | <a href="https://www.sla.gov.sg" target="_blank" rel="noopener">Singapore Land Authority</a>'
