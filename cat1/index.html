@@ -274,15 +274,19 @@ const legend = L.control({ position: 'bottomright' });
 legend.onAdd = function () {
   const div = L.DomUtil.create('div', 'legend');
   div.innerHTML =
-    '<div><span class="swatch" style="background:#2ecc71"></span>CAT 3</div>' +
-    '<div><span class="swatch" style="background:#fff200"></span>CAT 2</div>' +
-    '<div><span class="swatch" style="background:#ff8c00"></span>CAT 1 incoming</div>' +
-    '<div><span class="swatch" style="background:#b03020"></span>CAT 1</div>' +
-    '<div><span class="swatch" style="background:#b03020;opacity:0.2"></span>Pending CAT clear</div>' +
-    '<div class="toggle-row">' +
-      '<input type="checkbox" id="rain-toggle">' +
-      '<label for="rain-toggle">Rain areas</label>' +
-      '<span id="rain-time" class="rain-time"></span>' +
+  div.innerHTML =
+    '<div id="legend-loading">Loading&hellip;</div>' +
+    '<div id="legend-body" style="display:none;">' +
+      '<div><span class="swatch" style="background:#2ecc71"></span>CAT 3</div>' +
+      '<div><span class="swatch" style="background:#fff200"></span>CAT 2</div>' +
+      '<div><span class="swatch" style="background:#ff8c00"></span>CAT 1 incoming</div>' +
+      '<div><span class="swatch" style="background:#b03020"></span>CAT 1</div>' +
+      '<div><span class="swatch" style="background:#b03020;opacity:0.2"></span>Pending CAT clear</div>' +
+      '<div class="toggle-row">' +
+        '<input type="checkbox" id="rain-toggle">' +
+        '<label for="rain-toggle">Rain areas</label>' +
+        '<span id="rain-time" class="rain-time"></span>' +
+      '</div>' +
     '</div>' +
     '<div id="legend-timestamps" style="margin-top:6px;padding-top:6px;border-top:1px solid #ccc;font-size:11px;color:#555;">Updated &mdash; | Refreshed &mdash;</div>';
   // stop clicks on the checkbox from propagating to the map
@@ -410,6 +414,12 @@ async function refreshColours() {
     parseApiResponse(data);
     
     applyColours();
+
+    // Reveal the colour legend on the first successful refresh.
+    const loadingEl = document.getElementById('legend-loading');
+    const bodyEl = document.getElementById('legend-body');
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (bodyEl) bodyEl.style.display = '';
 
     // Update the legend's timestamp line.
     const el = document.getElementById('legend-timestamps');
