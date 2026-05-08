@@ -416,10 +416,14 @@ async function refreshColours() {
     applyColours();
 
     // Reveal the colour legend on the first successful refresh.
-    const loadingEl = document.getElementById('legend-loading');
-    const bodyEl = document.getElementById('legend-body');
-    if (loadingEl) loadingEl.style.display = 'none';
-    if (bodyEl) bodyEl.style.display = '';
+    // Defer to the next frame so the polygon recolour has painted first —
+    // otherwise the legend appears slightly before the polygons update.
+    requestAnimationFrame(() => {
+      const loadingEl = document.getElementById('legend-loading');
+      const bodyEl = document.getElementById('legend-body');
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (bodyEl) bodyEl.style.display = '';
+    });
 
     // Update the legend's timestamp line.
     const el = document.getElementById('legend-timestamps');
