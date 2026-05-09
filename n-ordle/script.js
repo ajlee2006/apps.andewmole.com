@@ -445,8 +445,14 @@ function handleKey(k) {
 }
 
 document.addEventListener('keydown', (e) => {
-  // Don't intercept typing into form inputs (e.g. n-input)
-  if (e.target.tagName === 'INPUT') return;
+  // Allow Enter inside the n-input to submit; otherwise let inputs handle their own keys.
+  if (e.target.tagName === 'INPUT') {
+    if (e.target.id === 'n-input' && e.key === 'Enter') {
+      e.preventDefault();
+      startGameFromInput();
+    }
+    return;
+  }
   if (state && !state.finished && !gameEl().classList.contains('hidden')) {
     if (e.key === 'Enter') { e.preventDefault(); handleKey('ENTER'); return; }
     if (e.key === 'Backspace') { e.preventDefault(); handleKey('BACK'); return; }
@@ -633,6 +639,21 @@ function tryDecodeShareFromHash() {
 // =====================================================
 // Flow control
 // =====================================================
+// History API: we push a single 'in-app' history entry when leaving the home
+// screen, so the browser back button returns to home instead of the previous
+// page. While in the in-app entry, transitions between game and end screen
+// don't push more entries — they replace, keeping the history shallow.
+
+function isInAppEntry() {
+  return !!(history.state && history.state.app === 'n-ordle');
+}
+
+function pushInAppState() {
+  if (!isInAppEntry()) {
+    history.pushState({ app: 'n-ordle' }, '', location.href);
+  }
+}
+
 function hideAllSections() {
   setupEl().classList.add('hidden');
   sharedPromptEl().classList.add('hidden');
@@ -643,13 +664,20 @@ function hideAllSections() {
 }
 
 function goToSetup() {
+  // If we're on the in-app history entry, navigate back so URL/history match
+  // what the user sees. The popstate handler will display the home screen.
+  if (isInAppEntry()) {
+    state = null;
+    history.back();
+    return;
+  }
   hideAllSections();
   setupEl().classList.remove('hidden');
   headerN().textContent = '';
   headerInfo().innerHTML = '';
   // Clear share hash if present so refreshing doesn't re-prompt
   if (location.hash.includes('play=')) {
-    history.replaceState(null, '', location.pathname + location.search);
+    history.replaceState(history.state, '', location.pathname + location.search);
   }
 }
 
@@ -658,7 +686,7 @@ function startNewGame(n, predefinedWords = null) {
   newGame(n, predefinedWords);
   // Clear share hash from URL once the game starts so it doesn't loop on refresh
   if (location.hash.includes('play=') && !predefinedWords) {
-    history.replaceState(null, '', location.pathname + location.search);
+    history.replaceState(history.state, '', location.pathname + location.search);
   }
   gameEl().classList.remove('hidden');
   keyboardEl().classList.remove('hidden');
@@ -666,6 +694,8 @@ function startNewGame(n, predefinedWords = null) {
   buildKeyboard();
   updateHeader();
   renderCurrent();
+  // Add a history entry so the browser back button returns to the home screen.
+  pushInAppState();
 }
 
 function startGameFromInput() {
@@ -688,6 +718,38 @@ function acceptShared() {
   pendingShared = null;
 }
 
+// Browser back/forward button: toggle between home and in-app views based on
+// which history entry the browser landed on. We keep `state` alive so going
+// forward restores the game in progress.
+window.addEventListener('popstate', () => {
+  if (isInAppEntry()) {
+    // Forward navigation back into the in-app entry — restore whichever
+    // in-app view applies.
+    if (!state) {
+      // No game to restore (e.g. opened tab directly at this entry). Show home.
+      hideAllSections();
+      setupEl().classList.remove('hidden');
+      return;
+    }
+    hideAllSections();
+    if (state.finished) {
+      // End screen will already be in the DOM from the last render.
+      endEl().classList.remove('hidden');
+    } else {
+      gameEl().classList.remove('hidden');
+      keyboardEl().classList.remove('hidden');
+    }
+    return;
+  }
+  // We're on the home entry — show home. Keep `state` alive in case the user
+  // hits forward to return to the game.
+  pendingShared = null;
+  hideAllSections();
+  setupEl().classList.remove('hidden');
+  headerN().textContent = '';
+  headerInfo().innerHTML = '';
+});
+
 // =====================================================
 // Initial wiring
 // =====================================================
@@ -708,7 +770,6 @@ async function init() {
     if (state && !state.finished) {
       if (!confirm('Quit current game and return to the home screen?')) return;
     }
-    state = null;
     pendingShared = null;
     goToSetup();
   });
