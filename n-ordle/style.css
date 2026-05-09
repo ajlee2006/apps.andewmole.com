@@ -77,23 +77,205 @@ h1 .n {
   color: var(--fg);
   font-weight: 700;
 }
-.credit {
+.info-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--fg-dim);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.info-btn:hover {
+  color: var(--accent);
+  border-color: rgba(212, 165, 116, 0.45);
+  background: rgba(212, 165, 116, 0.06);
+}
+.info-btn:active { transform: scale(0.94); }
+.info-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* === Info modal === */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 60px 16px;
+  overflow-y: auto;
+  animation: fadeIn .18s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.modal {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  max-width: 560px;
+  width: 100%;
+  padding: 36px 32px 28px;
+  position: relative;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  animation: slideUp .22s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: var(--fg-dim);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color .15s, background .15s;
+}
+.modal-close:hover {
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.05);
+}
+.modal h2 {
   font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-weight: 800;
+  font-size: 32px;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+  padding-right: 28px;
+}
+.modal h3 {
+  font-family: 'Fraunces', serif;
+  font-weight: 700;
+  font-size: 18px;
+  margin-top: 22px;
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
+}
+.modal .lede-modal {
+  font-size: 14px;
+  color: var(--fg);
+  margin-bottom: 14px;
+  line-height: 1.55;
+}
+.modal .lede-modal b { color: var(--accent); font-weight: 700; }
+.modal ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.modal ul li {
   font-size: 13px;
   color: var(--fg-dim);
-  text-decoration: none;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-  transition: color .15s;
+  line-height: 1.65;
+  padding-left: 18px;
+  position: relative;
+  margin-bottom: 4px;
 }
-.credit em {
+.modal ul li::before {
+  content: '·';
+  position: absolute;
+  left: 6px;
+  color: var(--accent);
+  font-weight: bold;
+}
+.modal ul li em {
   font-style: italic;
   color: var(--fg);
+  font-family: 'Fraunces', serif;
 }
-.credit:hover {
+.modal .example {
+  margin-bottom: 12px;
+}
+.modal .mini-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.mini-tile {
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid var(--tile-border);
+  background: var(--tile);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--fg);
+  text-transform: uppercase;
+}
+.mini-tile.green { background: var(--green); border-color: var(--green); color: white; }
+.mini-tile.yellow { background: var(--yellow); border-color: var(--yellow); color: white; }
+.mini-tile.gray { background: var(--gray); border-color: var(--gray); }
+.modal .example p {
+  font-size: 12.5px;
+  color: var(--fg-dim);
+  line-height: 1.5;
+}
+.modal .example p b {
+  color: var(--fg);
+  font-weight: 700;
+}
+.modal hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 24px 0 0;
+}
+.modal .inspired {
+  line-height: 2;
+  color: var(--fg-dim);
+}
+.modal .inspired a {
+  color: var(--fg-dim);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--line);
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.modal .inspired a:hover {
   color: var(--accent);
+  border-bottom-color: var(--accent);
 }
-.credit:hover em {
+.modal .inspired .sep {
+  color: var(--line);
+  margin: 0 6px;
+}
+.modal .signature {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  font-family: 'Fraunces', serif;
+  font-size: 14px;
+  color: var(--fg-dim);
+  text-align: center;
+}
+.modal .signature a {
+  color: var(--fg);
+  text-decoration: none;
+  transition: color .15s;
+}
+.modal .signature a:hover {
   color: var(--accent);
 }
 main {
@@ -619,12 +801,13 @@ main {
   h1 { font-size: 22px; }
   header { padding: 12px 16px; }
   .header-right {
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
   }
   .header-info { font-size: 10px; gap: 10px; }
-  .credit { font-size: 11px; }
+  .info-btn { width: 30px; height: 30px; }
+  .info-btn svg { width: 17px; height: 17px; }
   .tile { width: 30px; height: 30px; font-size: 14px; }
   .boards { gap: 18px 12px; }
   .setup h2 { font-size: 40px; }
@@ -636,4 +819,8 @@ main {
   .key.wide { font-size: 13px; }
   .kbd-row { gap: 4px; max-width: none; }
   .keyboard { padding: 10px 6px 14px; }
+  .modal-backdrop { padding: 16px 12px; }
+  .modal { padding: 28px 22px 22px; }
+  .modal h2 { font-size: 26px; }
+  .modal h3 { font-size: 16px; margin-top: 18px; }
 }
