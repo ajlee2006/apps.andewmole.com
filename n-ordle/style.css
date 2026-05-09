@@ -229,12 +229,28 @@ main {
 .link-btn:hover { color: var(--fg); }
 
 /* === Boards === */
+#game {
+  overflow-x: auto;
+  /* Reserve room for the scrollbar so layout doesn't jump when it appears */
+  scrollbar-gutter: stable;
+}
+#game::-webkit-scrollbar { height: 8px; }
+#game::-webkit-scrollbar-track { background: transparent; }
+#game::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+}
+#game::-webkit-scrollbar-thumb:hover { background: var(--tile-filled-border); }
+#game { scrollbar-color: var(--line) transparent; scrollbar-width: thin; }
 .boards {
   display: grid;
   gap: 24px 18px;
-  justify-content: center;
   grid-template-columns: repeat(var(--cols), max-content);
-  margin-bottom: 32px;
+  margin: 0 auto 32px;
+  width: max-content;
+  /* No max-width: when content is wider than parent, parent's overflow-x scrolls.
+     When content is narrower, margin: 0 auto centers it. */
+  padding: 0 4px;
 }
 .board {
   display: grid;
