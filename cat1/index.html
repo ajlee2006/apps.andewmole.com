@@ -187,6 +187,83 @@
     padding: 2px 0;
     pointer-events: none;
   }
+  /* Info button (top-right of map) */
+  .info-btn {
+    width: 30px;
+    height: 30px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    font-weight: bold;
+    font-size: 18px;
+    color: #1a73e8;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .info-btn:hover { background: #f5f5f5; }
+  /* Credits modal */
+  #credits-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 2500;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  #credits-backdrop.visible { display: flex; }
+  #credits-modal {
+    background: #fff;
+    border-radius: 8px;
+    max-width: 420px;
+    width: 100%;
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
+    padding: 20px 22px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    font-size: 14px;
+    line-height: 1.55;
+    position: relative;
+  }
+  #credits-modal h2 { margin: 0 0 12px; font-size: 17px; }
+  #credits-modal .row { margin-bottom: 14px; }
+  #credits-modal .row:last-child { margin-bottom: 0; }
+  #credits-modal .label { font-weight: 600; }
+  #credits-modal a { color: #1a73e8; text-decoration: none; }
+  #credits-modal a:hover { text-decoration: underline; }
+  #credits-modal .app-badges { margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
+  #credits-modal .app-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #333;
+    background: #fafafa;
+  }
+  #credits-modal .app-badge:hover { background: #f0f0f0; text-decoration: none; }
+  #credits-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    width: 30px;
+    height: 30px;
+    border: none;
+    background: transparent;
+    font-size: 22px;
+    color: #555;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  #credits-close:hover { background: #eee; }
 </style>
 </head>
 <body>
@@ -195,6 +272,32 @@
   <button class="close-btn" id="rain-banner-close" aria-label="Dismiss">&times;</button>
 </div>
 <div id="map"></div>
+
+<div id="credits-backdrop" role="dialog" aria-labelledby="credits-title" aria-modal="true">
+  <div id="credits-modal">
+    <button id="credits-close" aria-label="Close">&times;</button>
+    <h2 id="credits-title">Credits</h2>
+    <div class="row">
+      <div class="label">CAT status data</div>
+      <a href="https://safeguardian.defence.gov.sg/" target="_blank" rel="noopener">SafeGuardian</a>
+      <div class="app-badges">
+        <a class="app-badge" href="https://play.google.com/store/apps/details?id=sg.mindef.ns.safeguardian" target="_blank" rel="noopener">Google Play</a>
+        <a class="app-badge" href="https://apps.apple.com/sg/app/safeguardian/id1558990521" target="_blank" rel="noopener">App Store</a>
+      </div>
+    </div>
+    <div class="row">
+      <div class="label">Rain areas &amp; weather alerts</div>
+      <a href="https://www.nea.gov.sg/weather/rain-areas" target="_blank" rel="noopener">National Environment Agency</a>
+    </div>
+    <div class="row">
+      <div class="label">Basemaps</div>
+      OpenStreetMap, OneMap (Singapore Land Authority)
+    </div>
+    <div class="row" style="border-top:1px solid #eee; padding-top:12px;">
+      Created by <a href="/">Andrew Lee</a>
+    </div>
+  </div>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -366,6 +469,35 @@ function updateSwitchPreview(div) {
   div.title = 'Switch to ' + BASEMAPS[next].label;
 }
 map.addControl(new BasemapSwitch());
+
+// =============================================================
+// Info button (top-right) opens the credits modal.
+// =============================================================
+const InfoControl = L.Control.extend({
+  options: { position: 'topright' },
+  onAdd: function () {
+    const div = L.DomUtil.create('div', 'info-btn');
+    div.innerHTML = 'i';
+    div.title = 'About';
+    div.setAttribute('role', 'button');
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.on(div, 'click', () => {
+      document.getElementById('credits-backdrop').classList.add('visible');
+    });
+    return div;
+  }
+});
+map.addControl(new InfoControl());
+
+const creditsBackdrop = document.getElementById('credits-backdrop');
+function closeCredits() { creditsBackdrop.classList.remove('visible'); }
+document.getElementById('credits-close').addEventListener('click', closeCredits);
+creditsBackdrop.addEventListener('click', e => {
+  if (e.target === creditsBackdrop) closeCredits();   // click outside the modal
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && creditsBackdrop.classList.contains('visible')) closeCredits();
+});
 
 const layerGroup = L.featureGroup().addTo(map);
 const polygonsByName = {};   // name -> array of polygon layers (for live restyling)
