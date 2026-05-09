@@ -198,10 +198,10 @@ h1 .n {
   color: var(--accent);
   font-weight: bold;
 }
-.modal ul li em {
-  font-style: italic;
+.modal ul li b {
+  font-weight: 700;
   color: var(--fg);
-  font-family: 'Fraunces', serif;
+  /* Inherits JetBrains Mono from body — stays monospace, no italics. */
 }
 .modal .example {
   margin-bottom: 12px;
@@ -243,40 +243,59 @@ h1 .n {
   margin: 24px 0 0;
 }
 .modal .inspired {
-  line-height: 2;
+  line-height: 2.1;
   color: var(--fg-dim);
+  /* Allow wrapping between items; each item internally is nowrap. */
+  word-spacing: 0;
+}
+.modal .inspired .ins-item {
+  white-space: nowrap;
+  /* Use inline-block so each item with its trailing separator stays together
+     when wrapping to the next line. */
+  display: inline-block;
+}
+.modal .inspired .ins-item::after {
+  content: '·';
+  color: var(--line);
+  margin: 0 0.5em;
+  /* Inherits font-size from .ins-item, so dots scale down with the names. */
+}
+.modal .inspired .ins-item.ins-last::after {
+  content: '';
+  margin: 0;
 }
 .modal .inspired a {
-  color: var(--fg-dim);
-  text-decoration: none;
-  border-bottom: 1px dotted var(--line);
-  transition: color .15s, border-color .15s;
-  white-space: nowrap;
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: var(--fg-dim);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color .15s, text-decoration-color .15s;
 }
 .modal .inspired a:hover {
   color: var(--accent);
-  border-bottom-color: var(--accent);
-}
-.modal .inspired .sep {
-  color: var(--line);
-  margin: 0 6px;
+  text-decoration-color: var(--accent);
 }
 .modal .signature {
   margin-top: 22px;
   padding-top: 18px;
   border-top: 1px solid var(--line);
-  font-family: 'Fraunces', serif;
-  font-size: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
   color: var(--fg-dim);
-  text-align: center;
+  text-align: left;
 }
 .modal .signature a {
   color: var(--fg);
-  text-decoration: none;
-  transition: color .15s;
+  text-decoration: underline;
+  text-decoration-color: var(--fg-dim);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color .15s, text-decoration-color .15s;
 }
 .modal .signature a:hover {
   color: var(--accent);
+  text-decoration-color: var(--accent);
 }
 main {
   padding: 0 16px;
@@ -699,39 +718,31 @@ main {
 .endscreen .summary-line .r { color: var(--danger); font-weight: 700; }
 .endscreen .actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
   justify-content: center;
 }
 .endscreen .actions button {
-  background: transparent;
-  border: 1px solid var(--line);
-  color: var(--fg);
+  background: var(--fg);
+  border: 1px solid var(--fg);
+  color: var(--bg);
   font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
   font-size: 13px;
   padding: 12px 18px;
   cursor: pointer;
   border-radius: 4px;
-  transition: all .15s;
+  transition: background .15s, border-color .15s, color .15s;
   letter-spacing: 0.02em;
+  flex: 1 1 auto;
 }
 .endscreen .actions button:hover {
-  border-color: var(--fg);
-  background: rgba(255,255,255,0.03);
-}
-.endscreen .actions button.primary {
-  background: var(--fg);
-  color: var(--bg);
-  border-color: var(--fg);
-  font-family: 'Fraunces', serif;
-  font-style: italic;
-  font-size: 16px;
-  font-weight: 600;
-}
-.endscreen .actions button.primary:hover {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--bg);
+}
+.endscreen .actions button:active {
+  transform: translateY(1px);
 }
 .endscreen .divider {
   height: 1px;
