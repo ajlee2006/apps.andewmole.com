@@ -245,20 +245,22 @@ h1 .n {
 .modal .inspired {
   line-height: 1.7;
   color: var(--fg-dim);
-  /* Allow wrapping between items; each item internally is nowrap. */
+  /* font-size: 0 collapses whitespace nodes between child spans;
+     each child span sets its own size via inline style. */
+  font-size: 0;
   word-spacing: 0;
 }
 .modal .inspired .ins-item {
   white-space: nowrap;
-  /* Use inline-block so each item with its trailing separator stays together
-     when wrapping to the next line. */
+  /* inline-block keeps each link with its trailing separator together when
+     the line wraps. */
   display: inline-block;
 }
 .modal .inspired .ins-item::after {
   content: '·';
   color: var(--line);
-  margin: 0 0.25em;
-  /* Inherits font-size from .ins-item, so dots scale down with the names. */
+  margin: 0 0.3em;
+  /* Inherits font-size from .ins-item, so dots scale with the names. */
 }
 .modal .inspired .ins-item.ins-last::after {
   content: '';
@@ -730,8 +732,7 @@ main {
   font-family: 'JetBrains Mono', monospace;
   font-weight: 700;
   font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   padding: 9px 16px;
   cursor: pointer;
   border-radius: 3px;
@@ -768,21 +769,45 @@ main {
 .endscreen .share-block .share-row {
   display: flex;
   gap: 8px;
+  align-items: stretch;
 }
-.endscreen .share-block input {
+.endscreen .share-block .copy-field {
   flex: 1;
   background: transparent;
   border: 1px solid var(--line);
   color: var(--fg);
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
+  line-height: 1.55;
   padding: 8px 10px;
   border-radius: 3px;
   min-width: 0;
+  /* Each line stays on its own line; long lines (e.g. share URL with hash)
+     scroll horizontally rather than wrapping or breaking. */
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  user-select: text;
+  -webkit-user-select: text;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
 }
-.endscreen .share-block input:focus {
-  outline: none;
-  border-color: var(--accent);
+.endscreen .share-block .copy-field::-webkit-scrollbar { height: 6px; }
+.endscreen .share-block .copy-field::-webkit-scrollbar-track { background: transparent; }
+.endscreen .share-block .copy-field::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 3px;
+}
+.endscreen .share-block .copy-field::-webkit-scrollbar-thumb:hover {
+  background: var(--tile-filled-border);
+}
+.endscreen .share-block .copy-field .g {
+  color: var(--green);
+  font-weight: 700;
+}
+.endscreen .share-block .copy-field .r {
+  color: var(--danger);
+  font-weight: 700;
 }
 .endscreen .share-block button {
   background: var(--accent);
@@ -797,6 +822,9 @@ main {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   transition: background .15s;
+  /* Don't shrink: keep button a tidy fixed width while the field expands. */
+  flex-shrink: 0;
+  align-self: stretch;
 }
 .endscreen .share-block button:hover { background: #e6b885; }
 .endscreen .share-block .share-help {
