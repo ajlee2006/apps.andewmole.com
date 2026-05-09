@@ -15,9 +15,64 @@
   <h1><span class="title-link" id="title-link">n-ordle</span> <span class="n" id="header-n"></span></h1>
   <div class="header-right">
     <div class="header-info" id="header-info"></div>
-    <a class="credit" href="/" title="Andrew Lee">by <em>Andrew Lee</em></a>
+    <button class="info-btn" id="info-btn" aria-label="How to play and credits" title="How to play">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="16" x2="12" y2="12"></line>
+        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+      </svg>
+    </button>
   </div>
 </header>
+
+<!-- Info modal -->
+<div class="modal-backdrop hidden" id="info-modal">
+  <div class="modal" role="dialog" aria-labelledby="info-modal-title" aria-modal="true">
+    <button class="modal-close" id="info-close" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+
+    <h2 id="info-modal-title">How to play</h2>
+    <p class="lede-modal">Guess <b>n</b> hidden five-letter words in <b>n + 5</b> shared tries.</p>
+    <ul>
+      <li>Every guess must be a valid five-letter word.</li>
+      <li>Each guess applies to <em>every</em> board at once.</li>
+      <li>The colour of the tiles will change to show how close your guess was to each word.</li>
+    </ul>
+
+    <h3>Examples</h3>
+    <div class="example">
+      <div class="mini-row">
+        <span class="mini-tile green">W</span><span class="mini-tile">O</span><span class="mini-tile">R</span><span class="mini-tile">D</span><span class="mini-tile">Y</span>
+      </div>
+      <p><b>W</b> is in the word and in the correct spot.</p>
+    </div>
+    <div class="example">
+      <div class="mini-row">
+        <span class="mini-tile">L</span><span class="mini-tile yellow">I</span><span class="mini-tile">G</span><span class="mini-tile">H</span><span class="mini-tile">T</span>
+      </div>
+      <p><b>I</b> is in the word but in the wrong spot.</p>
+    </div>
+    <div class="example">
+      <div class="mini-row">
+        <span class="mini-tile">R</span><span class="mini-tile">O</span><span class="mini-tile">G</span><span class="mini-tile gray">U</span><span class="mini-tile">E</span>
+      </div>
+      <p><b>U</b> is not in the word in any spot.</p>
+    </div>
+
+    <hr>
+
+    <h3>Inspired by</h3>
+    <p class="inspired">
+      <a href="https://www.nytimes.com/games/wordle/index.html" target="_blank" rel="noopener" style="font-size:17px">Wordle</a><span class="sep">·</span><a href="https://zaratustra.itch.io/dordle" target="_blank" rel="noopener" style="font-size:16px">Dordle</a><span class="sep">·</span><a href="https://diablomono.itch.io/trordle" target="_blank" rel="noopener" style="font-size:15px">Trordle</a><span class="sep">·</span><a href="https://www.merriam-webster.com/games/quordle/" target="_blank" rel="noopener" style="font-size:14px">Quordle</a><span class="sep">·</span><a href="https://hexordle.com/" target="_blank" rel="noopener" style="font-size:13px">Hexordle</a><span class="sep">·</span><a href="https://www.britannica.com/games/octordle/" target="_blank" rel="noopener" style="font-size:12.5px">Octordle</a><span class="sep">·</span><a href="https://www.opensourcefeed.org/puzzles/decordle/" target="_blank" rel="noopener" style="font-size:12px">Decordle</a><span class="sep">·</span><a href="https://www.sedecordle.com/" target="_blank" rel="noopener" style="font-size:11.5px">Sedecordle</a><span class="sep">·</span><a href="https://duotrigordle.com/" target="_blank" rel="noopener" style="font-size:11px">Duotrigordle</a><span class="sep">·</span><a href="https://64ordle.au/" target="_blank" rel="noopener" style="font-size:10.5px">Sexagintaquattuordle</a><span class="sep">·</span><a href="https://hked.live/centordle/" target="_blank" rel="noopener" style="font-size:9.5px">Centordle</a><span class="sep">·</span><a href="https://jonesnxt.github.io/kilordle/" target="_blank" rel="noopener" style="font-size:8px">Kilordle</a>
+    </p>
+
+    <p class="signature"><a href="/">Made by Andrew Lee</a></p>
+  </div>
+</div>
 <main>
   <!-- Loading -->
   <section class="loading" id="loading">
