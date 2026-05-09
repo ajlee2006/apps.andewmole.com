@@ -127,19 +127,32 @@ function newGame(n, predefinedWords = null) {
 // The keyboard cell grid mirrors this layout exactly.
 // =====================================================
 function computeColumns(n) {
-  let cols;
-  if (n === 1) cols = 1;
-  else if (n === 2) cols = 2;
-  else if (n <= 4) cols = 2;
-  else if (n <= 9) cols = 3;
-  else if (n <= 16) cols = 4;
-  else if (n <= 32) cols = 6;
-  else cols = 8;
-  // Mobile constraint
-  if (window.innerWidth < 700) {
-    cols = Math.min(cols, n === 1 ? 1 : 2);
-  }
-  return cols;
+  if (n <= 1) return 1;
+  // Measured board footprint, must match CSS:
+  //   tile width + 4 inter-tile gaps  +  inter-board gap
+  // Desktop: 38*5 + 4*4 = 206;  Mobile: 30*5 + 4*4 = 166.
+  // Inter-board horizontal gap (--cols gap): 18 desktop, 12 mobile.
+  const isMobile = window.innerWidth < 600;
+  const boardWidth = isMobile ? 166 : 206;
+  const gap = isMobile ? 12 : 18;
+  // main has 16px (8 mobile) horizontal padding on each side; account for that
+  // plus a small safety margin.
+  const sidePadding = isMobile ? 8 : 16;
+  const available = window.innerWidth - 2 * sidePadding - 4;
+  // How many boards fit horizontally?
+  const maxByWidth = Math.max(1, Math.floor((available + gap) / (boardWidth + gap)));
+
+  // If the whole game fits in one row at this viewport, use one row.
+  if (n <= maxByWidth) return n;
+
+  // Otherwise: each row of boards is fairly tall (board height ≈ 7+ tiles for n=2,
+  // up to dozens of tiles for large n), so vertical space disappears fast. Use as
+  // many columns as fit horizontally — this minimises rows and reduces scrolling.
+  // For very large n at narrow widths, also keep a sane lower bound via sqrt so we
+  // don't make absurdly tall column-strips when wider would be fine. (maxByWidth
+  // already enforces the upper bound, so this is a no-op when maxByWidth is small.)
+  const idealSquareish = Math.ceil(Math.sqrt(n * 1.4));
+  return Math.max(1, Math.min(maxByWidth, Math.max(idealSquareish, 1)));
 }
 
 // Rows in the keyboard grid given n boards and columns.
