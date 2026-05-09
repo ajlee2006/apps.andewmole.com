@@ -73,7 +73,7 @@ h1 .n {
   font-weight: 700;
 }
 main {
-  padding: 28px 16px 220px;
+  padding: 0 16px;
   max-width: 1700px;
   margin: 0 auto;
 }
@@ -81,7 +81,12 @@ main {
 /* === Loading === */
 .loading {
   text-align: center;
-  padding: 100px 20px;
+  padding: 40px 20px;
+  min-height: calc(100vh - 60px);
+  min-height: calc(100dvh - 60px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .loading-inner {
   display: inline-block;
@@ -110,8 +115,17 @@ main {
 /* === Setup === */
 .setup {
   max-width: 520px;
-  margin: 60px auto 0;
+  width: 100%;
+  margin: 0 auto;
+  padding: 40px 24px;
   text-align: center;
+  /* Fill the viewport (minus the sticky header) and centre vertically so
+     there's no dead space below the Begin button. dvh handles mobile URL bar. */
+  min-height: calc(100vh - 60px);
+  min-height: calc(100dvh - 60px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 .setup .tagline {
   font-family: 'Fraunces', serif;
@@ -233,6 +247,8 @@ main {
   overflow-x: auto;
   /* Reserve room for the scrollbar so layout doesn't jump when it appears */
   scrollbar-gutter: stable;
+  /* Top spacing for the boards, plus bottom clearance for the fixed keyboard. */
+  padding: 28px 0 220px;
 }
 #game::-webkit-scrollbar { height: 8px; }
 #game::-webkit-scrollbar-track { background: transparent; }
@@ -321,12 +337,19 @@ main {
   z-index: 5;
 }
 .kbd-row {
-  display: flex;
-  justify-content: center;
+  display: grid;
+  /* 20 half-slots so we can do half-key spacers and 1.5-key wide ENTER/BACK.
+     Total row width = 10 letter-slots, matching row 1's QWERTYUIOP. */
+  grid-template-columns: repeat(20, 1fr);
   gap: 5px;
   margin-bottom: 5px;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
 }
 .key {
+  /* Default: a letter key occupies 2 sub-columns (one full slot). */
+  grid-column: span 2;
   position: relative;
   background: var(--bg-2);
   border: 1px solid var(--line);
@@ -336,9 +359,7 @@ main {
   font-size: 13px;
   text-transform: uppercase;
   height: 50px;
-  min-width: 30px;
-  flex: 1 1 30px;
-  max-width: 46px;
+  min-width: 0;
   border-radius: 4px;
   cursor: pointer;
   transition: transform .08s;
@@ -350,9 +371,14 @@ main {
 }
 .key:active { transform: scale(0.94); }
 .key.wide {
-  flex: 1.5 1 50px;
-  max-width: 70px;
+  /* ENTER / BACK occupy 3 sub-columns (1.5 slots). */
+  grid-column: span 3;
   font-size: 14px;
+}
+/* Half-slot spacers padding the middle row so its 9 letters centre to match
+   the 10-letter top row, keeping all letter keys exactly the same width. */
+.kbd-spacer {
+  grid-column: span 1;
 }
 /* Per-board cell grid behind the letter */
 .key .cells {
@@ -404,7 +430,7 @@ main {
 /* === End screen === */
 .endscreen {
   max-width: 640px;
-  margin: 40px auto 0;
+  margin: 40px auto;
   padding: 40px 28px;
   background: var(--bg-2);
   border: 1px solid var(--line);
@@ -571,8 +597,12 @@ main {
   .tile { width: 30px; height: 30px; font-size: 14px; }
   .boards { gap: 18px 12px; }
   .setup h2 { font-size: 40px; }
+  .setup { padding: 32px 20px; }
   .endscreen h2 { font-size: 32px; }
-  main { padding: 20px 8px 220px; }
+  main { padding: 0 8px; }
+  #game { padding: 18px 0 220px; }
   .key { height: 46px; font-size: 12px; }
   .key.wide { font-size: 13px; }
+  .kbd-row { gap: 4px; max-width: none; }
+  .keyboard { padding: 10px 6px 14px; }
 }
