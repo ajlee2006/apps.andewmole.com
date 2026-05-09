@@ -190,9 +190,11 @@ function buildBoards() {
 function buildKeyboard() {
   const kb = keyboardEl();
   kb.innerHTML = '';
+  // Each entry: array of slots. A slot is either a string (key label / action)
+  // or 'SPACER' for a half-width gap that keeps letters at uniform width.
   const rows = [
     ['q','w','e','r','t','y','u','i','o','p'],
-    ['a','s','d','f','g','h','j','k','l'],
+    ['SPACER','a','s','d','f','g','h','j','k','l','SPACER'],
     ['ENTER','z','x','c','v','b','n','m','BACK'],
   ];
   const cols = computeColumns(state.n);
@@ -200,6 +202,12 @@ function buildKeyboard() {
     const rowDiv = document.createElement('div');
     rowDiv.className = 'kbd-row';
     for (const k of r) {
+      if (k === 'SPACER') {
+        const spacer = document.createElement('div');
+        spacer.className = 'kbd-spacer';
+        rowDiv.appendChild(spacer);
+        continue;
+      }
       const key = document.createElement('div');
       key.className = 'key unguessed';
       if (k === 'ENTER' || k === 'BACK') {
