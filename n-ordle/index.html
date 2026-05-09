@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>n-ordle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1><span class="title-link" id="title-link">n-ordle</span> <span class="n" id="header-n"></span></h1>
+  <div class="header-info" id="header-info"></div>
+</header>
+<main>
+  <!-- Loading -->
+  <section class="loading" id="loading">
+    <div class="loading-inner">Loading word lists…</div>
+  </section>
+
+  <!-- Setup -->
+  <section class="setup hidden" id="setup">
+    <p class="tagline">a generalisation of</p>
+    <h2>Wordle, <em>n</em> times over.</h2>
+    <p class="lede">
+      Solve <b>n</b> hidden words in parallel using <b>n+5</b> shared guesses.
+      Every guess applies to every board. Choose wisely.
+    </p>
+    <div class="field">
+      <label for="n-input">Choose your n</label>
+      <input type="number" id="n-input" min="1" value="4" />
+      <div class="quick-picks">
+        <button data-n="1" class="named">1 — Wordle</button>
+        <button data-n="2" class="named">2 — Dordle</button>
+        <button data-n="4" class="named">4 — Quordle</button>
+        <button data-n="8" class="named">8 — Octordle</button>
+        <button data-n="16">16</button>
+        <button data-n="32">32</button>
+        <button data-n="64">64</button>
+      </div>
+    </div>
+    <button class="start-btn" id="start-btn">Begin →</button>
+  </section>
+
+  <!-- Shared-link prompt -->
+  <section class="setup hidden" id="shared-prompt">
+    <p class="tagline">someone shared</p>
+    <h2>A puzzle for <em>you</em>.</h2>
+    <p class="lede">
+      You've been challenged with <b id="shared-n">?</b> hidden word<span id="shared-s">s</span>
+      and <b id="shared-guesses">?</b> guesses. The words aren't revealed in the link —
+      they'll be the same ones the sender played.
+    </p>
+    <button class="start-btn" id="shared-start-btn">Accept →</button>
+    <button class="link-btn" id="shared-decline-btn">Or play a fresh game instead</button>
+  </section>
+
+  <!-- Game -->
+  <section id="game" class="hidden">
+    <div class="boards" id="boards"></div>
+  </section>
+
+  <!-- End -->
+  <section id="endscreen" class="endscreen hidden"></section>
+</main>
+
+<!-- Keyboard -->
+<div class="keyboard hidden" id="keyboard"></div>
+<div class="toast" id="toast"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
