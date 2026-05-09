@@ -495,9 +495,11 @@ function showEndscreen(won) {
   const end = endEl();
   end.classList.remove('hidden');
 
-  // Plain-text summary line for copying — mirrors the Python output format.
+  // Plain-text summary line for copying — mirrors the Python output format,
+  // plus a link back to the game so people seeing the score can find it.
   const plainSummary = `n-ordle n=${state.n} ` +
-    state.scores.join('&') + `/${state.maxGuesses}`;
+    state.scores.join('&') + `/${state.maxGuesses}` +
+    `\napps.andewmole.com/n-ordle`;
 
   // Coloured HTML version for display
   const summaryHtml = `n-ordle n=${state.n} ` +
@@ -527,7 +529,7 @@ function showEndscreen(won) {
 
     <div class="actions">
       <button id="copy-result">Copy result</button>
-      <button class="primary" id="again-same">Play again (n=${state.n})</button>
+      <button id="again-same">Play again (n=${state.n})</button>
       <button id="again-new">New n</button>
     </div>
 
