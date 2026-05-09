@@ -495,18 +495,14 @@ function showEndscreen(won) {
   const end = endEl();
   end.classList.remove('hidden');
 
-  // Plain-text summary line for copying — mirrors the Python output format,
-  // plus a link back to the game so people seeing the score can find it.
-  const plainSummary = `n-ordle n=${state.n} ` +
-    state.scores.join('&') + `/${state.maxGuesses}` +
-    `\napps.andewmole.com/n-ordle`;
-
-  // Coloured HTML version for display
-  const summaryHtml = `n-ordle n=${state.n} ` +
-    state.scores.map(s => {
-      const isWin = s !== 'X';
-      return `<span class="${isWin ? 'g' : 'r'}">${s}</span>`;
-    }).join('&') + `/${state.maxGuesses}`;
+  // Plain-text summary line, mirroring the Python output format. The space
+  // before \n means single-line paste (where newlines are stripped) still
+  // separates the score from the URL with a space rather than jamming them.
+  const scoreLine = `n-ordle n=${state.n} ` +
+    state.scores.join('&') + `/${state.maxGuesses}`;
+  const gameUrl = 'https://apps.andewmole.com/n-ordle';
+  // "Result" copy: score + game URL (no puzzle-specific link).
+  const resultText = `${scoreLine} \n${gameUrl}`;
 
   const items = state.words.map((w, i) => {
     const isWin = state.solved[i];
@@ -518,6 +514,8 @@ function showEndscreen(won) {
   }).join('');
 
   const shareUrl = buildShareUrl();
+  // "Share" copy: score + share-link URL (recipient plays the same words).
+  const shareText = `${scoreLine} \n${shareUrl}`;
 
   end.innerHTML = `
     <h2 class="${won ? 'win' : 'lose'}">${won ? 'Solved.' : 'So close.'}</h2>
@@ -525,10 +523,16 @@ function showEndscreen(won) {
       ? `All ${state.n} word${state.n === 1 ? '' : 's'} found in ${state.guesses.length} guess${state.guesses.length === 1 ? '' : 'es'}.`
       : `${state.solved.filter(Boolean).length}/${state.n} solved in ${state.guesses.length} guesses.`}</div>
     <div class="results">${items}</div>
-    <div class="summary-line">${summaryHtml}</div>
+
+    <div class="share-block">
+      <label>Copy your result</label>
+      <div class="share-row">
+        <input type="text" id="result-text" class="copy-field" readonly value="${escapeAttr(resultText.replace(/ ?\n/g, ' '))}">
+        <button id="copy-result">Copy</button>
+      </div>
+    </div>
 
     <div class="actions">
-      <button id="copy-result">Copy result</button>
       <button id="again-same">Play again (n=${state.n})</button>
       <button id="again-new">New n</button>
     </div>
@@ -538,7 +542,7 @@ function showEndscreen(won) {
     <div class="share-block">
       <label>Challenge a friend with these same words</label>
       <div class="share-row">
-        <input type="text" id="share-link" readonly value="${shareUrl}">
+        <input type="text" id="share-link" class="copy-field" readonly value="${escapeAttr(shareText.replace(/ ?\n/g, ' '))}">
         <button id="copy-link">Copy</button>
       </div>
       <div class="share-help">The link encodes the puzzle, not the words. Your friend won't see the answers in the URL — they'll just play the same game.</div>
@@ -546,18 +550,25 @@ function showEndscreen(won) {
   `;
 
   $('copy-result').addEventListener('click', async () => {
-    const ok = await copyToClipboard(plainSummary);
+    const ok = await copyToClipboard(resultText);
     showToast(ok ? 'Result copied' : 'Copy failed', ok ? 'success' : 'danger');
   });
   $('copy-link').addEventListener('click', async () => {
-    const ok = await copyToClipboard(shareUrl);
+    const ok = await copyToClipboard(shareText);
     showToast(ok ? 'Link copied' : 'Copy failed', ok ? 'success' : 'danger');
   });
   $('again-same').addEventListener('click', () => startNewGame(state.n));
   $('again-new').addEventListener('click', () => goToSetup());
-  // Auto-select the share-link input on focus for easy manual copy
-  const shareInput = $('share-link');
-  shareInput.addEventListener('focus', () => shareInput.select());
+  // Auto-select inputs on focus for easy manual copy
+  for (const id of ['result-text', 'share-link']) {
+    const el = $(id);
+    el.addEventListener('focus', () => el.select());
+  }
+}
+
+// Escape a string for use as an HTML attribute value.
+function escapeAttr(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
 async function copyToClipboard(text) {
