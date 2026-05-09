@@ -495,14 +495,21 @@ function showEndscreen(won) {
   const end = endEl();
   end.classList.remove('hidden');
 
-  // Plain-text summary line, mirroring the Python output format. The space
-  // before \n means single-line paste (where newlines are stripped) still
-  // separates the score from the URL with a space rather than jamming them.
+  // Plain-text summary, mirroring the Python output format. The space before
+  // \n means single-line paste (where newlines are stripped) still separates
+  // the score from the URL with a space rather than jamming them.
   const scoreLine = `n-ordle n=${state.n} ` +
     state.scores.join('&') + `/${state.maxGuesses}`;
   const gameUrl = 'https://apps.andewmole.com/n-ordle';
   // "Result" copy: score + game URL (no puzzle-specific link).
   const resultText = `${scoreLine} \n${gameUrl}`;
+
+  // Coloured HTML version of the score line for the copy-box display.
+  const scoreLineHtml = `n-ordle n=${state.n} ` +
+    state.scores.map(s => {
+      const isWin = s !== 'X';
+      return `<span class="${isWin ? 'g' : 'r'}">${s}</span>`;
+    }).join('&') + `/${state.maxGuesses}`;
 
   const items = state.words.map((w, i) => {
     const isWin = state.solved[i];
@@ -527,7 +534,7 @@ function showEndscreen(won) {
     <div class="share-block">
       <label>Copy your result</label>
       <div class="share-row">
-        <input type="text" id="result-text" class="copy-field" readonly value="${escapeAttr(resultText.replace(/ ?\n/g, ' '))}">
+        <div class="copy-field" id="result-text">${scoreLineHtml}<br>${escapeHtml(gameUrl)}</div>
         <button id="copy-result">Copy</button>
       </div>
     </div>
@@ -542,7 +549,7 @@ function showEndscreen(won) {
     <div class="share-block">
       <label>Challenge a friend with these same words</label>
       <div class="share-row">
-        <input type="text" id="share-link" class="copy-field" readonly value="${escapeAttr(shareText.replace(/ ?\n/g, ' '))}">
+        <div class="copy-field" id="share-link">${scoreLineHtml}<br>${escapeHtml(shareUrl)}</div>
         <button id="copy-link">Copy</button>
       </div>
       <div class="share-help">The link encodes the puzzle, not the words. Your friend won't see the answers in the URL — they'll just play the same game.</div>
@@ -559,13 +566,12 @@ function showEndscreen(won) {
   });
   $('again-same').addEventListener('click', () => startNewGame(state.n));
   $('again-new').addEventListener('click', () => goToSetup());
-  // Auto-select inputs on focus for easy manual copy
-  for (const id of ['result-text', 'share-link']) {
-    const el = $(id);
-    el.addEventListener('focus', () => el.select());
-  }
 }
 
+// Escape a string for use as HTML text content.
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 // Escape a string for use as an HTML attribute value.
 function escapeAttr(s) {
   return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
