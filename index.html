@@ -1,2 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>apps.andewmole.com</title>
 <link rel="icon" href="/andewmole.png" type="image/png">
-<h1>Coming soon</h1>
+<style>
+  :root {
+    --bg-color: #0d1117;
+    --bg-elevated: #161b22;
+    --text-color: #e6edf3;
+    --link-color: #58a6ff;
+    --link-hover: #79c0ff;
+    --bullet-color: #e6edf3;
+    --border-color: #30363d;
+    --heading-border: #21262d;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: var(--bg-color);
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(88, 166, 255, 0.08), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(210, 168, 255, 0.06), transparent 40%);
+    background-attachment: fixed;
+    color: var(--text-color);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans",
+                 Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+    padding: 32px 16px;
+    word-wrap: break-word;
+  }
+
+  .markdown-body {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 32px 40px;
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  h1 {
+    font-size: 2.2em;
+    font-weight: 700;
+    margin: 0 0 16px;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--heading-border);
+    line-height: 1.25;
+    background: linear-gradient(90deg, #79c0ff, #d2a8ff, #7ee787);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  h3 {
+    font-size: 1.25em;
+    font-weight: 500;
+    margin: 24px 0 20px;
+    line-height: 1.4;
+    color: var(--text-color);
+  }
+
+  h3::before {
+    content: "👋 ";
+  }
+
+  ul {
+    padding-left: 1.5em;
+    margin-top: 0;
+    margin-bottom: 16px;
+    list-style: none;
+  }
+
+  ul > li {
+    position: relative;
+    margin-top: 0.6em;
+  }
+
+  ul > li::before {
+    content: "▸";
+    position: absolute;
+    left: -1.2em;
+    color: var(--bullet-color);
+    font-weight: bold;
+  }
+
+  ul ul {
+    margin-top: 0.3em;
+    margin-bottom: 0;
+    padding-left: 1.5em;
+  }
+
+  ul ul > li::before {
+    content: "•";
+    color: var(--bullet-color);
+  }
+
+  a {
+    color: var(--link-color);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.15s ease;
+  }
+
+  a:hover {
+    color: var(--link-hover);
+    text-decoration: underline;
+  }
+
+  .footer-link {
+    margin-top: 36px;
+    padding-top: 16px;
+    border-top: 1px solid var(--heading-border);
+    font-size: 0.95em;
+  }
+
+  .footer-link a {
+    transition: transform 0.15s ease;
+    display: inline-block;
+  }
+
+  .footer-link a:hover {
+    transform: translateX(-3px);
+  }
+
+  @media (max-width: 600px) {
+    body {
+      padding: 16px 8px;
+    }
+    .markdown-body {
+      padding: 24px 20px;
+    }
+    h1 {
+      font-size: 1.7em;
+    }
+  }
+</style>
+</head>
+<body>
+  <article class="markdown-body">
+    <h1>apps.andewmole.com</h1>
+    <h3>Hi! I'm Andrew and here are some web projects I've made</h3>
+
+    <ul>
+      <li>
+        CAT 1 Lightning Risk Alert (Singapore)
+        <ul>
+          <li>Remake of the <a href="https://t.me/armycat1_v2" target="_blank" rel="noopener">CAT 1 Telegram bot</a></li>
+          <li><a href="/cat1">LIVE CAT 1 map</a></li>
+        </ul>
+      </li>
+      <li>
+        <a href="/n-ordle">n-ordle</a> &mdash; generalisation of Dordle, Quordle, Octordle, etc.
+      </li>
+      <li>
+        <a href="/2fa-demo">Demo of 2-factor authentication QR codes</a>
+      </li>
+      <li>
+        <a href="/instrument-names">Searchable table of instrument abbreviations</a>
+      </li>
+    </ul>
+
+    <div class="footer-link">
+      <a href="https://andewmole.com">← Back to andewmole.com</a>
+    </div>
+  </article>
+</body>
+</html>
