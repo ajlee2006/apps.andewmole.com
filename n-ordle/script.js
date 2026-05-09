@@ -461,6 +461,8 @@ document.addEventListener('keydown', (e) => {
     }
     return;
   }
+  // If a modal is open, don't route keys into the game.
+  if (!$('info-modal').classList.contains('hidden')) return;
   if (state && !state.finished && !gameEl().classList.contains('hidden')) {
     if (e.key === 'Enter') { e.preventDefault(); handleKey('ENTER'); return; }
     if (e.key === 'Backspace') { e.preventDefault(); handleKey('BACK'); return; }
@@ -781,6 +783,24 @@ async function init() {
     pendingShared = null;
     goToSetup();
   });
+
+  // Info modal
+  const infoModal = $('info-modal');
+  const openInfo = () => infoModal.classList.remove('hidden');
+  const closeInfo = () => infoModal.classList.add('hidden');
+  $('info-btn').addEventListener('click', openInfo);
+  $('info-close').addEventListener('click', closeInfo);
+  // Close on backdrop click (but not when clicking inside the modal itself)
+  infoModal.addEventListener('click', (e) => {
+    if (e.target === infoModal) closeInfo();
+  });
+  // ESC closes the modal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !infoModal.classList.contains('hidden')) {
+      e.stopPropagation();
+      closeInfo();
+    }
+  }, true);
 
   // Resize handler — relayout boards & keyboard so columns stay in sync.
   let resizeTimer = null;
