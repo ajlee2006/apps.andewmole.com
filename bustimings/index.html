@@ -473,15 +473,6 @@ body {
 .arrival:last-child { border-right: none; }
 .arrival.empty { opacity: 0.35; }
 
-/* Top-right scheduled clock */
-.arrival .scheduled-pin {
-  position: absolute;
-  top: -2px; right: 6px;
-  color: var(--load-sda);
-  display: grid; place-items: center;
-}
-.arrival .scheduled-pin svg { display: block; }
-
 .eta-time-box {
   display: flex; flex-direction: column; align-items: flex-start;
   line-height: 1;
@@ -537,6 +528,13 @@ body {
 .load-bar.sda { background: var(--load-sda); }
 .load-bar.lsd { background: var(--load-lsd); }
 
+.meta-icons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 14px;
+}
+
 .wab-icon {
   color: var(--text-3);
   height: 14px;
@@ -544,6 +542,14 @@ body {
 }
 .wab-icon.show { visibility: visible; }
 .wab-icon svg { display: block; height: 100%; width: auto; }
+
+.sched-icon {
+  color: var(--load-sda);
+  height: 14px;
+  visibility: hidden;
+}
+.sched-icon.show { visibility: visible; }
+.sched-icon svg { display: block; height: 100%; width: auto; }
 
 /* ------------------------------------------------------------ */
 /* Empty state                                                   */
@@ -700,9 +706,9 @@ body {
       <div class="legend-item"><span class="load-bar lsd"></span>Limited standing</div>
       <div class="legend-item"><span class="bus-icon" data-bus="SD"></span>Single decker</div>
       <div class="legend-item"><span class="bus-icon dd" data-bus="DD"></span>Double decker</div>
-      <div class="legend-item"><span class="bus-icon" data-bus="BD"></span>Bendy bus</div>
+      <div class="legend-item" id="legend-bd"><span class="bus-icon" data-bus="BD"></span>Bendy bus</div>
       <div class="legend-item"><span class="wab-icon show" data-icon="wab"></span>Wheelchair accessible</div>
-      <div class="legend-item"><span class="wab-icon show" data-icon="clock" style="color:var(--load-sda)"></span>Scheduled (not GPS)</div>
+      <div class="legend-item" id="legend-sched"><span class="sched-icon show" data-icon="clock"></span>Scheduled (not GPS)</div>
     </div>
   </section>
 
@@ -813,11 +819,11 @@ function escapeHTML(s) {
 function busSVG(type) {
   if (type === 'DD') {
     return `<svg viewBox="0 0 30 36" xmlns="http://www.w3.org/2000/svg">
-      <rect x="2" y="9" width="2" height="3" rx="0.5" fill="currentColor"/>
-      <rect x="26" y="9" width="2" height="3" rx="0.5" fill="currentColor"/>
+      <rect x="2" y="13" width="2" height="3" rx="0.5" fill="currentColor"/>
+      <rect x="26" y="13" width="2" height="3" rx="0.5" fill="currentColor"/>
       <path d="M4 6 Q4 3 8 3 L22 3 Q26 3 26 6 L26 31 Q26 32 25 32 L5 32 Q4 32 4 31 Z" fill="currentColor"/>
       <rect x="6" y="6" width="18" height="8" rx="1" fill="#fff"/>
-      <rect x="6" y="15" width="18" height="2.5" rx="0.4" fill="#fff"/>
+      <rect x="8" y="15" width="14" height="2.5" rx="0.4" fill="#fff"/>
       <rect x="6" y="18.5" width="18" height="8" rx="1" fill="#fff"/>
       <circle cx="9" cy="29" r="1.4" fill="#fff"/>
       <circle cx="21" cy="29" r="1.4" fill="#fff"/>
@@ -827,7 +833,7 @@ function busSVG(type) {
   }
   if (type === 'BD') {
     return `<svg viewBox="0 0 44 30" xmlns="http://www.w3.org/2000/svg">
-      <rect x="2" y="9" width="2" height="3" rx="0.5" fill="currentColor"/>
+      <rect x="2" y="13" width="2" height="3" rx="0.5" fill="currentColor"/>
       <path d="M4 7 Q4 3 8 3 L22 3 Q26 3 26 7 L26 25 Q26 26 25 26 L5 26 Q4 26 4 25 Z" fill="currentColor"/>
       <rect x="8" y="6" width="14" height="2.5" rx="0.4" fill="#fff"/>
       <rect x="6" y="10" width="18" height="8" rx="1" fill="#fff"/>
@@ -843,8 +849,8 @@ function busSVG(type) {
   }
   // Single decker — default. Square 30×30.
   return `<svg viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg">
-    <rect x="2" y="9" width="2" height="3" rx="0.5" fill="currentColor"/>
-    <rect x="26" y="9" width="2" height="3" rx="0.5" fill="currentColor"/>
+    <rect x="2" y="13" width="2" height="3" rx="0.5" fill="currentColor"/>
+    <rect x="26" y="13" width="2" height="3" rx="0.5" fill="currentColor"/>
     <path d="M4 7 Q4 3 8 3 L22 3 Q26 3 26 7 L26 25 Q26 26 25 26 L5 26 Q4 26 4 25 Z" fill="currentColor"/>
     <rect x="8" y="6" width="14" height="2.5" rx="0.4" fill="#fff"/>
     <rect x="6" y="10" width="18" height="8" rx="1" fill="#fff"/>
@@ -928,6 +934,29 @@ async function fetchAllArrivals() {
   } else {
     $('hints').textContent = '';
   }
+  updateLegend();
+}
+
+// Show the BD and Scheduled legend entries only when at least one matching bus is present.
+function updateLegend() {
+  let hasBD = false;
+  let hasScheduled = false;
+  for (const code of stops) {
+    const data = (stopState.get(code) || {}).data;
+    if (!data || !data.Services) continue;
+    for (const svc of data.Services) {
+      for (const key of ['NextBus', 'NextBus2', 'NextBus3']) {
+        const bus = svc[key];
+        if (!bus || !bus.EstimatedArrival) continue;
+        if (bus.Type === 'BD') hasBD = true;
+        if (!bus.Monitored) hasScheduled = true;
+      }
+    }
+  }
+  const bdEl = $('legend-bd');
+  const schedEl = $('legend-sched');
+  if (bdEl) bdEl.style.display = hasBD ? '' : 'none';
+  if (schedEl) schedEl.style.display = hasScheduled ? '' : 'none';
 }
 
 function startPolling() {
@@ -986,6 +1015,7 @@ function removeStop(code) {
   stopState.delete(code);
   saveStopsToStorage();
   renderStops();
+  updateLegend();
   if (stops.length === 0) setStatus('', 'idle');
 }
 
@@ -1230,7 +1260,10 @@ function buildArrivalCell(bus, now) {
       <div class="eta-icons">
         <span class="bus-icon"></span>
         <span class="load-bar"></span>
-        <span class="wab-icon"></span>
+        <span class="meta-icons">
+          <span class="wab-icon"></span>
+          <span class="sched-icon"></span>
+        </span>
       </div>`;
     return cell;
   }
@@ -1239,7 +1272,7 @@ function buildArrivalCell(bus, now) {
   const { minutes, seconds, past } = etaParts(arrival, now);
   const sign = past ? '-' : '';
   const isWAB = bus.Feature === 'WAB';
-  const isScheduled = Number(bus.Monitored) === 0;
+  const isScheduled = !bus.Monitored;
   const busType = bus.Type || 'SD';
   const lc = loadClass(bus.Load);
 
@@ -1251,14 +1284,16 @@ function buildArrivalCell(bus, now) {
     + `</span>`;
 
   cell.innerHTML = `
-    ${isScheduled ? `<span class="scheduled-pin" title="Scheduled (not GPS-tracked)">${clockSVG()}</span>` : ''}
     <div class="eta-time-box">
       ${timeHTML}
     </div>
     <div class="eta-icons">
       <span class="bus-icon ${busType === 'DD' ? 'dd' : ''}" title="${escapeHTML(busTypeLabel(busType))}">${busSVG(busType)}</span>
       <span class="load-bar ${lc}"></span>
-      <span class="wab-icon ${isWAB ? 'show' : ''}" title="Wheelchair accessible">${isWAB ? wabSVG() : ''}</span>
+      <span class="meta-icons">
+        <span class="wab-icon ${isWAB ? 'show' : ''}" title="Wheelchair accessible">${isWAB ? wabSVG() : ''}</span>
+        <span class="sched-icon ${isScheduled ? 'show' : ''}" title="Scheduled (not GPS-tracked)">${isScheduled ? clockSVG() : ''}</span>
+      </span>
     </div>`;
   return cell;
 }
@@ -1328,6 +1363,7 @@ if (savedStops.length > 0) {
   saveStopsToStorage();
 }
 renderStops();
+updateLegend();
 startPolling();
 startTicker();
 </script>
