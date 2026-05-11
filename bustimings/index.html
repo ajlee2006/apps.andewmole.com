@@ -531,6 +531,7 @@ body {
 .meta-icons {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   height: 14px;
 }
@@ -538,17 +539,17 @@ body {
 .wab-icon {
   color: var(--text-3);
   height: 14px;
-  visibility: hidden;
+  display: none;
 }
-.wab-icon.show { visibility: visible; }
+.wab-icon.show { display: block; }
 .wab-icon svg { display: block; height: 100%; width: auto; }
 
 .sched-icon {
   color: var(--load-sda);
   height: 14px;
-  visibility: hidden;
+  display: none;
 }
-.sched-icon.show { visibility: visible; }
+.sched-icon.show { display: block; }
 .sched-icon svg { display: block; height: 100%; width: auto; }
 
 /* ------------------------------------------------------------ */
@@ -588,6 +589,11 @@ body {
   gap: 8px 16px;
   font-size: 12px;
   color: var(--text-2);
+}
+/* When the Scheduled legend item is visible, force Wheelchair onto its own row
+   (column 1) so they end up side-by-side on the same line. */
+.legend-grid.scheduled-visible #legend-wab {
+  grid-column: 1;
 }
 .legend-item { display: flex; align-items: center; gap: 8px; }
 .legend-item .load-bar { width: 20px; }
@@ -707,7 +713,7 @@ body {
       <div class="legend-item"><span class="bus-icon" data-bus="SD"></span>Single decker</div>
       <div class="legend-item"><span class="bus-icon dd" data-bus="DD"></span>Double decker</div>
       <div class="legend-item" id="legend-bd"><span class="bus-icon" data-bus="BD"></span>Bendy bus</div>
-      <div class="legend-item"><span class="wab-icon show" data-icon="wab"></span>Wheelchair accessible</div>
+      <div class="legend-item" id="legend-wab"><span class="wab-icon show" data-icon="wab"></span>Wheelchair accessible</div>
       <div class="legend-item" id="legend-sched"><span class="sched-icon show" data-icon="clock"></span>Scheduled (not GPS)</div>
     </div>
   </section>
@@ -957,6 +963,8 @@ function updateLegend() {
   const schedEl = $('legend-sched');
   if (bdEl) bdEl.style.display = hasBD ? '' : 'none';
   if (schedEl) schedEl.style.display = hasScheduled ? '' : 'none';
+  const grid = document.querySelector('.legend-grid');
+  if (grid) grid.classList.toggle('scheduled-visible', hasScheduled);
 }
 
 function startPolling() {
