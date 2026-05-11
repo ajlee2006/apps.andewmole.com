@@ -605,9 +605,14 @@ function applyColours() {
     const updateTime = CAT_INFO[name][3];
     //console.log(name,raw,formatTime(currentTime),formatTime(startTime),formatTime(endTime),formatTime(updateTime));
     if (raw == '1') {
-      if (currentTime >= startTime) {
+      // Compare rounded down to the minute so transitions happen on the
+      // tick of the minute (e.g. 13:00:00 enters CAT 1, 13:01:00 ends it).
+      const nowMin = Math.floor(currentTime.getTime() / 60000);
+      const startMin = Math.floor(startTime.getTime() / 60000);
+      const endMin = Math.floor(endTime.getTime() / 60000);
+      if (nowMin >= startMin) {
         raw = '0';
-        if (currentTime > endTime) {
+        if (nowMin > endMin) {
           raw = '-1';
         }
       }
