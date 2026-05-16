@@ -16,11 +16,9 @@
     --border-color: #30363d;
     --heading-border: #21262d;
   }
-
   * {
     box-sizing: border-box;
   }
-
   body {
     background-color: var(--bg-color);
     background-image:
@@ -36,7 +34,6 @@
     padding: 32px 16px;
     word-wrap: break-word;
   }
-
   .markdown-body {
     max-width: 900px;
     margin: 0 auto;
@@ -46,7 +43,6 @@
     border-radius: 8px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   }
-
   h1 {
     font-size: 2.2em;
     font-weight: 700;
@@ -59,7 +55,6 @@
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-
   h3 {
     font-size: 1.25em;
     font-weight: 500;
@@ -67,23 +62,19 @@
     line-height: 1.4;
     color: var(--text-color);
   }
-
   h3::before {
     content: "👋 ";
   }
-
   ul {
     padding-left: 1.5em;
     margin-top: 0;
     margin-bottom: 16px;
     list-style: none;
   }
-
   ul > li {
     position: relative;
     margin-top: 0.6em;
   }
-
   ul > li::before {
     content: "▸";
     position: absolute;
@@ -91,46 +82,72 @@
     color: var(--bullet-color);
     font-weight: bold;
   }
-
   ul ul {
     margin-top: 0.3em;
     margin-bottom: 0;
     padding-left: 1.5em;
   }
-
   ul ul > li::before {
     content: "•";
     color: var(--bullet-color);
   }
-
   a {
     color: var(--link-color);
     text-decoration: none;
     font-weight: 500;
     transition: color 0.15s ease;
   }
-
   a:hover {
     color: var(--link-hover);
     text-decoration: underline;
   }
-
   .footer-link {
     margin-top: 36px;
     padding-top: 16px;
     border-top: 1px solid var(--heading-border);
     font-size: 0.95em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
   }
-
-  .footer-link a {
+  .footer-link .back-link {
     transition: transform 0.15s ease;
     display: inline-block;
   }
-
-  .footer-link a:hover {
+  .footer-link .back-link:hover {
     transform: translateX(-3px);
   }
-
+  .social-icons {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+  .social-icons a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    color: var(--text-color);
+    background-color: transparent;
+    border: 1px solid var(--border-color);
+    transition: color 0.15s ease, background-color 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+  }
+  .social-icons a:hover {
+    color: var(--link-hover);
+    background-color: rgba(88, 166, 255, 0.08);
+    border-color: var(--link-color);
+    text-decoration: none;
+    transform: translateY(-2px);
+  }
+  .social-icons svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+  }
   @media (max-width: 600px) {
     body {
       padding: 16px 8px;
@@ -148,7 +165,6 @@
   <article class="markdown-body">
     <h1>apps.andewmole.com</h1>
     <h3>Hi! I'm Andrew and here are some web projects I've made</h3>
-
     <ul>
       <li>
         <a href="/n-ordle">n-ordle</a> &mdash; generalisation of Dordle, Quordle, Octordle, etc.
@@ -170,9 +186,20 @@
         <a href="/instrumentnames">Searchable table of instrument abbreviations</a>
       </li>
     </ul>
-
     <div class="footer-link">
-      <a href="https://andewmole.com">← Back to andewmole.com</a>
+      <a href="https://andewmole.com" class="back-link">← Back to andewmole.com</a>
+      <div class="social-icons">
+        <a href="https://github.com/ajlee2006/apps.andewmole.com/" target="_blank" rel="noopener" aria-label="GitHub repository" title="GitHub">
+          <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+        </a>
+        <a href="mailto:ajlee2006@gmail.com" aria-label="Send email" title="Email">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M2 4h20c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H2c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zm10 8.5L2.4 6h19.2L12 12.5zM2 8.2V18h20V8.2l-10 6.8L2 8.2z"/>
+          </svg>
+        </a>
+      </div>
     </div>
   </article>
 </body>
