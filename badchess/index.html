@@ -318,10 +318,7 @@ async function initStockfish() {
       }
     } else if (line.startsWith("bestmove")) {
       if (pendingResolver) {
-        const r = pendingResolver;
-        pendingResolver = null;
-        r(pendingScore !== null ? pendingScore : 0);
-        pendingScore = null;
+        pendingResolver(pendingScore !== null ? pendingScore : 0);
       }
     }
   };
@@ -334,15 +331,45 @@ async function initStockfish() {
   stockfish.postMessage("uci");
 }
 
+/* Engine request queue. Stockfish cannot reliably handle overlapping `go`s,
+   and a missed `bestmove` would leave the loop hung forever. We process one
+   request at a time and time each out as a safety net. */
+let engineQueue = Promise.resolve();
+
 function evaluate(fen, depth) {
-  return new Promise((resolve) => {
+  // Chain onto the queue so two evaluate() calls never race.
+  const task = engineQueue.then(() => new Promise((resolve) => {
     if (!stockfishReady) { resolve(0); return; }
-    pendingResolver = resolve;
+
     pendingScore = null;
-    stockfish.postMessage("ucinewgame");
+    let settled = false;
+
+    const finish = (val) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      pendingResolver = null;
+      resolve(val);
+    };
+
+    pendingResolver = (val) => finish(val);
+
+    // Safety net: if Stockfish never replies, don't hang forever.
+    // Depth 5 on a worst-case position takes ~1s, so 8s is generous.
+    const timer = setTimeout(() => {
+      console.warn("Stockfish evaluate() timed out for fen=" + fen + " depth=" + depth);
+      finish(pendingScore !== null ? pendingScore : 0);
+    }, 8000);
+
+    // `stop` cancels any lingering search, then `position` + `go` starts fresh.
+    // No `ucinewgame` per call — the engine handles distinct positions fine
+    // and ucinewgame seems to occasionally cause it to swallow the next bestmove.
+    stockfish.postMessage("stop");
     stockfish.postMessage("position fen " + fen);
     stockfish.postMessage("go depth " + depth);
-  });
+  }));
+  engineQueue = task.catch(() => {}); // keep the chain alive even if something throws
+  return task;
 }
 
 async function evaluateRelative(fen, depth) {
@@ -554,19 +581,6 @@ function onSnapEnd() {
   board.position(game.fen());
 }
 
-// chessboard.js hover events (desktop)
-function onMouseoverSquare(square, piece) {
-  if (selectedSquare) return; // don't override active click-selection
-  if (thinking || game.game_over()) return;
-  if (currentPlayer() !== "human") return;
-  if (!piece || !pieceBelongsToTurn(piece)) return;
-  showLegalMoves(square);
-}
-function onMouseoutSquare(square, piece) {
-  if (selectedSquare) return;
-  clearHighlights();
-}
-
 /* Click handler: tap a piece to select, tap a target to move (or another piece to switch). */
 function onBoardClick(e) {
   if (thinking || game.game_over()) return;
@@ -708,8 +722,6 @@ window.addEventListener("DOMContentLoaded", () => {
     onDragStart: onDragStart,
     onDrop: onDrop,
     onSnapEnd: onSnapEnd,
-    onMouseoverSquare: onMouseoverSquare,
-    onMouseoutSquare: onMouseoutSquare,
     pieceTheme: "https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png",
   });
 
