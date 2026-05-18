@@ -524,6 +524,30 @@ function greekLL(s) {
   return fin;
 }
 
+// English → Greek Lookalike: reverse the greekLL mapping. Each English char
+// may have several Greek lookalikes (e.g. A can be Α, Λ, Δ), so we pick a
+// random one each call. Non-letter characters pass through unchanged.
+function engToGreekLL(s) {
+  const greek = "ΕΡΤΥΘΙΟΠΑΣΔΦΓΗΞΚΛΖΧΨΩΒΝΜςερτυθιοπασδφγηξκλζχψωβνμ";
+  const eng =   "EPTYOIOHAEAG7HEKAZZWOBNMceptu0ionaodgynEkAZxwwBvu";
+  // Build reverse lookup: english char → array of greek lookalikes
+  const rev = {};
+  for (let i = 0; i < eng.length; i++) {
+    if (!rev[eng[i]]) rev[eng[i]] = [];
+    rev[eng[i]].push(greek[i]);
+  }
+  let fin = '';
+  for (const c of s.normalize('NFD')) {
+    if (rev[c]) {
+      const opts = rev[c];
+      fin += opts[Math.floor(Math.random() * opts.length)];
+    } else {
+      fin += c;
+    }
+  }
+  return fin;
+}
+
 // =============================================================
 // 6. TOKI PONA ↔ ASCII
 // =============================================================
@@ -773,10 +797,19 @@ const toneMarkMap = {
   'ū':['u','1'], 'ú':['u','2'], 'ǔ':['u','3'], 'ù':['u','4'],
   'ǖ':['ü','1'], 'ǘ':['ü','2'], 'ǚ':['ü','3'], 'ǜ':['ü','4'],
 };
-function pinyinSyllableToNumbered(syl) {
+
+// Strip leading/trailing punctuation from a syllable. Returns
+// {lead, core, trail} so we can re-attach the punctuation around the
+// converted core.
+function splitPunctuation(syl) {
+  const m = syl.match(/^([^\p{L}\p{M}0-9ü]*)([\p{L}\p{M}0-9ü]*)([^\p{L}\p{M}0-9ü]*)$/u);
+  return m ? { lead: m[1], core: m[2], trail: m[3] } : { lead: '', core: syl, trail: '' };
+}
+
+function pinyinSyllableToNumbered(core) {
   let tone = '';
   let out = '';
-  for (const ch of syl.normalize('NFC')) {
+  for (const ch of core.normalize('NFC')) {
     if (toneMarkMap[ch]) {
       out += toneMarkMap[ch][0];
       tone = toneMarkMap[ch][1];
@@ -812,11 +845,13 @@ function applyCyrTone(cyrSyl, tone) {
 function pin2cyr(text) {
   const syllables = text.split(/\s+/).filter(Boolean);
   const out = syllables.map(s => {
-    const numbered = pinyinSyllableToNumbered(s);
+    const { lead, core, trail } = splitPunctuation(s);
+    if (!core) return s;
+    const numbered = pinyinSyllableToNumbered(core);
     const tone = numbered[numbered.length - 1];
     const stem = numbered.slice(0, -1);
     if (cyrDict[stem]) {
-      return applyCyrTone(cyrDict[stem], parseInt(tone, 10));
+      return lead + applyCyrTone(cyrDict[stem], parseInt(tone, 10)) + trail;
     }
     return s;
   });
@@ -827,10 +862,12 @@ function pin2cyr(text) {
 function pin2gwoyeu(text) {
   const syllables = text.split(/\s+/).filter(Boolean);
   return syllables.map(s => {
-    let numbered = pinyinSyllableToNumbered(s);
+    const { lead, core, trail } = splitPunctuation(s);
+    if (!core) return s;
+    let numbered = pinyinSyllableToNumbered(core);
     // Gwoyeu treats neutral (5) the same as 1
     if (numbered.endsWith('5')) numbered = numbered.slice(0, -1) + '1';
-    return gwoyeuDict[numbered] || s;
+    return lead + (gwoyeuDict[numbered] || core) + trail;
   }).join(' ');
 }
 
@@ -851,6 +888,13 @@ async function han2cyr(text) {
 async function han2gwoyeu(text) {
   const pinyin = await hanziToNumberedPinyin(text);
   return pin2gwoyeu(pinyin);
+}
+
+// Hanzi → Pinyin with tone marks (e.g. 你好 → nǐ hǎo)
+async function han2pin(text) {
+  const py = await loadPinyin();
+  const result = py(text, { style: 'tone' });
+  return result.map(arr => arr[0]).join(' ');
 }
 
 // =============================================================
@@ -880,7 +924,60 @@ async function confuse(text) {
 // To re-add it: just uncomment the line.
 // To change a tool's label or group: edit it in-place.
 // To reorder tools: drag the line up or down.
+//
+// Sample text:
+// 1. Each group has a default sample (groupSamples below).
+// 2. A tool can override that with its own `sample` in its config object
+//    when its input isn't plain UDHR text — e.g. tools that consume IPA,
+//    Pinyin, Jyutping, or other intermediate formats expect input in
+//    *that* format, not the original UDHR sentence.
 // =============================================================
+
+// Base UDHR Article 1 samples by language
+const sampleTexts = {
+  english: "All human beings are born free and equal in dignity and rights. They are endowed with reason and conscience and should act towards one another in a spirit of brotherhood.",
+  cantonese: "人人生出嚟就係自由嘅，喺尊嚴同權利上一律平等。佢哋具有理性同良心，而且應該用兄弟間嘅關係嚟互相對待。",
+  mandarin: "人人生而自由，在尊嚴和權利上一律平等。他們賦有理性和良心，並應以兄弟關係的精神互相對待。",
+  tokipona: "jan ali li kama lon nasin ni: ona li ken tawa li ken pali. jan ali li kama lon sama. jan ali li jo e ken pi pilin suli. jan ali li ken pali e wile pona ona. jan ali li wile pali kepeken nasin ni: ona li jan pona tawa jan ante.",
+};
+
+// Derived samples — text in a non-plain format that some tools consume.
+// These represent the English UDHR sample after going through an upstream
+// conversion (e.g. English → IPA gives you the input for IPA → Pol).
+// Replace these strings if you have better-quality versions.
+const derivedSamples = {
+  // QWERTY-position Greek (deterministically computed from the English sample
+  // via engToGreek). Hardcoded so we don't need to recompute on every load.
+  greekQwerty: "Αλλ ηθμαν βεινγσ αρε βορν φρεε ανδ ε;θαλ ιν διγνιτυ ανδ ριγητσ. Τηευ αρε ενδοςεδ ςιτη ρεασον ανδ ψονσψιενψε ανδ σηοθλδ αψτ τοςαρδσ ονε ανοτηερ ιν α σπιριτ οφ βροτηερηοοδ.",
+  // Greek-letter spoofing of the English sample, where each Greek glyph
+  // visually resembles its English counterpart. One possible result of
+  // engToGreekLL on the English UDHR sample.
+  greekLL: "Αλl hυmαη bειηφs αrε bοrη frεε αηδ εqυαl ιη διφηιtγ αηδ rιφhts. Τhεγ αrε εηδοwεδ wιth rεαsοη αηδ cοηscιεηcε αηδ shουlδ αct tοwαrδs οηε αηοthεr ιη α spιrιt οf brοthεrhοοδ.",
+  // IPA pronunciation of the English UDHR sample (derived from the
+  // CMU Pronouncing Dictionary; you can replace this with a hand-edited
+  // version if you have one).
+  englishIPA: "ɔl ˈhjumən ˈbiɪŋz ɑr bɔrn fri ənd ˈikwəl ɪn ˈdɪɡnəti ənd raɪts. ðeɪ ɑr ɛnˈdaʊd wɪð ˈrizən ənd ˈkɑnʃəns ənd ʃʊd ækt təˈwɔrdz wʌn əˈnʌðər ɪn ə ˈspɪrət ʌv ˈbrʌðərˌhʊd.",
+  // Pinyin (numbered) for the Mandarin UDHR sample.
+  mandarinPinyin: "ren2 ren2 sheng1 er2 zi4 you2, zai4 zun1 yan2 he2 quan2 li4 shang4 yi1 lü4 ping2 deng3. ta1 men5 fu4 you3 li3 xing4 he2 liang2 xin1, bing4 ying1 yi3 xiong1 di4 guan1 xi5 de5 jing1 shen2 hu4 xiang1 dui4 dai4.",
+  // Jyutping for the Cantonese UDHR sample.
+  cantoneseJyutping: "jan4 jan4 saang1 ceot1 lai4 zau6 hai6 zi6 jau4 ge3, hai2 zyun1 jim4 tung4 kyun4 lei6 soeng6 jat1 leot6 ping4 dang2. keoi5 dei6 geoi6 jau5 lei5 sing3 tung4 loeng4 sam1, ji4 ce2 jing1 goi1 jung6 hing1 dai6 gaan1 ge3 gwaan1 hai6 lai4 wu6 soeng1 deoi3 doi6.",
+  // Toki Pona ASCII (deterministically computed via syl2asc on the toki
+  // pona sample). Decoded by asc2syl back to the toki pona text.
+  tokiPonaAscii: "j al l KM R aC i: on l g Tw l g bl. j al l KM R cM. j al l J e g P PI zl. j al l g bl e Wr pn on. j al l Wr bl GBg aC i: on l j pn Tw j aaE.",
+};
+
+// Default sample per group (used when a tool doesn't specify its own)
+const groupSamples = {
+  'Text style':          sampleTexts.english,
+  'Visual substitution': sampleTexts.english,
+  'Phonetic':            sampleTexts.english,
+  'Cantonese':           sampleTexts.cantonese,
+  'Mandarin':            sampleTexts.mandarin,
+  'Spoofing':            sampleTexts.english,
+  'Toki Pona':           sampleTexts.tokipona,
+  'Singapore':           '',
+};
+
 const toolList = [
   // group               id              label                                   options
   ['Text style',         'mock',         'Mocking Text (aLtErNaTiNg)',           { desc: "Alternates lower/upper case — classic SpongeBob mocking style.", live: true, fn: mock }],
@@ -889,36 +986,43 @@ const toolList = [
   ['Text style',         'emoji',        'Emoji Alphabet',                       { desc: "Converts letters and digits to emoji.", live: false, fn: emojify }],
 
   ['Visual substitution','greek-en2gr',  'English → Greek (QWERTY position)',    { desc: "Maps English letters to Greek letters by QWERTY keyboard position.", live: true, fn: engToGreek }],
-  ['Visual substitution','greek-gr2en',  'Greek → English (QWERTY position)',    { desc: "Maps Greek letters back to English by QWERTY position.", live: true, fn: greekToEng }],
-  ['Visual substitution','greekll',      'Greek Lookalike → English',            { desc: "Maps Greek letters to visually-similar English letters.", live: true, fn: greekLL }],
+  ['Visual substitution','greek-gr2en',  'Greek → English (QWERTY position)',    { desc: "Maps Greek letters back to English by QWERTY position.", live: true, fn: greekToEng, sample: derivedSamples.greekQwerty }],
+  ['Visual substitution','eng2greekll',  'English → Greek Lookalike',            { desc: "Replaces English letters with visually-similar Greek letters. Multiple Greek letters can look like one English letter, so output varies — press Enter to re-roll.", live: false, fn: engToGreekLL }],
+  ['Visual substitution','greekll',      'Greek Lookalike → English',            { desc: "Maps Greek letters to visually-similar English letters.", live: true, fn: greekLL, sample: derivedSamples.greekLL }],
 
   ['Phonetic',           'eng2ipa',      'English → IPA',                        { desc: "Converts English to IPA pronunciation using the CMU Pronouncing Dictionary. Unknown words shown as *word*.", live: false, fn: eng2ipa, async: true }],
   ['Phonetic',           'eng2pol',      'English → Poliespellinglish',          { desc: "Converts English to Poliespellinglish via IPA.", live: false, fn: eng2pol, async: true }],
   ['Phonetic',           'eng2long',     'English → Long Spelling',              { desc: "Converts English to absurdly long spelling via IPA.", live: false, fn: eng2long, async: true }],
-  ['Phonetic',           'ipa2pol',      'IPA → Poliespellinglish',              { desc: "Converts IPA pronunciation directly to Poliespellinglish.", live: true, fn: ipa2pol }],
-  ['Phonetic',           'ipa2long',     'IPA → Long Spelling',                  { desc: "Converts IPA pronunciation directly to long spelling.", live: true, fn: ipa2long }],
+  ['Phonetic',           'ipa2pol',      'IPA → Poliespellinglish',              { desc: "Converts IPA pronunciation directly to Poliespellinglish.", live: true, fn: ipa2pol, sample: derivedSamples.englishIPA }],
+  ['Phonetic',           'ipa2long',     'IPA → Long Spelling',                  { desc: "Converts IPA pronunciation directly to long spelling.", live: true, fn: ipa2long, sample: derivedSamples.englishIPA }],
 
   ['Cantonese',          'can2jyu',      'Hanzi → Jyutping',                     { desc: "Converts Chinese characters to Jyutping (Cantonese romanization).", live: false, fn: can2jyu, async: true }],
   ['Cantonese',          'can2ipa',      'Hanzi → IPA',                          { desc: "Converts Chinese characters to Cantonese IPA pronunciation.", live: false, fn: can2ipa, async: true }],
-  ['Cantonese',          'jyu2ipa',      'Jyutping → IPA',                       { desc: "Converts Jyutping (space-separated syllables) to IPA.", live: false, fn: jyu2ipa, async: true }],
+  ['Cantonese',          'jyu2ipa',      'Jyutping → IPA',                       { desc: "Converts Jyutping (space-separated syllables) to IPA.", live: false, fn: jyu2ipa, async: true, sample: derivedSamples.cantoneseJyutping }],
 
+  ['Mandarin',           'han2pin',      'Hanzi → Pinyin',                       { desc: "Converts Chinese characters to Pinyin with tone marks (e.g. 你好 → nǐ hǎo).", live: false, fn: han2pin, async: true }],
   ['Mandarin',           'han2cyr',      'Hanzi → Cyrillization',                { desc: "Converts Chinese characters to Russian (Palladius) cyrillization with tone marks.", live: false, fn: han2cyr, async: true }],
   ['Mandarin',           'han2gwoyeu',   'Hanzi → Gwoyeu Romatzyh',              { desc: "Converts Chinese characters to Gwoyeu Romatzyh, the tonal-spelling romanization.", live: false, fn: han2gwoyeu, async: true }],
-  ['Mandarin',           'pin2cyr',      'Pinyin → Cyrillization',               { desc: "Converts numbered or marked Pinyin (space-separated) to Russian cyrillization. e.g. 'ren2 min2' or 'rén mín'.", live: false, fn: pin2cyr }],
-  ['Mandarin',           'pin2gwoyeu',   'Pinyin → Gwoyeu Romatzyh',             { desc: "Converts numbered or marked Pinyin (space-separated) to Gwoyeu Romatzyh.", live: false, fn: pin2gwoyeu }],
+  ['Mandarin',           'pin2cyr',      'Pinyin → Cyrillization',               { desc: "Converts numbered or marked Pinyin (space-separated) to Russian cyrillization. e.g. 'ren2 min2' or 'rén mín'.", live: false, fn: pin2cyr, sample: derivedSamples.mandarinPinyin }],
+  ['Mandarin',           'pin2gwoyeu',   'Pinyin → Gwoyeu Romatzyh',             { desc: "Converts numbered or marked Pinyin (space-separated) to Gwoyeu Romatzyh.", live: false, fn: pin2gwoyeu, sample: derivedSamples.mandarinPinyin }],
 
   ['Spoofing',           'confuse',      'Unicode Confusables',                  { desc: "Replaces each character with a visually similar Unicode lookalike (homoglyph). Loads the official UTS#39 confusables data on first use.", live: false, fn: confuse, async: true }],
 
   ['Toki Pona',          'tokisyl2asc',  'Syllables → ASCII',                    { desc: "Encodes Toki Pona syllables as single ASCII characters.", live: true, fn: syl2asc }],
-  ['Toki Pona',          'tokiasc2syl',  'ASCII → Syllables',                    { desc: "Decodes ASCII characters back into Toki Pona syllables.", live: true, fn: asc2syl }],
+  ['Toki Pona',          'tokiasc2syl',  'ASCII → Syllables',                    { desc: "Decodes ASCII characters back into Toki Pona syllables.", live: true, fn: asc2syl, sample: derivedSamples.tokiPonaAscii }],
 
   ['Singapore',          'nric',         'NRIC Checker',                         { desc: "Validates Singapore NRIC numbers. Format: \\w\\d{7}\\w. Use _ for unknowns.", live: false, fn: checkAllNric }],
   ['Singapore',          'car',          'Car Plate Checker',                    { desc: "Validates Singapore car license plates. Format: \\w{1,3} \\d{1,4} \\w. Use _ for unknowns.", live: false, fn: checkCarPlate }],
 ];
 
-// Build the tools lookup object and populate the dropdown from toolList
+// Build lookups: id → config, and id → sample text.
+// A tool's own `sample` overrides its group default.
 const tools = {};
-for (const [, id, , config] of toolList) tools[id] = config;
+const toolSamples = {};
+for (const [group, id, , config] of toolList) {
+  tools[id] = config;
+  toolSamples[id] = config.sample !== undefined ? config.sample : (groupSamples[group] ?? '');
+}
 
 // =============================================================
 // UI
@@ -981,6 +1085,23 @@ async function runTool() {
   }
 }
 
+// The most recent sample text we filled into the input on behalf of the user.
+// If the input still matches this when the user switches tools, we replace
+// it with the new tool's sample. If it differs, the user has typed something
+// custom and we don't overwrite.
+let lastSample = '';
+
+function fillSampleIfUntouched() {
+  const tool = toolEl.value;
+  const sample = toolSamples[tool] ?? '';
+  // Only replace if the box is empty or still contains the previous sample
+  if (inputEl.value === '' || inputEl.value === lastSample) {
+    inputEl.value = sample;
+    lastSample = sample;
+    countEl.textContent = sample.length;
+  }
+}
+
 function updateToolUI() {
   const tool = toolEl.value;
   const t = tools[tool];
@@ -1010,7 +1131,7 @@ function updateToolUI() {
   } else if (tool === 'can2jyu' || tool === 'can2ipa' || tool === 'jyu2ipa') {
     noticeEl.textContent = "First use loads a Chinese→Jyutping dictionary (~1MB) from a CDN.";
     noticeEl.classList.add('show');
-  } else if (tool === 'han2cyr' || tool === 'han2gwoyeu') {
+  } else if (tool === 'han2pin' || tool === 'han2cyr' || tool === 'han2gwoyeu') {
     noticeEl.textContent = "First use loads a Hanzi→Pinyin library from a CDN.";
     noticeEl.classList.add('show');
   } else if (tool === 'confuse') {
@@ -1023,12 +1144,15 @@ function updateToolUI() {
     noticeEl.classList.remove('show');
   }
 
+  fillSampleIfUntouched();
   runTool();
 }
 
 toolEl.addEventListener('change', updateToolUI);
 inputEl.addEventListener('input', () => {
   countEl.textContent = inputEl.value.length;
+  // Once the user types, stop auto-replacing on tool switch
+  if (inputEl.value !== lastSample) lastSample = '\u0000'; // sentinel: won't match anything
   const t = tools[toolEl.value];
   if (t.live) runTool();
 });
@@ -1036,6 +1160,7 @@ document.getElementById('clear-btn').addEventListener('click', () => {
   inputEl.value = '';
   outputEl.textContent = '';
   countEl.textContent = '0';
+  lastSample = '';  // allow the next tool switch to insert its sample again
   inputEl.focus();
 });
 document.getElementById('copy-btn').addEventListener('click', async (e) => {
@@ -1050,6 +1175,7 @@ document.getElementById('copy-btn').addEventListener('click', async (e) => {
 document.getElementById('swap-btn').addEventListener('click', () => {
   inputEl.value = outputEl.textContent;
   countEl.textContent = inputEl.value.length;
+  lastSample = '\u0000'; // user has effectively typed something custom now
   runTool();
 });
 
