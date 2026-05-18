@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Chess Bot Gallery</title>
+<title>Bad Chess Bots</title>
 
-<!-- chess.js (game state, legal moves, FEN, check/checkmate) -->
+<!-- chess.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 <!-- jQuery (chessboard.js dependency) -->
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -13,458 +13,205 @@
 <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
 <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
 
-<!-- Fonts -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
 <style>
-  :root {
-    --bg: #0e0d0b;
-    --bg-elev: #181613;
-    --ink: #e8e2d4;
-    --ink-dim: #9a8f7c;
-    --ink-faint: #5a5347;
-    --accent: #c9a96a;
-    --accent-warm: #d97757;
-    --line: #2a2620;
-    --line-strong: #3d3830;
-    --good: #8ab464;
-    --bad: #c46a5b;
-    --shadow: 0 20px 60px -20px rgba(0,0,0,0.7);
-  }
-
-  * { box-sizing: border-box; }
-
-  html, body {
+  body {
     margin: 0;
     padding: 0;
-    background: var(--bg);
-    color: var(--ink);
-    font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: 18px;
-    line-height: 1.5;
-    min-height: 100vh;
+    background: #1a1a1a;
+    color: #e0e0e0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
   }
-
-  /* subtle paper texture via gradient */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background:
-      radial-gradient(ellipse at 20% 0%, rgba(201,169,106,0.06), transparent 50%),
-      radial-gradient(ellipse at 80% 100%, rgba(217,119,87,0.04), transparent 50%);
-    pointer-events: none;
-    z-index: 0;
+  .nav {
+    background: #242424;
+    border-bottom: 1px solid #333;
+    padding: 14px 24px;
   }
-
-  .wrap {
-    position: relative;
-    z-index: 1;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 48px 32px 80px;
-  }
-
-  header {
-    border-bottom: 1px solid var(--line);
-    padding-bottom: 28px;
-    margin-bottom: 40px;
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
-
-  .masthead {
-    display: flex;
-    align-items: baseline;
-    gap: 18px;
-  }
-
-  .masthead .glyph {
-    font-size: 44px;
-    color: var(--accent);
-    line-height: 1;
-    transform: translateY(4px);
-  }
-
-  h1 {
-    font-family: 'Cormorant Garamond', serif;
-    font-weight: 500;
-    font-style: italic;
-    font-size: 44px;
+  .nav h1 {
     margin: 0;
-    letter-spacing: -0.01em;
+    font-size: 22px;
+    font-weight: 500;
+    color: #f0f0f0;
   }
-
-  .tagline {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: var(--ink-dim);
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 20px;
   }
-
-  /* Bot selector tabs */
   .bots {
     display: flex;
-    gap: 0;
-    border: 1px solid var(--line-strong);
-    border-radius: 2px;
-    margin-bottom: 32px;
-    overflow: hidden;
-    background: var(--bg-elev);
-  }
-
-  .bot-tab {
-    flex: 1;
-    background: transparent;
-    border: none;
-    border-right: 1px solid var(--line-strong);
-    color: var(--ink-dim);
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 19px;
-    padding: 18px 12px 14px;
-    cursor: pointer;
-    transition: all 0.25s ease;
-    position: relative;
-    text-align: center;
-  }
-  .bot-tab:last-child { border-right: none; }
-  .bot-tab:hover { color: var(--ink); background: rgba(201,169,106,0.04); }
-  .bot-tab.active {
-    color: var(--ink);
-    background: rgba(201,169,106,0.08);
-  }
-  .bot-tab.active::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    bottom: 0;
-    transform: translateX(-50%);
-    width: 40px;
-    height: 2px;
-    background: var(--accent);
-  }
-  .bot-tab .num {
-    display: block;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    color: var(--ink-faint);
-    margin-bottom: 4px;
-    letter-spacing: 0.2em;
-  }
-  .bot-tab.active .num { color: var(--accent); }
-
-  /* Description card */
-  .desc {
-    background: var(--bg-elev);
-    border: 1px solid var(--line);
-    border-left: 3px solid var(--accent);
-    padding: 20px 24px;
-    margin-bottom: 32px;
-    font-style: italic;
-    color: var(--ink);
-    font-size: 18px;
-  }
-  .desc strong {
-    font-style: normal;
-    font-weight: 600;
-    color: var(--accent);
-    letter-spacing: 0.02em;
-  }
-
-  /* Main two-column layout */
-  .game-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 360px;
-    gap: 40px;
-    align-items: start;
-  }
-
-  @media (max-width: 880px) {
-    .game-grid { grid-template-columns: 1fr; }
-    .wrap { padding: 28px 18px 60px; }
-    h1 { font-size: 34px; }
-    .bot-tab { font-size: 15px; padding: 14px 6px 12px; }
-  }
-
-  .board-wrap {
-    background: var(--bg-elev);
-    border: 1px solid var(--line);
-    padding: 24px;
-    box-shadow: var(--shadow);
-  }
-
-  #board { width: 100%; }
-
-  /* override chessboard.js for our theme */
-  .white-1e1d7 { background: #e8d9b8 !important; }
-  .black-3c85d { background: #6b5a3e !important; }
-  .highlight1-32417, .highlight2-9c5d2 {
-    box-shadow: inset 0 0 0 3px var(--accent) !important;
-  }
-
-  /* Side panel */
-  .panel { display: flex; flex-direction: column; gap: 20px; }
-
-  .status-card {
-    background: var(--bg-elev);
-    border: 1px solid var(--line);
-    padding: 20px 24px;
-  }
-  .status-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: var(--ink-faint);
-    margin-bottom: 8px;
-  }
-  .status {
-    font-size: 24px;
-    font-style: italic;
-    color: var(--ink);
-  }
-  .status.thinking { color: var(--accent); }
-  .status.gameover { color: var(--accent-warm); }
-
-  .controls-card {
-    background: var(--bg-elev);
-    border: 1px solid var(--line);
-    padding: 20px 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  .control-row {
-    display: flex;
-    gap: 10px;
-  }
-
-  button.btn {
-    flex: 1;
-    background: transparent;
-    border: 1px solid var(--line-strong);
-    color: var(--ink);
-    padding: 10px 14px;
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 16px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    letter-spacing: 0.02em;
-  }
-  button.btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: rgba(201,169,106,0.05);
-  }
-  button.btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-  button.btn:disabled:hover {
-    border-color: var(--line-strong);
-    color: var(--ink);
-    background: transparent;
-  }
-
-  .depth-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-  .depth-row label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: var(--ink-dim);
-  }
-  select.depth {
-    background: var(--bg);
-    color: var(--ink);
-    border: 1px solid var(--line-strong);
-    padding: 6px 12px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    cursor: pointer;
-  }
-  select.depth:focus { outline: none; border-color: var(--accent); }
-
-  .engine-note {
-    font-size: 13px;
-    color: var(--ink-faint);
-    font-family: 'JetBrains Mono', monospace;
-    letter-spacing: 0.04em;
-  }
-  .engine-note.ready { color: var(--good); }
-  .engine-note.loading { color: var(--accent); }
-  .engine-note.error { color: var(--bad); }
-
-  /* PGN move list */
-  .pgn-card {
-    background: var(--bg-elev);
-    border: 1px solid var(--line);
-    padding: 0;
-    max-height: 280px;
-    display: flex;
-    flex-direction: column;
-  }
-  .pgn-header {
-    padding: 14px 20px 10px;
-    border-bottom: 1px solid var(--line);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: var(--ink-faint);
-  }
-  .pgn-body {
-    overflow-y: auto;
-    flex: 1;
-    padding: 8px 0;
-    scrollbar-width: thin;
-    scrollbar-color: var(--line-strong) transparent;
-  }
-  .pgn-body::-webkit-scrollbar { width: 6px; }
-  .pgn-body::-webkit-scrollbar-thumb { background: var(--line-strong); }
-
-  .pgn-row {
-    display: grid;
-    grid-template-columns: 40px 1fr 1fr;
-    padding: 6px 20px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    align-items: center;
-  }
-  .pgn-row:nth-child(odd) { background: rgba(255,255,255,0.015); }
-  .pgn-num { color: var(--ink-faint); }
-  .pgn-w, .pgn-b { color: var(--ink); }
-  .pgn-empty {
-    text-align: center;
-    color: var(--ink-faint);
-    font-style: italic;
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 15px;
-    padding: 24px;
-  }
-
-  footer {
-    margin-top: 56px;
-    padding-top: 24px;
-    border-top: 1px solid var(--line);
-    font-size: 13px;
-    color: var(--ink-faint);
-    font-family: 'JetBrains Mono', monospace;
-    letter-spacing: 0.04em;
-    display: flex;
-    justify-content: space-between;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 8px;
+    margin-bottom: 14px;
   }
-  footer a { color: var(--ink-dim); text-decoration: none; border-bottom: 1px dotted var(--line-strong); }
-  footer a:hover { color: var(--accent); border-color: var(--accent); }
+  .bot-btn {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #d0d0d0;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 3px;
+  }
+  .bot-btn:hover { background: #333; }
+  .bot-btn.active {
+    background: #3a6ea5;
+    border-color: #4a7eb5;
+    color: #fff;
+  }
+  .bot-desc {
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: #aaa;
+    font-style: italic;
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+  }
+  .col-board { flex: 1 1 400px; min-width: 320px; max-width: 560px; }
+  .col-side  { flex: 1 1 320px; min-width: 280px; }
+  #board { width: 100%; }
+  /* slight frame so the board doesn't float on the dark bg */
+  .col-board { padding: 8px; background: #242424; border: 1px solid #333; border-radius: 3px; }
+
+  h3 { margin: 0 0 12px; font-size: 18px; font-weight: 500; color: #f0f0f0; }
+  #status.thinking { color: #d4a857; }
+  #status.gameover { color: #d97a7a; }
+
+  .move-table-wrap {
+    max-height: 240px;
+    overflow-y: auto;
+    border: 1px solid #333;
+    background: #242424;
+    margin-bottom: 16px;
+  }
+  table.moves {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.moves th, table.moves td {
+    padding: 6px 10px;
+    text-align: left;
+    border-bottom: 1px solid #2e2e2e;
+    color: #d0d0d0;
+  }
+  table.moves th { background: #2a2a2a; font-weight: 500; color: #aaa; }
+  table.moves tr:nth-child(even) td { background: #1f1f1f; }
+
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .btn {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #d0d0d0;
+    padding: 7px 14px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 14px;
+  }
+  .btn:hover { background: #333; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  select.depth {
+    padding: 6px 10px;
+    border: 1px solid #444;
+    border-radius: 3px;
+    background: #2a2a2a;
+    color: #d0d0d0;
+    font-size: 14px;
+  }
+  .engine-status {
+    margin-top: 12px;
+    font-size: 12px;
+    color: #888;
+  }
+  .engine-status.ready { color: #7ab87a; }
+  .engine-status.error { color: #d97a7a; }
+  footer {
+    margin-top: 30px;
+    padding: 16px 24px;
+    font-size: 12px;
+    color: #888;
+    text-align: center;
+  }
+  footer a { color: #6ba3d6; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="masthead">
-      <span class="glyph">♞</span>
-      <h1>Chess Bot Gallery</h1>
-    </div>
-    <div class="tagline">Four bots · Four philosophies · One board</div>
-  </header>
 
-  <div class="bots" role="tablist">
-    <button class="bot-tab active" data-bot="worst"><span class="num">I</span>Worst Move</button>
-    <button class="bot-tab" data-bot="random"><span class="num">II</span>Random</button>
-    <button class="bot-tab" data-bot="nocheck"><span class="num">III</span>Avoids Check</button>
-    <button class="bot-tab" data-bot="priority"><span class="num">IV</span>Prioritiser</button>
+<div class="nav">
+  <h1>Bad Chess Bots</h1>
+</div>
+
+<div class="container">
+
+  <div class="bots">
+    <button class="bot-btn active" data-bot="worst">Worst moves bot</button>
+    <button class="bot-btn" data-bot="random">Random moves bot</button>
+    <button class="bot-btn" data-bot="nocheck">Avoid checking bot</button>
+    <button class="bot-btn" data-bot="priority">Prioritiser bot</button>
   </div>
 
-  <div class="desc" id="desc"></div>
+  <div class="bot-desc" id="bot-desc"></div>
 
-  <div class="game-grid">
-    <div class="board-wrap">
+  <div class="row">
+    <div class="col-board">
       <div id="board"></div>
     </div>
-
-    <div class="panel">
-      <div class="status-card">
-        <div class="status-label">Status</div>
-        <div class="status" id="status">White to move</div>
+    <div class="col-side">
+      <h3 id="status">White to move</h3>
+      <div class="move-table-wrap">
+        <table class="moves" id="pgn">
+          <thead><tr><th>#</th><th>White</th><th>Black</th></tr></thead>
+          <tbody></tbody>
+        </table>
       </div>
-
-      <div class="controls-card">
-        <div class="control-row">
-          <button class="btn" id="newBtn">New Game</button>
-          <button class="btn" id="undoBtn">Take Back</button>
-        </div>
-        <div class="depth-row">
-          <label for="depth">Engine Depth</label>
-          <select class="depth" id="depth">
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3" selected>3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="8">8</option>
-            <option value="12">12</option>
-          </select>
-        </div>
-        <div class="engine-note loading" id="engineNote">Loading engine…</div>
+      <div class="controls">
+        <button class="btn" id="backBtn">Take Back</button>
+        <button class="btn" id="resetBtn">New Game</button>
+        <select class="depth" id="depthSel">
+          <option value="5">Depth: 5</option>
+          <option value="4">Depth: 4</option>
+          <option value="3" selected>Depth: 3</option>
+          <option value="2">Depth: 2</option>
+          <option value="1">Depth: 1</option>
+        </select>
       </div>
-
-      <div class="pgn-card">
-        <div class="pgn-header">Moves</div>
-        <div class="pgn-body" id="pgnBody">
-          <div class="pgn-empty">No moves yet</div>
-        </div>
-      </div>
+      <div class="engine-status" id="engineStatus">Loading engine…</div>
     </div>
   </div>
 
   <footer>
-    <span>Stockfish runs in your browser via WebAssembly. Nothing is sent to a server.</span>
-    <span>Adapted from <a href="https://github.com/brokenloop/FlaskChess" target="_blank" rel="noopener">FlaskChess</a></span>
+    Stockfish runs in your browser via WebAssembly. Adapted from
+    <a href="https://github.com/brokenloop/FlaskChess" target="_blank" rel="noopener">FlaskChess</a>.
   </footer>
 </div>
 
 <script>
-/* ============================================================
-   Bot definitions
-   ============================================================ */
-const BOT_INFO = {
-  worst:    { name: "Worst Move",     desc: "Plays the move Stockfish considers <strong>worst</strong> for itself. Expect blunders, gifts, and the occasional self-mate." },
-  random:   { name: "Random",         desc: "Picks any legal move <strong>uniformly at random</strong>. No engine, no strategy — pure chaos." },
-  nocheck:  { name: "Avoids Check",   desc: "Will <strong>never give check</strong> if any other legal move exists. Otherwise plays the worst non-checking move it can find." },
-  priority: { name: "Prioritiser",    desc: "Follows a strict hierarchy: <strong>en passant → mate → check → promotion → capture → castle</strong>, avoiding stalemate where possible." },
+/* ----- Bots ----- */
+let currentBot = "worst";
+const BOT_DESCS = {
+  worst:    "Plays the move Stockfish considers worst.",
+  random:   "Picks any legal move uniformly at random.",
+  nocheck:  "Avoids giving check whenever possible.",
+  priority: "Prioritises moves in this order: en passant, mate, check, promotion, capture, castle, non-stalemate.",
 };
 
-let currentBot = "worst";
 let game = new Chess();
 let board = null;
 let thinking = false;
+
+/* ----- Stockfish worker ----- */
 let stockfish = null;
 let stockfishReady = false;
 let pendingResolver = null;
 let pendingScore = null;
 
-/* ============================================================
-   Stockfish worker (loaded lazily — only worst & nocheck need it)
-   ============================================================ */
 function initStockfish() {
-  const note = document.getElementById("engineNote");
+  const note = document.getElementById("engineStatus");
   try {
-    // Use lichess's stockfish.js build (single-threaded WASM, works everywhere)
-    stockfish = new Worker("https://cdn.jsdelivr.net/npm/stockfish.js@10.0.2/stockfish.js");
+    stockfish = new Worker("https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js");
     stockfish.onmessage = (e) => {
       const line = typeof e.data === "string" ? e.data : "";
       if (line === "uciok") {
@@ -473,15 +220,13 @@ function initStockfish() {
         if (!stockfishReady) {
           stockfishReady = true;
           note.textContent = "Engine ready";
-          note.className = "engine-note ready";
+          note.className = "engine-status ready";
         }
       } else if (line.startsWith("info ")) {
-        // Parse score from "info ... score cp X" or "score mate Y"
-        const cpMatch = line.match(/score cp (-?\d+)/);
         const mateMatch = line.match(/score mate (-?\d+)/);
+        const cpMatch = line.match(/score cp (-?\d+)/);
         if (mateMatch) {
           const m = parseInt(mateMatch[1], 10);
-          // Mate scores: dominate everything; sign indicates who's mating
           pendingScore = m > 0 ? 100000 - m : -100000 - m;
         } else if (cpMatch) {
           pendingScore = parseInt(cpMatch[1], 10);
@@ -496,18 +241,16 @@ function initStockfish() {
       }
     };
     stockfish.onerror = () => {
-      note.textContent = "Engine failed to load";
-      note.className = "engine-note error";
+      note.textContent = "Engine failed to load (Random/Prioritiser still work)";
+      note.className = "engine-status error";
     };
     stockfish.postMessage("uci");
   } catch (err) {
-    note.textContent = "Engine unavailable (use Random or Prioritiser)";
-    note.className = "engine-note error";
+    note.textContent = "Engine unavailable";
+    note.className = "engine-status error";
   }
 }
 
-// Evaluate a position with Stockfish at a given depth.
-// Returns score in centipawns from White's perspective.
 function evaluate(fen, depth) {
   return new Promise((resolve) => {
     if (!stockfishReady) { resolve(0); return; }
@@ -519,92 +262,74 @@ function evaluate(fen, depth) {
   });
 }
 
-// Score relative to the side to move at `fen`.
-// (Mirrors python-chess's `score.relative`.)
+// Score from the perspective of the side to move at `fen` (mirrors python-chess relative score).
 async function evaluateRelative(fen, depth) {
   const score = await evaluate(fen, depth);
-  // FEN's side-to-move field
-  const stm = fen.split(" ")[1]; // 'w' or 'b'
+  const stm = fen.split(" ")[1];
   return stm === "w" ? score : -score;
 }
 
-/* ============================================================
-   The four bots
-   ============================================================ */
+/* ----- The four bots ----- */
 
-// I. Worst move: pick the move whose resulting position is *best for the opponent*
-//    (i.e. highest relative score for the opponent, which == worst for us).
+// I. Worst: pick the move whose resulting position is best for the opponent.
 async function botWorst(depth) {
   const moves = game.moves({ verbose: true });
   if (moves.length === 0) return null;
-
   let bestMove = moves[0];
-  let bestScore = -Infinity; // we want HIGHEST score from opponent's perspective
-
+  let bestScore = -Infinity;
   for (const m of moves) {
     game.move(m);
     const score = await evaluateRelative(game.fen(), depth);
     game.undo();
-    // After we move, it's opponent's turn. Higher relative score for them = worse for us.
-    if (score > bestScore) {
-      bestScore = score;
-      bestMove = m;
-    }
+    if (score > bestScore) { bestScore = score; bestMove = m; }
   }
   return bestMove;
 }
 
-// II. Random: uniform random legal move. No engine needed.
+// II. Random
 function botRandom() {
   const moves = game.moves({ verbose: true });
   if (moves.length === 0) return null;
   return moves[Math.floor(Math.random() * moves.length)];
 }
 
-// III. Avoids check: among non-checking moves, pick the worst for us
-//      (= best for opponent). If every legal move gives check, plays random.
+// III. Avoid check: among non-checking moves, pick the worst for us. If forced to check, pick random.
 async function botNoCheck(depth) {
   const moves = game.moves({ verbose: true });
   if (moves.length === 0) return null;
 
   const nonChecking = moves.filter(m => {
     game.move(m);
-    const givesCheck = game.in_check();
+    const c = game.in_check();
     game.undo();
-    return !givesCheck;
+    return !c;
   });
 
   if (nonChecking.length === 0) {
-    // Forced to give check — pick random
     return moves[Math.floor(Math.random() * moves.length)];
   }
 
-  // Pick the worst non-checking move (mirrors the spirit of the original — bad moves, no checks)
   let bestMove = nonChecking[0];
   let bestScore = -Infinity;
   for (const m of nonChecking) {
     game.move(m);
     const score = await evaluateRelative(game.fen(), depth);
     game.undo();
-    if (score > bestScore) {
-      bestScore = score;
-      bestMove = m;
-    }
+    if (score > bestScore) { bestScore = score; bestMove = m; }
   }
   return bestMove;
 }
 
-// IV. Prioritiser: en passant → mate → check → promotion (queen) → capture → castle → non-stalemate
-//     Mirrors python original. No engine needed.
+// IV. Prioritiser: en passant > mate > check > promote(Q) > capture > castle > non-stalemate
 function botPriority() {
   const moves = game.moves({ verbose: true });
   if (moves.length === 0) return null;
 
   const nonStale = moves.filter(m => {
     game.move(m);
-    const isStale = game.in_stalemate();
+    const s = game.in_stalemate();
     game.undo();
-    return !isStale;
+    return !s;
   });
 
   const pool = nonStale.length > 0 ? nonStale : moves;
@@ -618,8 +343,8 @@ function botPriority() {
   const captures = pool.filter(m => m.flags.includes("c") || m.flags.includes("e"));
   if (captures.length) move = pick(captures);
 
-  const promotions = pool.filter(m => m.promotion === "q");
-  if (promotions.length) move = pick(promotions);
+  const promos = pool.filter(m => m.promotion === "q");
+  if (promos.length) move = pick(promos);
 
   const checks = pool.filter(m => {
     game.move(m);
@@ -637,17 +362,14 @@ function botPriority() {
   });
   if (mates.length) move = pick(mates);
 
-  const enPassants = pool.filter(m => m.flags.includes("e"));
-  if (enPassants.length) move = pick(enPassants);
+  const eps = pool.filter(m => m.flags.includes("e"));
+  if (eps.length) move = pick(eps);
 
   return move;
 }
 
-/* ============================================================
-   Dispatching to the active bot
-   ============================================================ */
 async function getBotMove() {
-  const depth = parseInt(document.getElementById("depth").value, 10);
+  const depth = parseInt(document.getElementById("depthSel").value, 10);
   switch (currentBot) {
     case "worst":    return await botWorst(depth);
     case "random":   return botRandom();
@@ -660,10 +382,7 @@ async function makeBotMove() {
   if (game.game_over()) return;
   thinking = true;
   setStatus("Bot is thinking…", "thinking");
-
-  // Give the UI a tick to repaint before heavy work
   await new Promise(r => setTimeout(r, 30));
-
   const move = await getBotMove();
   if (move) {
     game.move(move);
@@ -674,14 +393,11 @@ async function makeBotMove() {
   renderPgn();
 }
 
-/* ============================================================
-   Board hookup
-   ============================================================ */
+/* ----- Board ----- */
 function onDragStart(source, piece) {
   if (thinking) return false;
   if (game.game_over()) return false;
-  // Player is always White in this UI
-  if (piece.search(/^b/) !== -1) return false;
+  if (piece.search(/^b/) !== -1) return false; // player is white
   if (game.turn() !== "w") return false;
 }
 
@@ -690,7 +406,6 @@ function onDrop(source, target) {
   if (move === null) return "snapback";
   updateStatus();
   renderPgn();
-  // After player moves, bot responds
   setTimeout(makeBotMove, 80);
 }
 
@@ -698,59 +413,51 @@ function onSnapEnd() {
   board.position(game.fen());
 }
 
-/* ============================================================
-   UI helpers
-   ============================================================ */
+/* ----- UI ----- */
 function setStatus(text, cls = "") {
   const el = document.getElementById("status");
   el.textContent = text;
-  el.className = "status " + cls;
+  el.className = cls;
 }
 
 function updateStatus() {
   const color = game.turn() === "w" ? "White" : "Black";
   if (game.in_checkmate()) {
-    setStatus("Checkmate — " + color + " loses", "gameover");
+    setStatus("Game over, " + color + " is in checkmate.", "gameover");
   } else if (game.in_stalemate()) {
-    setStatus("Stalemate", "gameover");
+    setStatus("Game over, stalemate.", "gameover");
   } else if (game.in_draw()) {
-    setStatus("Draw", "gameover");
+    setStatus("Game over, drawn position.", "gameover");
   } else if (game.in_check()) {
-    setStatus(color + " to move, in check", "");
+    setStatus(color + " to move, " + color + " is in check");
   } else {
-    setStatus(color + " to move", "");
+    setStatus(color + " to move");
   }
 }
 
 function renderPgn() {
-  const body = document.getElementById("pgnBody");
+  const tbody = document.querySelector("#pgn tbody");
   const history = game.history();
-  if (history.length === 0) {
-    body.innerHTML = '<div class="pgn-empty">No moves yet</div>';
-    return;
-  }
   let html = "";
   for (let i = 0; i < history.length; i += 2) {
     const num = Math.floor(i / 2) + 1;
     const w = history[i] || "";
     const b = history[i + 1] || "";
-    html += `<div class="pgn-row"><span class="pgn-num">${num}.</span><span class="pgn-w">${w}</span><span class="pgn-b">${b}</span></div>`;
+    html += `<tr><td>${num}</td><td>${w}</td><td>${b}</td></tr>`;
   }
-  body.innerHTML = html;
-  body.scrollTop = body.scrollHeight;
+  tbody.innerHTML = html;
+  const wrap = document.querySelector(".move-table-wrap");
+  wrap.scrollTop = wrap.scrollHeight;
 }
 
 function selectBot(bot) {
   currentBot = bot;
-  document.querySelectorAll(".bot-tab").forEach(t => {
-    t.classList.toggle("active", t.dataset.bot === bot);
+  document.querySelectorAll(".bot-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.bot === bot);
   });
-  document.getElementById("desc").innerHTML = BOT_INFO[bot].desc;
-  // Reflect engine-dependence in depth control
-  const depthRow = document.querySelector(".depth-row");
+  document.getElementById("bot-desc").textContent = BOT_DESCS[bot];
   const usesEngine = (bot === "worst" || bot === "nocheck");
-  depthRow.style.opacity = usesEngine ? "1" : "0.4";
-  document.getElementById("depth").disabled = !usesEngine;
+  document.getElementById("depthSel").disabled = !usesEngine;
 }
 
 function newGame() {
@@ -763,16 +470,14 @@ function newGame() {
 
 function takeBack() {
   if (thinking) return;
-  game.undo(); // undo bot
-  if (game.turn() !== "w") game.undo(); // undo player too, so it's white's turn again
+  game.undo();
+  if (game.turn() !== "w") game.undo();
   board.position(game.fen());
   updateStatus();
   renderPgn();
 }
 
-/* ============================================================
-   Boot
-   ============================================================ */
+/* ----- Boot ----- */
 window.addEventListener("DOMContentLoaded", () => {
   board = Chessboard("board", {
     draggable: true,
@@ -780,20 +485,19 @@ window.addEventListener("DOMContentLoaded", () => {
     onDragStart: onDragStart,
     onDrop: onDrop,
     onSnapEnd: onSnapEnd,
-    pieceTheme: "https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/website/img/chesspieces/wikipedia/{piece}.png",
+    pieceTheme: "https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png",
   });
 
-  document.querySelectorAll(".bot-tab").forEach(t => {
-    t.addEventListener("click", () => selectBot(t.dataset.bot));
+  document.querySelectorAll(".bot-btn").forEach(b => {
+    b.addEventListener("click", () => selectBot(b.dataset.bot));
   });
-  document.getElementById("newBtn").addEventListener("click", newGame);
-  document.getElementById("undoBtn").addEventListener("click", takeBack);
+  document.getElementById("resetBtn").addEventListener("click", newGame);
+  document.getElementById("backBtn").addEventListener("click", takeBack);
 
   selectBot("worst");
   updateStatus();
   initStockfish();
 
-  // Keep board responsive
   window.addEventListener("resize", () => board.resize());
 });
 </script>
