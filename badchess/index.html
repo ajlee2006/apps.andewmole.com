@@ -208,47 +208,83 @@ let stockfishReady = false;
 let pendingResolver = null;
 let pendingScore = null;
 
-function initStockfish() {
+async function initStockfish() {
   const note = document.getElementById("engineStatus");
-  try {
-    stockfish = new Worker("https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js");
-    stockfish.onmessage = (e) => {
-      const line = typeof e.data === "string" ? e.data : "";
-      if (line === "uciok") {
-        stockfish.postMessage("isready");
-      } else if (line === "readyok") {
-        if (!stockfishReady) {
-          stockfishReady = true;
-          note.textContent = "Engine ready";
-          note.className = "engine-status ready";
-        }
-      } else if (line.startsWith("info ")) {
-        const mateMatch = line.match(/score mate (-?\d+)/);
-        const cpMatch = line.match(/score cp (-?\d+)/);
-        if (mateMatch) {
-          const m = parseInt(mateMatch[1], 10);
-          pendingScore = m > 0 ? 100000 - m : -100000 - m;
-        } else if (cpMatch) {
-          pendingScore = parseInt(cpMatch[1], 10);
-        }
-      } else if (line.startsWith("bestmove")) {
-        if (pendingResolver) {
-          const r = pendingResolver;
-          pendingResolver = null;
-          r(pendingScore !== null ? pendingScore : 0);
-          pendingScore = null;
-        }
-      }
-    };
-    stockfish.onerror = () => {
-      note.textContent = "Engine failed to load (Random/Prioritiser still work)";
-      note.className = "engine-status error";
-    };
-    stockfish.postMessage("uci");
-  } catch (err) {
-    note.textContent = "Engine unavailable";
-    note.className = "engine-status error";
+  note.textContent = "Downloading engine…";
+  note.className = "engine-status";
+
+  // Browsers block `new Worker(crossOriginURL)`. Fetch the script and load it as a blob.
+  const sources = [
+    "https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js",
+    "https://cdn.jsdelivr.net/gh/nmrugg/stockfish.js@v10.0.2/example/stockfish.js",
+  ];
+
+  let workerUrl = null;
+  let lastErr = null;
+  for (const src of sources) {
+    try {
+      const resp = await fetch(src);
+      if (!resp.ok) { lastErr = "HTTP " + resp.status + " from " + src; continue; }
+      const code = await resp.text();
+      const blob = new Blob([code], { type: "application/javascript" });
+      workerUrl = URL.createObjectURL(blob);
+      break;
+    } catch (e) {
+      lastErr = e.message || String(e);
+    }
   }
+
+  if (!workerUrl) {
+    console.error("Stockfish load failed:", lastErr);
+    note.textContent = "Engine unavailable (Random/Prioritiser still work)";
+    note.className = "engine-status error";
+    return;
+  }
+
+  try {
+    stockfish = new Worker(workerUrl);
+  } catch (e) {
+    console.error("Worker construction failed:", e);
+    note.textContent = "Engine unavailable: " + e.message;
+    note.className = "engine-status error";
+    return;
+  }
+
+  stockfish.onmessage = (e) => {
+    const line = typeof e.data === "string" ? e.data : "";
+    if (line === "uciok") {
+      stockfish.postMessage("isready");
+    } else if (line === "readyok") {
+      if (!stockfishReady) {
+        stockfishReady = true;
+        note.textContent = "Engine ready";
+        note.className = "engine-status ready";
+      }
+    } else if (line.startsWith("info ")) {
+      const mateMatch = line.match(/score mate (-?\d+)/);
+      const cpMatch = line.match(/score cp (-?\d+)/);
+      if (mateMatch) {
+        const m = parseInt(mateMatch[1], 10);
+        pendingScore = m > 0 ? 100000 - m : -100000 - m;
+      } else if (cpMatch) {
+        pendingScore = parseInt(cpMatch[1], 10);
+      }
+    } else if (line.startsWith("bestmove")) {
+      if (pendingResolver) {
+        const r = pendingResolver;
+        pendingResolver = null;
+        r(pendingScore !== null ? pendingScore : 0);
+        pendingScore = null;
+      }
+    }
+  };
+  stockfish.onerror = (err) => {
+    console.error("Stockfish worker error:", err);
+    note.textContent = "Engine error: " + (err.message || "see console");
+    note.className = "engine-status error";
+  };
+  note.textContent = "Initialising engine…";
+  stockfish.postMessage("uci");
 }
 
 function evaluate(fen, depth) {
@@ -275,6 +311,10 @@ async function evaluateRelative(fen, depth) {
 async function botWorst(depth) {
   const moves = game.moves({ verbose: true });
   if (moves.length === 0) return null;
+  if (!stockfishReady) {
+    console.warn("Worst bot: engine not ready, falling back to random.");
+    return moves[Math.floor(Math.random() * moves.length)];
+  }
   let bestMove = moves[0];
   let bestScore = -Infinity;
   for (const m of moves) {
@@ -307,6 +347,11 @@ async function botNoCheck(depth) {
 
   if (nonChecking.length === 0) {
     return moves[Math.floor(Math.random() * moves.length)];
+  }
+
+  if (!stockfishReady) {
+    console.warn("No-check bot: engine not ready, picking random non-checking move.");
+    return nonChecking[Math.floor(Math.random() * nonChecking.length)];
   }
 
   let bestMove = nonChecking[0];
