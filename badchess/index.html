@@ -26,6 +26,9 @@
     background: #242424;
     border-bottom: 1px solid #333;
     padding: 14px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
   .nav h1 {
     margin: 0;
@@ -33,6 +36,15 @@
     font-weight: 500;
     color: #f0f0f0;
   }
+  .nav a.home-link {
+    font-size: 13px;
+    color: #aaa;
+    text-decoration: none;
+    border: 1px solid #444;
+    padding: 5px 12px;
+    border-radius: 3px;
+  }
+  .nav a.home-link:hover { color: #e0e0e0; background: #2a2a2a; }
   .container {
     max-width: 1100px;
     margin: 0 auto;
@@ -144,6 +156,16 @@
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn.danger { border-color: #8a4444; color: #d97a7a; }
   .btn.danger:hover { background: #3a2424; }
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #d0d0d0;
+    cursor: pointer;
+    user-select: none;
+  }
+  .toggle input { cursor: pointer; }
   select.depth {
     padding: 6px 10px;
     border: 1px solid #444;
@@ -167,12 +189,92 @@
     text-align: center;
   }
   footer a { color: #6ba3d6; }
+
+  /* Analysis UI */
+  .analysis-section {
+    margin-top: 20px;
+    padding: 16px;
+    background: #242424;
+    border: 1px solid #333;
+    border-radius: 3px;
+  }
+  .analysis-section h3 {
+    margin: 0 0 12px;
+    font-size: 16px;
+    color: #f0f0f0;
+  }
+  .analysis-progress {
+    font-size: 12px;
+    color: #aaa;
+    margin-bottom: 10px;
+  }
+  .eval-graph {
+    position: relative;
+    height: 80px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 2px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .eval-bar {
+    position: absolute;
+    width: 100%;
+    left: 0;
+    top: 50%;
+    height: 1px;
+    background: #444;
+    z-index: 1;
+  }
+  .eval-graph svg {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    z-index: 2;
+  }
+  /* Make table rows clickable in review mode */
+  table.moves tr.move-row { cursor: pointer; }
+  table.moves tr.move-row:hover td { background: #2a2a2a !important; }
+  table.moves tr.move-row.active td { background: #3a4a5a !important; }
+  /* Move quality annotations */
+  .move-tag {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 2px;
+    vertical-align: middle;
+  }
+  .move-tag.blunder    { background: #6b2424; color: #ffdada; }
+  .move-tag.mistake    { background: #6b4a1a; color: #fff0d0; }
+  .move-tag.inaccuracy { background: #4a4a1a; color: #fffcd0; }
+  .review-controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 10px;
+  }
+  .review-controls .nav-btn {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #d0d0d0;
+    padding: 6px 12px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 13px;
+    font-family: monospace;
+  }
+  .review-controls .nav-btn:hover { background: #333; }
+  .review-controls .nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>
 </head>
 <body>
 
 <div class="nav">
   <h1>Bad Chess Bots</h1>
+  <a href="/" class="home-link">← Back to home</a>
 </div>
 
 <div class="container">
@@ -217,6 +319,10 @@
       <div class="controls">
         <button class="btn" id="backBtn">Take Back</button>
         <button class="btn" id="resetBtn">New Game</button>
+        <label class="toggle">
+          <input type="checkbox" id="liveAnalysisToggle" checked>
+          Live analysis
+        </label>
         <button class="btn danger" id="stopBtn" style="display:none">Stop</button>
         <select class="depth" id="depthSel">
           <option value="5">Depth: 5</option>
@@ -227,6 +333,22 @@
         </select>
       </div>
       <div class="engine-status" id="engineStatus">Loading engine…</div>
+
+      <div class="analysis-section" id="analysisSection">
+        <h3>Evaluation</h3>
+        <div class="analysis-progress" id="analysisProgress">Live analysis will start once a move is played.</div>
+        <div class="eval-graph" id="evalGraph" style="display:none">
+          <div class="eval-bar"></div>
+          <svg id="evalSvg" viewBox="0 0 100 80" preserveAspectRatio="none"></svg>
+        </div>
+        <div class="review-controls" id="reviewControls" style="display:none">
+          <button class="nav-btn" id="rvStart">⏮</button>
+          <button class="nav-btn" id="rvPrev">◀</button>
+          <button class="nav-btn" id="rvNext">▶</button>
+          <button class="nav-btn" id="rvEnd">⏭</button>
+          <button class="btn" id="rvResume" style="margin-left:auto">Resume play</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -250,6 +372,22 @@ let board = null;
 let thinking = false;
 let stopRequested = false;
 let selectedSquare = null; // for click-to-move highlighting
+
+/* ----- Analysis state -----
+   Live analysis runs in the background after every move. We maintain:
+   - evalsByFen: a cache from FEN -> centipawn eval (White's POV), filled as positions are analyzed.
+   - Per-render, we derive arrays of evals and classifications by walking the current game's history.
+   
+   reviewMode: when true, the board is showing a historical position and play is paused. */
+const ANALYSIS_DEPTH = 12;
+let evalsByFen = new Map();      // fen string -> cp eval from White's POV
+let liveAnalysisEnabled = true;
+let liveAnalysisRunning = false; // a backgroundAnalyze loop is in flight
+let liveAnalysisGen = 0;         // bumped on every move; running loops bail when stale
+
+let reviewMode = false;
+let reviewPly = 0;
+let savedFenBeforeReview = null;
 
 /* ----- Stockfish worker ----- */
 let stockfish = null;
@@ -306,6 +444,8 @@ async function initStockfish() {
         stockfishReady = true;
         note.textContent = "Engine ready";
         note.className = "engine-status ready";
+        // If a game is already in progress, start live analysis now.
+        scheduleLiveAnalysis();
       }
     } else if (line.startsWith("info ")) {
       const mateMatch = line.match(/score mate (-?\d+)/);
@@ -376,6 +516,215 @@ async function evaluateRelative(fen, depth) {
   const score = await evaluate(fen, depth);
   const stm = fen.split(" ")[1];
   return stm === "w" ? score : -score;
+}
+
+/* ===== Game analysis (live) ===== */
+
+// Build the per-ply analysis arrays from the current game history + evalsByFen cache.
+// Returns null if nothing is analyzed yet; otherwise { evals, classifications, fens, complete }.
+// evals[i] is the eval of the position after ply i (i=0 is starting position). null if not yet analyzed.
+function buildAnalysisData() {
+  const verbose = game.history({ verbose: true });
+  if (verbose.length === 0) return null;
+  const replay = new Chess();
+  const fens = [replay.fen()];
+  for (const m of verbose) {
+    replay.move(m);
+    fens.push(replay.fen());
+  }
+  const evals = fens.map(f => evalsByFen.has(f) ? evalsByFen.get(f) : null);
+  const classifications = new Array(fens.length).fill("");
+  for (let i = 1; i < fens.length; i++) {
+    if (evals[i] == null || evals[i - 1] == null) continue;
+    const moverIsWhite = (i % 2 === 1);
+    const before = moverIsWhite ? evals[i - 1] : -evals[i - 1];
+    const after  = moverIsWhite ? evals[i]     : -evals[i];
+    const drop = before - after;
+    if      (drop >= 300) classifications[i] = "blunder";
+    else if (drop >= 150) classifications[i] = "mistake";
+    else if (drop >=  60) classifications[i] = "inaccuracy";
+  }
+  const complete = evals.every(e => e != null);
+  return { evals, classifications, fens, complete };
+}
+
+// Schedule background analysis for the current game state.
+// Called after every move. The running loop bails as soon as the game changes (via liveAnalysisGen).
+function scheduleLiveAnalysis() {
+  if (!liveAnalysisEnabled || !stockfishReady) {
+    refreshAnalysisUI();
+    return;
+  }
+  liveAnalysisGen++;
+  refreshAnalysisUI();
+  if (liveAnalysisRunning) return; // an existing loop will pick up the new generation
+  liveAnalysisRunning = true;
+  backgroundAnalyze().finally(() => { liveAnalysisRunning = false; });
+}
+
+async function backgroundAnalyze() {
+  // Loop: figure out the next unanalyzed FEN in the current history, evaluate it, repeat.
+  // If the game changes (liveAnalysisGen bumps) we restart from the top.
+  while (true) {
+    const myGen = liveAnalysisGen;
+    const verbose = game.history({ verbose: true });
+    if (verbose.length === 0) return;
+
+    // Build the list of FENs we want analyzed (start position + after each ply).
+    const replay = new Chess();
+    const fens = [replay.fen()];
+    for (const m of verbose) {
+      replay.move(m);
+      fens.push(replay.fen());
+    }
+    // Find the first FEN not yet in the cache.
+    let nextIdx = -1;
+    for (let i = 0; i < fens.length; i++) {
+      if (!evalsByFen.has(fens[i])) { nextIdx = i; break; }
+    }
+    if (nextIdx === -1) {
+      // Fully caught up.
+      refreshAnalysisUI();
+      // Wait briefly for any further move, then exit if still caught up.
+      await new Promise(r => setTimeout(r, 200));
+      if (liveAnalysisGen === myGen) return;
+      continue;
+    }
+
+    // If a bot is currently calculating, don't compete — wait a moment and re-check.
+    if (thinking) {
+      await new Promise(r => setTimeout(r, 250));
+      continue;
+    }
+
+    const targetFen = fens[nextIdx];
+    const cp = await evaluate(targetFen, ANALYSIS_DEPTH);
+
+    // If the game moved on while we were evaluating, that's fine — the result is still valid for this FEN.
+    // (FENs uniquely identify a position; we cache by FEN, not by ply index.)
+    const stm = targetFen.split(" ")[1];
+    evalsByFen.set(targetFen, stm === "w" ? cp : -cp);
+
+    refreshAnalysisUI();
+
+    // If the game has changed since this iteration started, that's fine — we'll just continue and pick up the next missing FEN on the next loop.
+    // Yield a tick to keep the UI responsive.
+    await new Promise(r => setTimeout(r, 0));
+  }
+}
+
+function refreshAnalysisUI() {
+  const section = document.getElementById("analysisSection");
+  const progress = document.getElementById("analysisProgress");
+  const graphWrap = document.getElementById("evalGraph");
+  const reviewCtrls = document.getElementById("reviewControls");
+
+  if (!liveAnalysisEnabled) {
+    progress.textContent = "Live analysis is off.";
+    graphWrap.style.display = "none";
+    reviewCtrls.style.display = "none";
+    renderPgn();
+    return;
+  }
+
+  const data = buildAnalysisData();
+  if (!data) {
+    progress.textContent = stockfishReady
+      ? "Live analysis will start once a move is played."
+      : "Waiting for engine to load…";
+    graphWrap.style.display = "none";
+    reviewCtrls.style.display = "none";
+    renderPgn();
+    return;
+  }
+
+  const totalPositions = data.fens.length;
+  const analyzed = data.evals.filter(e => e != null).length;
+  if (analyzed < totalPositions) {
+    progress.textContent = `Analyzing… ${analyzed} / ${totalPositions} positions evaluated (depth ${ANALYSIS_DEPTH}).`;
+  } else {
+    progress.textContent = `All ${totalPositions} positions evaluated at depth ${ANALYSIS_DEPTH}. Click any move to review.`;
+  }
+
+  // Show graph as soon as we have at least 2 evals (otherwise nothing to draw)
+  if (analyzed >= 2) {
+    graphWrap.style.display = "";
+    drawEvalGraph(data.evals);
+  } else {
+    graphWrap.style.display = "none";
+  }
+
+  // Show review controls once we're in review mode
+  reviewCtrls.style.display = reviewMode ? "" : "none";
+
+  renderPgn();
+}
+
+function drawEvalGraph(evals) {
+  // Eval is in centipawns from White's POV. Clamp to ±1000cp (±10 pawns) for display.
+  // Null entries (not yet analyzed) are skipped; we draw line segments between known points
+  // and a dashed continuation if any are missing in the tail.
+  const CLAMP = 1000;
+  const svg = document.getElementById("evalSvg");
+  const n = evals.length;
+  if (n < 2) { svg.innerHTML = ""; return; }
+  const toX = (i) => (i / (n - 1)) * 100;
+  const toY = (cp) => {
+    const v = Math.max(-CLAMP, Math.min(CLAMP, cp));
+    return 40 - (v / CLAMP) * 40;
+  };
+  // Build the line over known points.
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    if (evals[i] != null) pts.push([toX(i), toY(evals[i])]);
+  }
+  if (pts.length < 2) { svg.innerHTML = ""; return; }
+  let linePath = "M " + pts[0][0] + " " + pts[0][1];
+  for (let i = 1; i < pts.length; i++) linePath += " L " + pts[i][0] + " " + pts[i][1];
+  let areaPath = linePath + ` L ${pts[pts.length - 1][0]} 80 L ${pts[0][0]} 80 Z`;
+  svg.innerHTML = `
+    <path d="${areaPath}" fill="rgba(106,163,214,0.18)" stroke="none"/>
+    <path d="${linePath}" fill="none" stroke="#6ba3d6" stroke-width="0.8" vector-effect="non-scaling-stroke"/>
+  `;
+}
+
+/* ----- Review mode (browse positions) ----- */
+function enterReviewMode(ply) {
+  reviewMode = true;
+  reviewPly = ply;
+  jumpToPly(ply);
+}
+
+function jumpToPly(ply) {
+  const data = buildAnalysisData();
+  if (!data) return;
+  reviewPly = Math.max(0, Math.min(data.fens.length - 1, ply));
+  const replay = new Chess();
+  const history = game.history({ verbose: true });
+  for (let i = 0; i < reviewPly; i++) replay.move(history[i]);
+  board.position(replay.fen());
+  document.getElementById("reviewControls").style.display = "";
+  renderPgn(); // re-render to update .active highlight
+  updateReviewNavButtons();
+}
+
+function updateReviewNavButtons() {
+  const data = buildAnalysisData();
+  if (!data) return;
+  document.getElementById("rvStart").disabled = (reviewPly === 0);
+  document.getElementById("rvPrev").disabled  = (reviewPly === 0);
+  document.getElementById("rvNext").disabled  = (reviewPly === data.fens.length - 1);
+  document.getElementById("rvEnd").disabled   = (reviewPly === data.fens.length - 1);
+}
+
+function exitReviewMode() {
+  reviewMode = false;
+  board.position(game.fen());
+  document.getElementById("reviewControls").style.display = "none";
+  renderPgn();
+  updateStatus();
+  // If a bot was on the move when review started, resume play.
+  setTimeout(runBotsIfNeeded, 100);
 }
 
 /* ----- The four bots ----- */
@@ -517,6 +866,7 @@ async function runBotsIfNeeded() {
     board.position(game.fen());
     renderPgn();
     updateStatus();
+    scheduleLiveAnalysis();
 
     // small pause between bot moves so you can watch
     if (bothBots() && !game.game_over()) {
@@ -559,6 +909,7 @@ function pieceBelongsToTurn(piece) {
 
 function onDragStart(source, piece) {
   if (thinking) return false;
+  if (reviewMode) return false;
   if (game.game_over()) return false;
   if (currentPlayer() !== "human") return false;
   if (!pieceBelongsToTurn(piece)) return false;
@@ -574,6 +925,7 @@ function onDrop(source, target) {
   selectedSquare = null;
   updateStatus();
   renderPgn();
+  scheduleLiveAnalysis();
   setTimeout(runBotsIfNeeded, 60);
 }
 
@@ -584,6 +936,7 @@ function onSnapEnd() {
 /* Click handler: tap a piece to select, tap a target to move (or another piece to switch). */
 function onBoardClick(e) {
   if (thinking || game.game_over()) return;
+  if (reviewMode) return;
   if (currentPlayer() !== "human") return;
 
   // find the square element
@@ -605,6 +958,7 @@ function onBoardClick(e) {
       board.position(game.fen());
       updateStatus();
       renderPgn();
+      scheduleLiveAnalysis();
       setTimeout(runBotsIfNeeded, 60);
       return;
     }
@@ -654,16 +1008,36 @@ function updateStatus() {
 function renderPgn() {
   const tbody = document.querySelector("#pgn tbody");
   const history = game.history();
+  const data = buildAnalysisData(); // may be null
   let html = "";
   for (let i = 0; i < history.length; i += 2) {
     const num = Math.floor(i / 2) + 1;
+    const wPly = i, bPly = i + 1;
     const w = history[i] || "";
     const b = history[i + 1] || "";
-    html += `<tr><td>${num}</td><td>${w}</td><td>${b}</td></tr>`;
+    const wTag = annotationTag(data, wPly + 1);
+    const bTag = annotationTag(data, bPly + 1);
+    const wActive = (reviewMode && reviewPly === wPly + 1) ? "active" : "";
+    const bActive = (reviewMode && reviewPly === bPly + 1) ? "active" : "";
+    html += `<tr class="move-row">`;
+    html += `<td>${num}</td>`;
+    html += `<td class="${wActive}" data-ply="${wPly + 1}">${w}${wTag}</td>`;
+    html += `<td class="${bActive}" data-ply="${b ? bPly + 1 : ""}">${b}${bTag}</td>`;
+    html += `</tr>`;
   }
   tbody.innerHTML = html;
   const wrap = document.querySelector(".move-table-wrap");
-  wrap.scrollTop = wrap.scrollHeight;
+  if (!reviewMode) wrap.scrollTop = wrap.scrollHeight;
+}
+
+function annotationTag(data, plyIdx) {
+  if (!data || !data.classifications) return "";
+  const cls = data.classifications[plyIdx];
+  if (!cls) return "";
+  if (cls === "blunder")    return ` <span class="move-tag blunder">??</span>`;
+  if (cls === "mistake")    return ` <span class="move-tag mistake">?</span>`;
+  if (cls === "inaccuracy") return ` <span class="move-tag inaccuracy">?!</span>`;
+  return "";
 }
 
 function updateBotDesc() {
@@ -686,18 +1060,27 @@ function updateStopButton() {
 
 function newGame() {
   if (thinking) { stopRequested = true; }
+  evalsByFen.clear();
+  liveAnalysisGen++;
+  reviewMode = false;
+  reviewPly = 0;
+  savedFenBeforeReview = null;
   game.reset();
   board.start();
   selectedSquare = null;
   clearHighlights();
   updateStatus();
-  renderPgn();
+  refreshAnalysisUI(); // re-render PGN + reset analysis panel
   // After reset, kick the bots if white is one
   setTimeout(runBotsIfNeeded, 100);
 }
 
 function takeBack() {
   if (thinking) return;
+  if (reviewMode) {
+    // Take Back while reviewing? Exit review first, then undo on the live game.
+    exitReviewMode();
+  }
   // Undo until it's a human's turn (or we run out of history)
   let undid = 0;
   while (game.history().length > 0) {
@@ -711,7 +1094,9 @@ function takeBack() {
   clearHighlights();
   board.position(game.fen());
   updateStatus();
-  renderPgn();
+  // Evals are cached by FEN so they remain valid for any position we revisit.
+  liveAnalysisGen++;
+  refreshAnalysisUI();
 }
 
 /* ----- Boot ----- */
@@ -739,6 +1124,36 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("resetBtn").addEventListener("click", newGame);
   document.getElementById("backBtn").addEventListener("click", takeBack);
   document.getElementById("stopBtn").addEventListener("click", () => { stopRequested = true; });
+  document.getElementById("liveAnalysisToggle").addEventListener("change", (e) => {
+    liveAnalysisEnabled = e.target.checked;
+    if (liveAnalysisEnabled) {
+      scheduleLiveAnalysis();
+    } else {
+      liveAnalysisGen++; // signal any running loop to bail
+      refreshAnalysisUI();
+    }
+  });
+
+  // Review-mode navigation
+  document.getElementById("rvStart").addEventListener("click", () => jumpToPly(0));
+  document.getElementById("rvPrev").addEventListener("click",  () => jumpToPly(reviewPly - 1));
+  document.getElementById("rvNext").addEventListener("click",  () => jumpToPly(reviewPly + 1));
+  document.getElementById("rvEnd").addEventListener("click",   () => {
+    const data = buildAnalysisData();
+    jumpToPly(data ? data.fens.length - 1 : 0);
+  });
+  document.getElementById("rvResume").addEventListener("click", exitReviewMode);
+
+  // Click a row in the move table to jump to that position (entering review mode if needed)
+  document.querySelector("#pgn").addEventListener("click", (e) => {
+    if (!buildAnalysisData()) return;
+    const td = e.target.closest("td[data-ply]");
+    if (!td) return;
+    const ply = parseInt(td.getAttribute("data-ply"), 10);
+    if (Number.isFinite(ply)) {
+      if (!reviewMode) enterReviewMode(ply); else jumpToPly(ply);
+    }
+  });
 
   updateBotDesc();
   updateStatus();
