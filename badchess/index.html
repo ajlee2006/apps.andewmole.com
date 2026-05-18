@@ -38,43 +38,76 @@
     margin: 0 auto;
     padding: 20px;
   }
-  .bots {
+
+  /* Player pickers */
+  .players {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 14px;
-  }
-  .bot-btn {
-    background: #2a2a2a;
-    border: 1px solid #444;
-    color: #d0d0d0;
-    padding: 8px 16px;
-    cursor: pointer;
-    font-size: 14px;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    background: #242424;
+    border: 1px solid #333;
     border-radius: 3px;
   }
-  .bot-btn:hover { background: #333; }
-  .bot-btn.active {
-    background: #3a6ea5;
-    border-color: #4a7eb5;
-    color: #fff;
+  .player-pick { display: flex; align-items: center; gap: 8px; }
+  .player-pick label {
+    font-size: 13px;
+    color: #aaa;
+    min-width: 50px;
   }
+  .player-pick select {
+    padding: 6px 10px;
+    border: 1px solid #444;
+    border-radius: 3px;
+    background: #2a2a2a;
+    color: #e0e0e0;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
   .bot-desc {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     font-size: 13px;
     color: #aaa;
     font-style: italic;
+    min-height: 1.4em;
   }
+
   .row {
     display: flex;
     flex-wrap: wrap;
     gap: 24px;
   }
-  .col-board { flex: 1 1 400px; min-width: 320px; max-width: 560px; }
+  .col-board { flex: 1 1 400px; min-width: 320px; max-width: 560px; padding: 8px; background: #242424; border: 1px solid #333; border-radius: 3px; }
   .col-side  { flex: 1 1 320px; min-width: 280px; }
   #board { width: 100%; }
-  /* slight frame so the board doesn't float on the dark bg */
-  .col-board { padding: 8px; background: #242424; border: 1px solid #333; border-radius: 3px; }
+
+  /* Move highlights */
+  .square-55d63.highlight-selected {
+    box-shadow: inset 0 0 0 3px rgba(255, 220, 100, 0.85);
+  }
+  .square-55d63.highlight-legal::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 28%;
+    height: 28%;
+    transform: translate(-50%, -50%);
+    background: rgba(80, 80, 80, 0.55);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .square-55d63.highlight-legal.highlight-capture::after {
+    width: 90%;
+    height: 90%;
+    background: transparent;
+    border: 6px solid rgba(80, 80, 80, 0.55);
+    border-radius: 50%;
+    box-sizing: border-box;
+  }
+  .square-55d63 { position: relative; }
 
   h3 { margin: 0 0 12px; font-size: 18px; font-weight: 500; color: #f0f0f0; }
   #status.thinking { color: #d4a857; }
@@ -87,11 +120,7 @@
     background: #242424;
     margin-bottom: 16px;
   }
-  table.moves {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
+  table.moves { width: 100%; border-collapse: collapse; font-size: 13px; }
   table.moves th, table.moves td {
     padding: 6px 10px;
     text-align: left;
@@ -113,6 +142,8 @@
   }
   .btn:hover { background: #333; }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn.danger { border-color: #8a4444; color: #d97a7a; }
+  .btn.danger:hover { background: #3a2424; }
   select.depth {
     padding: 6px 10px;
     border: 1px solid #444;
@@ -146,11 +177,27 @@
 
 <div class="container">
 
-  <div class="bots">
-    <button class="bot-btn active" data-bot="worst">Worst moves bot</button>
-    <button class="bot-btn" data-bot="random">Random moves bot</button>
-    <button class="bot-btn" data-bot="nocheck">Avoid checking bot</button>
-    <button class="bot-btn" data-bot="priority">Prioritiser bot</button>
+  <div class="players">
+    <div class="player-pick">
+      <label for="whiteSel">White</label>
+      <select id="whiteSel">
+        <option value="human" selected>Human</option>
+        <option value="worst">Worst moves bot</option>
+        <option value="random">Random moves bot</option>
+        <option value="nocheck">Avoid checking bot</option>
+        <option value="priority">Prioritiser bot</option>
+      </select>
+    </div>
+    <div class="player-pick">
+      <label for="blackSel">Black</label>
+      <select id="blackSel">
+        <option value="human">Human</option>
+        <option value="worst" selected>Worst moves bot</option>
+        <option value="random">Random moves bot</option>
+        <option value="nocheck">Avoid checking bot</option>
+        <option value="priority">Prioritiser bot</option>
+      </select>
+    </div>
   </div>
 
   <div class="bot-desc" id="bot-desc"></div>
@@ -170,6 +217,7 @@
       <div class="controls">
         <button class="btn" id="backBtn">Take Back</button>
         <button class="btn" id="resetBtn">New Game</button>
+        <button class="btn danger" id="stopBtn" style="display:none">Stop</button>
         <select class="depth" id="depthSel">
           <option value="5">Depth: 5</option>
           <option value="4">Depth: 4</option>
@@ -189,8 +237,7 @@
 </div>
 
 <script>
-/* ----- Bots ----- */
-let currentBot = "worst";
+/* ----- Descriptions ----- */
 const BOT_DESCS = {
   worst:    "Plays the move Stockfish considers worst.",
   random:   "Picks any legal move uniformly at random.",
@@ -201,6 +248,8 @@ const BOT_DESCS = {
 let game = new Chess();
 let board = null;
 let thinking = false;
+let stopRequested = false;
+let selectedSquare = null; // for click-to-move highlighting
 
 /* ----- Stockfish worker ----- */
 let stockfish = null;
@@ -213,14 +262,12 @@ async function initStockfish() {
   note.textContent = "Downloading engine…";
   note.className = "engine-status";
 
-  // Browsers block `new Worker(crossOriginURL)`. Fetch the script and load it as a blob.
   const sources = [
     "https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js",
     "https://cdn.jsdelivr.net/gh/nmrugg/stockfish.js@v10.0.2/example/stockfish.js",
   ];
 
-  let workerUrl = null;
-  let lastErr = null;
+  let workerUrl = null, lastErr = null;
   for (const src of sources) {
     try {
       const resp = await fetch(src);
@@ -298,7 +345,6 @@ function evaluate(fen, depth) {
   });
 }
 
-// Score from the perspective of the side to move at `fen` (mirrors python-chess relative score).
 async function evaluateRelative(fen, depth) {
   const score = await evaluate(fen, depth);
   const stm = fen.split(" ")[1];
@@ -306,8 +352,6 @@ async function evaluateRelative(fen, depth) {
 }
 
 /* ----- The four bots ----- */
-
-// I. Worst: pick the move whose resulting position is best for the opponent.
 async function botWorst(depth) {
   const moves = game.moves({ verbose: true });
   if (moves.length === 0) return null;
@@ -326,14 +370,12 @@ async function botWorst(depth) {
   return bestMove;
 }
 
-// II. Random
 function botRandom() {
   const moves = game.moves({ verbose: true });
   if (moves.length === 0) return null;
   return moves[Math.floor(Math.random() * moves.length)];
 }
 
-// III. Avoid check: among non-checking moves, pick the worst for us. If forced to check, pick random.
 async function botNoCheck(depth) {
   const moves = game.moves({ verbose: true });
   if (moves.length === 0) return null;
@@ -348,7 +390,6 @@ async function botNoCheck(depth) {
   if (nonChecking.length === 0) {
     return moves[Math.floor(Math.random() * moves.length)];
   }
-
   if (!stockfishReady) {
     console.warn("No-check bot: engine not ready, picking random non-checking move.");
     return nonChecking[Math.floor(Math.random() * nonChecking.length)];
@@ -365,7 +406,6 @@ async function botNoCheck(depth) {
   return bestMove;
 }
 
-// IV. Prioritiser: en passant > mate > check > promote(Q) > capture > castle > non-stalemate
 function botPriority() {
   const moves = game.moves({ verbose: true });
   if (moves.length === 0) return null;
@@ -413,52 +453,169 @@ function botPriority() {
   return move;
 }
 
-async function getBotMove() {
+async function botMove(botKind) {
   const depth = parseInt(document.getElementById("depthSel").value, 10);
-  switch (currentBot) {
+  switch (botKind) {
     case "worst":    return await botWorst(depth);
     case "random":   return botRandom();
     case "nocheck":  return await botNoCheck(depth);
     case "priority": return botPriority();
   }
+  return null;
 }
 
-async function makeBotMove() {
-  if (game.game_over()) return;
-  thinking = true;
-  setStatus("Bot is thinking…", "thinking");
-  await new Promise(r => setTimeout(r, 30));
-  const move = await getBotMove();
-  if (move) {
+/* ----- Player roles ----- */
+function whitePlayer() { return document.getElementById("whiteSel").value; }
+function blackPlayer() { return document.getElementById("blackSel").value; }
+function currentPlayer() {
+  return game.turn() === "w" ? whitePlayer() : blackPlayer();
+}
+function bothBots() {
+  return whitePlayer() !== "human" && blackPlayer() !== "human";
+}
+
+/* ----- Game loop: keep running while it's a bot's turn ----- */
+async function runBotsIfNeeded() {
+  while (!game.game_over() && currentPlayer() !== "human" && !stopRequested) {
+    thinking = true;
+    updateStopButton();
+    setStatus("Bot is thinking…", "thinking");
+    await new Promise(r => setTimeout(r, 30));
+
+    const move = await botMove(currentPlayer());
+    if (stopRequested) break;
+    if (!move) break;
+
     game.move(move);
     board.position(game.fen());
+    renderPgn();
+    updateStatus();
+
+    // small pause between bot moves so you can watch
+    if (bothBots() && !game.game_over()) {
+      await new Promise(r => setTimeout(r, 400));
+    }
   }
   thinking = false;
-  updateStatus();
-  renderPgn();
+  stopRequested = false;
+  updateStopButton();
+  if (!game.game_over()) updateStatus();
 }
 
-/* ----- Board ----- */
+/* ----- Click-to-move + drag highlights ----- */
+function clearHighlights() {
+  document.querySelectorAll(".square-55d63").forEach(sq => {
+    sq.classList.remove("highlight-selected", "highlight-legal", "highlight-capture");
+  });
+}
+
+function showLegalMoves(square) {
+  const moves = game.moves({ square: square, verbose: true });
+  if (moves.length === 0) return;
+  const sqEl = document.querySelector('.square-' + square);
+  if (sqEl) sqEl.classList.add("highlight-selected");
+  for (const m of moves) {
+    const target = document.querySelector('.square-' + m.to);
+    if (!target) continue;
+    target.classList.add("highlight-legal");
+    if (m.flags.includes("c") || m.flags.includes("e")) {
+      target.classList.add("highlight-capture");
+    }
+  }
+}
+
+function pieceBelongsToTurn(piece) {
+  if (!piece) return false;
+  return (game.turn() === "w" && piece[0] === "w") ||
+         (game.turn() === "b" && piece[0] === "b");
+}
+
 function onDragStart(source, piece) {
   if (thinking) return false;
   if (game.game_over()) return false;
-  if (piece.search(/^b/) !== -1) return false; // player is white
-  if (game.turn() !== "w") return false;
+  if (currentPlayer() !== "human") return false;
+  if (!pieceBelongsToTurn(piece)) return false;
+  clearHighlights();
+  showLegalMoves(source);
+  selectedSquare = null; // dragging takes over from clicking
 }
 
 function onDrop(source, target) {
+  clearHighlights();
   const move = game.move({ from: source, to: target, promotion: "q" });
   if (move === null) return "snapback";
+  selectedSquare = null;
   updateStatus();
   renderPgn();
-  setTimeout(makeBotMove, 80);
+  setTimeout(runBotsIfNeeded, 60);
 }
 
 function onSnapEnd() {
   board.position(game.fen());
 }
 
-/* ----- UI ----- */
+// chessboard.js hover events (desktop)
+function onMouseoverSquare(square, piece) {
+  if (selectedSquare) return; // don't override active click-selection
+  if (thinking || game.game_over()) return;
+  if (currentPlayer() !== "human") return;
+  if (!piece || !pieceBelongsToTurn(piece)) return;
+  showLegalMoves(square);
+}
+function onMouseoutSquare(square, piece) {
+  if (selectedSquare) return;
+  clearHighlights();
+}
+
+/* Click handler: tap a piece to select, tap a target to move (or another piece to switch). */
+function onBoardClick(e) {
+  if (thinking || game.game_over()) return;
+  if (currentPlayer() !== "human") return;
+
+  // find the square element
+  const sqEl = e.target.closest(".square-55d63");
+  if (!sqEl) return;
+  const square = sqEl.getAttribute("data-square");
+  if (!square) return;
+
+  const piece = game.get(square); // chess.js: {type, color} or null
+
+  if (selectedSquare) {
+    // Try to make a move from selectedSquare -> square
+    const legalTargets = game.moves({ square: selectedSquare, verbose: true });
+    const match = legalTargets.find(m => m.to === square);
+    if (match) {
+      game.move({ from: selectedSquare, to: square, promotion: "q" });
+      selectedSquare = null;
+      clearHighlights();
+      board.position(game.fen());
+      updateStatus();
+      renderPgn();
+      setTimeout(runBotsIfNeeded, 60);
+      return;
+    }
+    // Clicked something that isn't a legal target
+    selectedSquare = null;
+    clearHighlights();
+    // If they clicked another of their own pieces, switch selection
+    if (piece && ((game.turn() === "w" && piece.color === "w") ||
+                  (game.turn() === "b" && piece.color === "b"))) {
+      selectedSquare = square;
+      showLegalMoves(square);
+    }
+    return;
+  }
+
+  // No current selection — start one if it's their piece
+  if (piece && ((game.turn() === "w" && piece.color === "w") ||
+                (game.turn() === "b" && piece.color === "b"))) {
+    selectedSquare = square;
+    clearHighlights();
+    showLegalMoves(square);
+  }
+}
+
+/* ----- UI helpers ----- */
 function setStatus(text, cls = "") {
   const el = document.getElementById("status");
   el.textContent = text;
@@ -495,28 +652,49 @@ function renderPgn() {
   wrap.scrollTop = wrap.scrollHeight;
 }
 
-function selectBot(bot) {
-  currentBot = bot;
-  document.querySelectorAll(".bot-btn").forEach(b => {
-    b.classList.toggle("active", b.dataset.bot === bot);
-  });
-  document.getElementById("bot-desc").textContent = BOT_DESCS[bot];
-  const usesEngine = (bot === "worst" || bot === "nocheck");
+function updateBotDesc() {
+  // Describe whichever non-human players are in the game
+  const w = whitePlayer(), b = blackPlayer();
+  const parts = [];
+  if (w !== "human") parts.push("White: " + BOT_DESCS[w]);
+  if (b !== "human") parts.push("Black: " + BOT_DESCS[b]);
+  document.getElementById("bot-desc").textContent = parts.join("  ·  ");
+  // Depth selector only matters for engine-using bots
+  const usesEngine = [w, b].includes("worst") || [w, b].includes("nocheck");
   document.getElementById("depthSel").disabled = !usesEngine;
 }
 
+function updateStopButton() {
+  const stopBtn = document.getElementById("stopBtn");
+  // Show Stop while bots are running (either current side is a bot and thinking is true)
+  stopBtn.style.display = thinking ? "" : "none";
+}
+
 function newGame() {
-  if (thinking) return;
+  if (thinking) { stopRequested = true; }
   game.reset();
   board.start();
+  selectedSquare = null;
+  clearHighlights();
   updateStatus();
   renderPgn();
+  // After reset, kick the bots if white is one
+  setTimeout(runBotsIfNeeded, 100);
 }
 
 function takeBack() {
   if (thinking) return;
-  game.undo();
-  if (game.turn() !== "w") game.undo();
+  // Undo until it's a human's turn (or we run out of history)
+  let undid = 0;
+  while (game.history().length > 0) {
+    game.undo();
+    undid++;
+    if (currentPlayer() === "human") break;
+    // Safety: don't undo the whole game if nobody is human — just undo two plies
+    if (undid >= 2) break;
+  }
+  selectedSquare = null;
+  clearHighlights();
   board.position(game.fen());
   updateStatus();
   renderPgn();
@@ -530,20 +708,34 @@ window.addEventListener("DOMContentLoaded", () => {
     onDragStart: onDragStart,
     onDrop: onDrop,
     onSnapEnd: onSnapEnd,
+    onMouseoverSquare: onMouseoverSquare,
+    onMouseoutSquare: onMouseoutSquare,
     pieceTheme: "https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png",
   });
 
-  document.querySelectorAll(".bot-btn").forEach(b => {
-    b.addEventListener("click", () => selectBot(b.dataset.bot));
+  // Click-to-move
+  document.getElementById("board").addEventListener("click", onBoardClick);
+
+  document.getElementById("whiteSel").addEventListener("change", () => {
+    updateBotDesc();
+    if (!thinking) setTimeout(runBotsIfNeeded, 50);
+  });
+  document.getElementById("blackSel").addEventListener("change", () => {
+    updateBotDesc();
+    if (!thinking) setTimeout(runBotsIfNeeded, 50);
   });
   document.getElementById("resetBtn").addEventListener("click", newGame);
   document.getElementById("backBtn").addEventListener("click", takeBack);
+  document.getElementById("stopBtn").addEventListener("click", () => { stopRequested = true; });
 
-  selectBot("worst");
+  updateBotDesc();
   updateStatus();
   initStockfish();
 
   window.addEventListener("resize", () => board.resize());
+
+  // If white starts as a bot, kick the loop
+  setTimeout(runBotsIfNeeded, 100);
 });
 </script>
 </body>
