@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bad Chess Bots</title>
+<link rel="icon" href="/andewmole.png" type="image/png">
 
 <!-- chess.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
@@ -232,6 +233,17 @@
     position: relative;
     z-index: 2;
   }
+  .eval-marker-dot {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e8c060;
+    border: 1px solid #1a1a1a;
+    transform: translate(-50%, -50%);
+    z-index: 3;
+    pointer-events: none;
+  }
   /* Make table rows clickable in review mode */
   table.moves tr.move-row { cursor: pointer; }
   table.moves tr.move-row:hover td { background: #2a2a2a !important; }
@@ -317,13 +329,13 @@
         </table>
       </div>
       <div class="controls">
+        <button class="btn" id="playBtn" style="display:none">Start</button>
         <button class="btn" id="backBtn">Take Back</button>
         <button class="btn" id="resetBtn">New Game</button>
         <label class="toggle">
           <input type="checkbox" id="liveAnalysisToggle" checked>
           Live analysis
         </label>
-        <button class="btn danger" id="stopBtn" style="display:none">Stop</button>
         <select class="depth" id="depthSel">
           <option value="5">Depth: 5</option>
           <option value="4">Depth: 4</option>
@@ -340,6 +352,7 @@
         <div class="eval-graph" id="evalGraph" style="display:none">
           <div class="eval-bar"></div>
           <svg id="evalSvg" viewBox="0 0 100 80" preserveAspectRatio="none"></svg>
+          <div class="eval-marker-dot" id="evalMarkerDot" style="display:none"></div>
         </div>
         <div class="review-controls" id="reviewControls" style="display:none">
           <button class="nav-btn" id="rvStart">⏮</button>
@@ -371,6 +384,7 @@ let game = new Chess();
 let board = null;
 let thinking = false;
 let stopRequested = false;
+let paused = false; // when true, the bot loop won't auto-run; user must click Start/Resume
 let selectedSquare = null; // for click-to-move highlighting
 
 /* ----- Analysis state -----
@@ -389,13 +403,110 @@ let reviewMode = false;
 let reviewPly = 0;
 let savedFenBeforeReview = null;
 
-/* ----- Stockfish worker ----- */
-let stockfish = null;
-let stockfishReady = false;
-let pendingResolver = null;
-let pendingScore = null;
+/* ----- Stockfish engines -----
+   We run TWO independent Stockfish workers:
+     botEngine      — used by the four bots
+     analysisEngine — used by live analysis
+   Each is wrapped in an Engine instance with its own UCI state and request queue.
+   This lets analysis and bot calculation run in true parallel on separate threads. */
 
-async function initStockfish() {
+class Engine {
+  constructor(label) {
+    this.label = label;
+    this.worker = null;
+    this.ready = false;
+    this.pendingResolver = null;
+    this.pendingScore = null;
+    this.queue = Promise.resolve();
+  }
+
+  async init(workerUrl) {
+    try {
+      this.worker = new Worker(workerUrl);
+    } catch (e) {
+      console.error(`[${this.label}] Worker construction failed:`, e);
+      throw e;
+    }
+    this.worker.onmessage = (e) => {
+      const line = typeof e.data === "string" ? e.data : "";
+      if (line === "uciok") {
+        this.worker.postMessage("isready");
+      } else if (line === "readyok") {
+        if (!this.ready) {
+          this.ready = true;
+          onEngineReady(this);
+        }
+      } else if (line.startsWith("info ")) {
+        const mateMatch = line.match(/score mate (-?\d+)/);
+        const cpMatch = line.match(/score cp (-?\d+)/);
+        if (mateMatch) {
+          const m = parseInt(mateMatch[1], 10);
+          this.pendingScore = m > 0 ? 100000 - m : -100000 - m;
+        } else if (cpMatch) {
+          this.pendingScore = parseInt(cpMatch[1], 10);
+        }
+      } else if (line.startsWith("bestmove")) {
+        if (this.pendingResolver) {
+          this.pendingResolver(this.pendingScore !== null ? this.pendingScore : 0);
+        }
+      }
+    };
+    this.worker.onerror = (err) => {
+      console.error(`[${this.label}] worker error:`, err);
+    };
+    this.worker.postMessage("uci");
+  }
+
+  evaluate(fen, depth) {
+    const task = this.queue.then(() => new Promise((resolve) => {
+      if (!this.ready) { resolve(0); return; }
+      this.pendingScore = null;
+      let settled = false;
+      const finish = (val) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        this.pendingResolver = null;
+        resolve(val);
+      };
+      this.pendingResolver = (val) => finish(val);
+      const timer = setTimeout(() => {
+        console.warn(`[${this.label}] evaluate() timed out for fen=${fen} depth=${depth}`);
+        finish(this.pendingScore !== null ? this.pendingScore : 0);
+      }, 15000); // analysis at depth 12 can take longer than bot evals
+      this.worker.postMessage("stop");
+      this.worker.postMessage("position fen " + fen);
+      this.worker.postMessage("go depth " + depth);
+    }));
+    this.queue = task.catch(() => {});
+    return task;
+  }
+}
+
+const botEngine = new Engine("bot");
+const analysisEngine = new Engine("analysis");
+
+// Called when either engine signals readyok for the first time.
+function onEngineReady(engine) {
+  const note = document.getElementById("engineStatus");
+  // Show overall status reflecting both engines.
+  const states = [];
+  if (botEngine.ready) states.push("bot engine ready");
+  if (analysisEngine.ready) states.push("analysis engine ready");
+  if (botEngine.ready && analysisEngine.ready) {
+    note.textContent = "Both engines ready";
+    note.className = "engine-status ready";
+  } else {
+    note.textContent = states.join(", ") + "…";
+    note.className = "engine-status";
+  }
+  // Kick live analysis if it's the analysis engine becoming ready (or as a fallback if bot is ready and analysis never loaded)
+  if (engine === analysisEngine || (engine === botEngine && !analysisEngine.worker)) {
+    scheduleLiveAnalysis();
+  }
+}
+
+async function initEngines() {
   const note = document.getElementById("engineStatus");
   note.textContent = "Downloading engine…";
   note.className = "engine-status";
@@ -412,6 +523,7 @@ async function initStockfish() {
       if (!resp.ok) { lastErr = "HTTP " + resp.status + " from " + src; continue; }
       const code = await resp.text();
       const blob = new Blob([code], { type: "application/javascript" });
+      // Two workers can share the same blob URL safely.
       workerUrl = URL.createObjectURL(blob);
       break;
     } catch (e) {
@@ -426,97 +538,51 @@ async function initStockfish() {
     return;
   }
 
-  try {
-    stockfish = new Worker(workerUrl);
-  } catch (e) {
-    console.error("Worker construction failed:", e);
-    note.textContent = "Engine unavailable: " + e.message;
-    note.className = "engine-status error";
-    return;
-  }
-
-  stockfish.onmessage = (e) => {
-    const line = typeof e.data === "string" ? e.data : "";
-    if (line === "uciok") {
-      stockfish.postMessage("isready");
-    } else if (line === "readyok") {
-      if (!stockfishReady) {
-        stockfishReady = true;
-        note.textContent = "Engine ready";
-        note.className = "engine-status ready";
-        // If a game is already in progress, start live analysis now.
-        scheduleLiveAnalysis();
-      }
-    } else if (line.startsWith("info ")) {
-      const mateMatch = line.match(/score mate (-?\d+)/);
-      const cpMatch = line.match(/score cp (-?\d+)/);
-      if (mateMatch) {
-        const m = parseInt(mateMatch[1], 10);
-        pendingScore = m > 0 ? 100000 - m : -100000 - m;
-      } else if (cpMatch) {
-        pendingScore = parseInt(cpMatch[1], 10);
-      }
-    } else if (line.startsWith("bestmove")) {
-      if (pendingResolver) {
-        pendingResolver(pendingScore !== null ? pendingScore : 0);
-      }
+  note.textContent = "Initialising engines…";
+  // Start both workers in parallel. If one fails, the other still works.
+  const results = await Promise.allSettled([
+    botEngine.init(workerUrl),
+    analysisEngine.init(workerUrl),
+  ]);
+  results.forEach((r, i) => {
+    const name = i === 0 ? "bot" : "analysis";
+    if (r.status === "rejected") {
+      console.error(`${name} engine failed to start:`, r.reason);
     }
-  };
-  stockfish.onerror = (err) => {
-    console.error("Stockfish worker error:", err);
-    note.textContent = "Engine error: " + (err.message || "see console");
+  });
+  // If only one started, that's fine — we'll fall back where needed.
+  if (!botEngine.worker && !analysisEngine.worker) {
+    note.textContent = "Engine unavailable";
     note.className = "engine-status error";
-  };
-  note.textContent = "Initialising engine…";
-  stockfish.postMessage("uci");
+  }
 }
 
-/* Engine request queue. Stockfish cannot reliably handle overlapping `go`s,
-   and a missed `bestmove` would leave the loop hung forever. We process one
-   request at a time and time each out as a safety net. */
-let engineQueue = Promise.resolve();
-
-function evaluate(fen, depth) {
-  // Chain onto the queue so two evaluate() calls never race.
-  const task = engineQueue.then(() => new Promise((resolve) => {
-    if (!stockfishReady) { resolve(0); return; }
-
-    pendingScore = null;
-    let settled = false;
-
-    const finish = (val) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      pendingResolver = null;
-      resolve(val);
-    };
-
-    pendingResolver = (val) => finish(val);
-
-    // Safety net: if Stockfish never replies, don't hang forever.
-    // Depth 5 on a worst-case position takes ~1s, so 8s is generous.
-    const timer = setTimeout(() => {
-      console.warn("Stockfish evaluate() timed out for fen=" + fen + " depth=" + depth);
-      finish(pendingScore !== null ? pendingScore : 0);
-    }, 8000);
-
-    // `stop` cancels any lingering search, then `position` + `go` starts fresh.
-    // No `ucinewgame` per call — the engine handles distinct positions fine
-    // and ucinewgame seems to occasionally cause it to swallow the next bestmove.
-    stockfish.postMessage("stop");
-    stockfish.postMessage("position fen " + fen);
-    stockfish.postMessage("go depth " + depth);
-  }));
-  engineQueue = task.catch(() => {}); // keep the chain alive even if something throws
-  return task;
+// Public eval functions that route to the right engine.
+function evaluateForBot(fen, depth) {
+  if (botEngine.ready) return botEngine.evaluate(fen, depth);
+  if (analysisEngine.ready) return analysisEngine.evaluate(fen, depth);
+  return Promise.resolve(0);
+}
+function evaluateForAnalysis(fen, depth) {
+  if (analysisEngine.ready) return analysisEngine.evaluate(fen, depth);
+  if (botEngine.ready) return botEngine.evaluate(fen, depth);
+  return Promise.resolve(0);
 }
 
 async function evaluateRelative(fen, depth) {
-  const score = await evaluate(fen, depth);
+  // Used by bots — route to bot engine.
+  const score = await evaluateForBot(fen, depth);
   const stm = fen.split(" ")[1];
   return stm === "w" ? score : -score;
 }
+
+// Compatibility: anywhere that used to call evaluate() goes through the bot engine.
+function evaluate(fen, depth) { return evaluateForBot(fen, depth); }
+
+// stockfishReady is used by older code paths — keep it as a derived flag.
+Object.defineProperty(window, "stockfishReady", {
+  get: () => botEngine.ready || analysisEngine.ready,
+});
 
 /* ===== Game analysis (live) ===== */
 
@@ -591,14 +657,14 @@ async function backgroundAnalyze() {
       continue;
     }
 
-    // If a bot is currently calculating, don't compete — wait a moment and re-check.
-    if (thinking) {
+    // If the analysis engine is the bot fallback (only one engine loaded), pause while bots think.
+    if (!analysisEngine.ready && thinking) {
       await new Promise(r => setTimeout(r, 250));
       continue;
     }
 
     const targetFen = fens[nextIdx];
-    const cp = await evaluate(targetFen, ANALYSIS_DEPTH);
+    const cp = await evaluateForAnalysis(targetFen, ANALYSIS_DEPTH);
 
     // If the game moved on while we were evaluating, that's fine — the result is still valid for this FEN.
     // (FENs uniquely identify a position; we cache by FEN, not by ply index.)
@@ -650,6 +716,19 @@ function refreshAnalysisUI() {
   if (analyzed >= 2) {
     graphWrap.style.display = "";
     drawEvalGraph(data.evals);
+    // Click-to-scrub: clicking the graph jumps to the nearest ply.
+    if (!graphWrap.dataset.clickWired) {
+      graphWrap.addEventListener("click", (e) => {
+        const cur = buildAnalysisData();
+        if (!cur) return;
+        const rect = graphWrap.getBoundingClientRect();
+        const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const ply = Math.round(frac * (cur.fens.length - 1));
+        if (!reviewMode) enterReviewMode(ply); else jumpToPly(ply);
+      });
+      graphWrap.style.cursor = "pointer";
+      graphWrap.dataset.clickWired = "1";
+    }
   } else {
     graphWrap.style.display = "none";
   }
@@ -662,8 +741,6 @@ function refreshAnalysisUI() {
 
 function drawEvalGraph(evals) {
   // Eval is in centipawns from White's POV. Clamp to ±1000cp (±10 pawns) for display.
-  // Null entries (not yet analyzed) are skipped; we draw line segments between known points
-  // and a dashed continuation if any are missing in the tail.
   const CLAMP = 1000;
   const svg = document.getElementById("evalSvg");
   const n = evals.length;
@@ -676,15 +753,37 @@ function drawEvalGraph(evals) {
   // Build the line over known points.
   const pts = [];
   for (let i = 0; i < n; i++) {
-    if (evals[i] != null) pts.push([toX(i), toY(evals[i])]);
+    if (evals[i] != null) pts.push({ idx: i, x: toX(i), y: toY(evals[i]) });
   }
   if (pts.length < 2) { svg.innerHTML = ""; return; }
-  let linePath = "M " + pts[0][0] + " " + pts[0][1];
-  for (let i = 1; i < pts.length; i++) linePath += " L " + pts[i][0] + " " + pts[i][1];
-  let areaPath = linePath + ` L ${pts[pts.length - 1][0]} 80 L ${pts[0][0]} 80 Z`;
+  let linePath = "M " + pts[0].x + " " + pts[0].y;
+  for (let i = 1; i < pts.length; i++) linePath += " L " + pts[i].x + " " + pts[i].y;
+  let areaPath = linePath + ` L ${pts[pts.length - 1].x} 80 L ${pts[0].x} 80 Z`;
+
+  // Vertical marker line at the currently-viewed ply (only meaningful in review mode).
+  // The marker DOT is a CSS-positioned HTML element below — using SVG would
+  // get stretched horizontally because preserveAspectRatio="none".
+  let marker = "";
+  const dot = document.getElementById("evalMarkerDot");
+  if (reviewMode && reviewPly >= 0 && reviewPly < n) {
+    const mx = toX(reviewPly);
+    marker += `<line x1="${mx}" y1="0" x2="${mx}" y2="80" stroke="#e8c060" stroke-width="0.6" vector-effect="non-scaling-stroke"/>`;
+    if (evals[reviewPly] != null) {
+      // Position the dot via CSS percent coordinates (which use the rendered pixel grid, not the SVG viewBox).
+      dot.style.left = (mx) + "%";
+      dot.style.top = ((toY(evals[reviewPly]) / 80) * 100) + "%";
+      dot.style.display = "";
+    } else {
+      dot.style.display = "none";
+    }
+  } else if (dot) {
+    dot.style.display = "none";
+  }
+
   svg.innerHTML = `
     <path d="${areaPath}" fill="rgba(106,163,214,0.18)" stroke="none"/>
     <path d="${linePath}" fill="none" stroke="#6ba3d6" stroke-width="0.8" vector-effect="non-scaling-stroke"/>
+    ${marker}
   `;
 }
 
@@ -704,7 +803,8 @@ function jumpToPly(ply) {
   for (let i = 0; i < reviewPly; i++) replay.move(history[i]);
   board.position(replay.fen());
   document.getElementById("reviewControls").style.display = "";
-  renderPgn(); // re-render to update .active highlight
+  drawEvalGraph(data.evals); // marker follows current ply
+  renderPgn();               // update .active highlight
   updateReviewNavButtons();
 }
 
@@ -721,8 +821,12 @@ function exitReviewMode() {
   reviewMode = false;
   board.position(game.fen());
   document.getElementById("reviewControls").style.display = "none";
+  // Redraw graph without the marker
+  const data = buildAnalysisData();
+  if (data) drawEvalGraph(data.evals);
   renderPgn();
   updateStatus();
+  updatePlayButton();
   // If a bot was on the move when review started, resume play.
   setTimeout(runBotsIfNeeded, 100);
 }
@@ -850,16 +954,17 @@ function bothBots() {
   return whitePlayer() !== "human" && blackPlayer() !== "human";
 }
 
-/* ----- Game loop: keep running while it's a bot's turn ----- */
+/* ----- Game loop: keep running while it's a bot's turn (and we're not paused) ----- */
 async function runBotsIfNeeded() {
-  while (!game.game_over() && currentPlayer() !== "human" && !stopRequested) {
+  if (paused) { updatePlayButton(); return; }
+  while (!game.game_over() && currentPlayer() !== "human" && !stopRequested && !paused) {
     thinking = true;
-    updateStopButton();
+    updatePlayButton();
     setStatus("Bot is thinking…", "thinking");
     await new Promise(r => setTimeout(r, 30));
 
     const move = await botMove(currentPlayer());
-    if (stopRequested) break;
+    if (stopRequested || paused) break;
     if (!move) break;
 
     game.move(move);
@@ -875,7 +980,7 @@ async function runBotsIfNeeded() {
   }
   thinking = false;
   stopRequested = false;
-  updateStopButton();
+  updatePlayButton();
   if (!game.game_over()) updateStatus();
 }
 
@@ -1052,10 +1157,26 @@ function updateBotDesc() {
   document.getElementById("depthSel").disabled = !usesEngine;
 }
 
-function updateStopButton() {
-  const stopBtn = document.getElementById("stopBtn");
-  // Show Stop while bots are running (either current side is a bot and thinking is true)
-  stopBtn.style.display = thinking ? "" : "none";
+function updatePlayButton() {
+  const btn = document.getElementById("playBtn");
+  // Hidden when no bot would need to move next
+  const botToMove = !game.game_over() && currentPlayer() !== "human";
+  if (!botToMove) {
+    btn.style.display = "none";
+    return;
+  }
+  btn.style.display = "";
+  if (thinking) {
+    btn.textContent = "Pause";
+    btn.classList.remove("danger");
+  } else if (paused) {
+    // Mid-game pause vs. pre-game depending on history
+    btn.textContent = game.history().length === 0 ? "Start" : "Resume";
+    btn.classList.remove("danger");
+  } else {
+    // bot waiting to start but not paused — likely between turns
+    btn.textContent = "Pause";
+  }
 }
 
 function newGame() {
@@ -1069,9 +1190,12 @@ function newGame() {
   board.start();
   selectedSquare = null;
   clearHighlights();
+  // Bot vs bot starts paused (user clicks Start). Otherwise auto-play.
+  paused = bothBots();
   updateStatus();
   refreshAnalysisUI(); // re-render PGN + reset analysis panel
-  // After reset, kick the bots if white is one
+  updatePlayButton();
+  // After reset, kick the bots if white is one and we're not paused
   setTimeout(runBotsIfNeeded, 100);
 }
 
@@ -1094,6 +1218,7 @@ function takeBack() {
   clearHighlights();
   board.position(game.fen());
   updateStatus();
+  updatePlayButton();
   // Evals are cached by FEN so they remain valid for any position we revisit.
   liveAnalysisGen++;
   refreshAnalysisUI();
@@ -1115,15 +1240,42 @@ window.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("whiteSel").addEventListener("change", () => {
     updateBotDesc();
-    if (!thinking) setTimeout(runBotsIfNeeded, 50);
+    // If switching INTO bot-vs-bot, pause until the user clicks Start.
+    // Otherwise (a human is now in the game), let the bots respond normally.
+    if (bothBots()) {
+      paused = true;
+    } else {
+      paused = false;
+    }
+    updatePlayButton();
+    if (!thinking && !paused) setTimeout(runBotsIfNeeded, 50);
   });
   document.getElementById("blackSel").addEventListener("change", () => {
     updateBotDesc();
-    if (!thinking) setTimeout(runBotsIfNeeded, 50);
+    if (bothBots()) {
+      paused = true;
+    } else {
+      paused = false;
+    }
+    updatePlayButton();
+    if (!thinking && !paused) setTimeout(runBotsIfNeeded, 50);
   });
   document.getElementById("resetBtn").addEventListener("click", newGame);
   document.getElementById("backBtn").addEventListener("click", takeBack);
-  document.getElementById("stopBtn").addEventListener("click", () => { stopRequested = true; });
+  document.getElementById("playBtn").addEventListener("click", () => {
+    if (thinking) {
+      // Pause: request a stop after current move completes
+      paused = true;
+      stopRequested = true;
+      updatePlayButton();
+    } else {
+      // Start or Resume
+      paused = false;
+      stopRequested = false;
+      updatePlayButton();
+      setTimeout(runBotsIfNeeded, 30);
+    }
+  });
   document.getElementById("liveAnalysisToggle").addEventListener("change", (e) => {
     liveAnalysisEnabled = e.target.checked;
     if (liveAnalysisEnabled) {
@@ -1157,11 +1309,14 @@ window.addEventListener("DOMContentLoaded", () => {
 
   updateBotDesc();
   updateStatus();
-  initStockfish();
+  // Pause initially if both players are bots (default has Black as a bot, White as human, so this is false by default)
+  paused = bothBots();
+  updatePlayButton();
+  initEngines();
 
   window.addEventListener("resize", () => board.resize());
 
-  // If white starts as a bot, kick the loop
+  // If white starts as a bot and we're not paused, kick the loop
   setTimeout(runBotsIfNeeded, 100);
 });
 </script>
