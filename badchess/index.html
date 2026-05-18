@@ -204,6 +204,25 @@
     font-size: 16px;
     color: #f0f0f0;
   }
+  .analysis-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .analysis-header h3 { margin: 0; }
+  .depth-row-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #aaa;
+  }
+  .depth-mini {
+    margin-left: 6px;
+    padding: 4px 6px !important;
+    font-size: 12px !important;
+  }
   .analysis-progress {
     font-size: 12px;
     color: #aaa;
@@ -296,21 +315,25 @@
       <label for="whiteSel">White</label>
       <select id="whiteSel">
         <option value="human" selected>Human</option>
+        <option value="best">Best moves bot</option>
         <option value="worst">Worst moves bot</option>
         <option value="random">Random moves bot</option>
         <option value="nocheck">Avoid checking bot</option>
         <option value="priority">Prioritiser bot</option>
       </select>
+      <select id="whiteDepthSel" class="depth depth-mini" style="display:none" title="Engine depth for White"></select>
     </div>
     <div class="player-pick">
       <label for="blackSel">Black</label>
       <select id="blackSel">
         <option value="human">Human</option>
+        <option value="best">Best moves bot</option>
         <option value="worst" selected>Worst moves bot</option>
         <option value="random">Random moves bot</option>
         <option value="nocheck">Avoid checking bot</option>
         <option value="priority">Prioritiser bot</option>
       </select>
+      <select id="blackDepthSel" class="depth depth-mini" style="display:none" title="Engine depth for Black"></select>
     </div>
   </div>
 
@@ -336,18 +359,17 @@
           <input type="checkbox" id="liveAnalysisToggle" checked>
           Live analysis
         </label>
-        <select class="depth" id="depthSel">
-          <option value="5">Depth: 5</option>
-          <option value="4">Depth: 4</option>
-          <option value="3" selected>Depth: 3</option>
-          <option value="2">Depth: 2</option>
-          <option value="1">Depth: 1</option>
-        </select>
       </div>
       <div class="engine-status" id="engineStatus">Loading engine…</div>
 
       <div class="analysis-section" id="analysisSection">
-        <h3>Evaluation</h3>
+        <div class="analysis-header">
+          <h3>Evaluation</h3>
+          <label class="depth-row-inline">
+            <span>Depth</span>
+            <select class="depth" id="analysisDepthSel"></select>
+          </label>
+        </div>
         <div class="analysis-progress" id="analysisProgress">Live analysis will start once a move is played.</div>
         <div class="eval-graph" id="evalGraph" style="display:none">
           <div class="eval-bar"></div>
@@ -374,6 +396,7 @@
 <script>
 /* ----- Descriptions ----- */
 const BOT_DESCS = {
+  best:     "Plays the move Stockfish considers best at the chosen depth.",
   worst:    "Plays the move Stockfish considers worst.",
   random:   "Picks any legal move uniformly at random.",
   nocheck:  "Avoids giving check whenever possible.",
@@ -393,11 +416,16 @@ let selectedSquare = null; // for click-to-move highlighting
    - Per-render, we derive arrays of evals and classifications by walking the current game's history.
    
    reviewMode: when true, the board is showing a historical position and play is paused. */
-const ANALYSIS_DEPTH = 12;
+function getAnalysisDepth() {
+  const el = document.getElementById("analysisDepthSel");
+  return el ? (parseInt(el.value, 10) || 12) : 12;
+}
+
 let evalsByFen = new Map();      // fen string -> cp eval from White's POV
 let liveAnalysisEnabled = true;
 let liveAnalysisRunning = false; // a backgroundAnalyze loop is in flight
 let liveAnalysisGen = 0;         // bumped on every move; running loops bail when stale
+let evalsAtDepth = null;         // tracks the depth at which evalsByFen was populated; used for cache invalidation on depth change
 
 let reviewMode = false;
 let reviewPly = 0;
@@ -470,10 +498,13 @@ class Engine {
         resolve(val);
       };
       this.pendingResolver = (val) => finish(val);
+      // Scale timeout with depth — deep searches can take a while.
+      // depth 5 ~ a few hundred ms, depth 12 ~ 1-3s, depth 15 ~ 5-30s in tactical positions.
+      const timeoutMs = Math.max(8000, depth * 5000);
       const timer = setTimeout(() => {
         console.warn(`[${this.label}] evaluate() timed out for fen=${fen} depth=${depth}`);
         finish(this.pendingScore !== null ? this.pendingScore : 0);
-      }, 15000); // analysis at depth 12 can take longer than bot evals
+      }, timeoutMs);
       this.worker.postMessage("stop");
       this.worker.postMessage("position fen " + fen);
       this.worker.postMessage("go depth " + depth);
@@ -664,7 +695,9 @@ async function backgroundAnalyze() {
     }
 
     const targetFen = fens[nextIdx];
-    const cp = await evaluateForAnalysis(targetFen, ANALYSIS_DEPTH);
+    const targetDepth = getAnalysisDepth();
+    evalsAtDepth = targetDepth; // record what depth the cache is at
+    const cp = await evaluateForAnalysis(targetFen, targetDepth);
 
     // If the game moved on while we were evaluating, that's fine — the result is still valid for this FEN.
     // (FENs uniquely identify a position; we cache by FEN, not by ply index.)
@@ -706,10 +739,11 @@ function refreshAnalysisUI() {
 
   const totalPositions = data.fens.length;
   const analyzed = data.evals.filter(e => e != null).length;
+  const depthNow = getAnalysisDepth();
   if (analyzed < totalPositions) {
-    progress.textContent = `Analyzing… ${analyzed} / ${totalPositions} positions evaluated (depth ${ANALYSIS_DEPTH}).`;
+    progress.textContent = `Analyzing… ${analyzed} / ${totalPositions} positions evaluated (depth ${depthNow}).`;
   } else {
-    progress.textContent = `All ${totalPositions} positions evaluated at depth ${ANALYSIS_DEPTH}. Click any move to review.`;
+    progress.textContent = `All ${totalPositions} positions evaluated at depth ${depthNow}. Click any move to review.`;
   }
 
   // Show graph as soon as we have at least 2 evals (otherwise nothing to draw)
@@ -850,6 +884,27 @@ async function botWorst(depth) {
   return bestMove;
 }
 
+// Best: pick the move whose resulting position is worst for the opponent
+// (= lowest relative score from their perspective, = best for us).
+// Symmetric to botWorst with the comparison flipped.
+async function botBest(depth) {
+  const moves = game.moves({ verbose: true });
+  if (moves.length === 0) return null;
+  if (!stockfishReady) {
+    console.warn("Best bot: engine not ready, falling back to random.");
+    return moves[Math.floor(Math.random() * moves.length)];
+  }
+  let bestMove = moves[0];
+  let bestScore = Infinity;
+  for (const m of moves) {
+    game.move(m);
+    const score = await evaluateRelative(game.fen(), depth);
+    game.undo();
+    if (score < bestScore) { bestScore = score; bestMove = m; }
+  }
+  return bestMove;
+}
+
 function botRandom() {
   const moves = game.moves({ verbose: true });
   if (moves.length === 0) return null;
@@ -934,8 +989,12 @@ function botPriority() {
 }
 
 async function botMove(botKind) {
-  const depth = parseInt(document.getElementById("depthSel").value, 10);
+  // Use the depth for whichever side is on the move.
+  const side = game.turn() === "w" ? "white" : "black";
+  const depthEl = document.getElementById(side === "white" ? "whiteDepthSel" : "blackDepthSel");
+  const depth = parseInt(depthEl.value, 10) || 3;
   switch (botKind) {
+    case "best":     return await botBest(depth);
     case "worst":    return await botWorst(depth);
     case "random":   return botRandom();
     case "nocheck":  return await botNoCheck(depth);
@@ -1152,9 +1211,10 @@ function updateBotDesc() {
   if (w !== "human") parts.push("White: " + BOT_DESCS[w]);
   if (b !== "human") parts.push("Black: " + BOT_DESCS[b]);
   document.getElementById("bot-desc").textContent = parts.join("  ·  ");
-  // Depth selector only matters for engine-using bots
-  const usesEngine = [w, b].includes("worst") || [w, b].includes("nocheck");
-  document.getElementById("depthSel").disabled = !usesEngine;
+  // Per-player depth selectors only show for engine-using bots
+  const engineBots = ["best", "worst", "nocheck"];
+  document.getElementById("whiteDepthSel").style.display = engineBots.includes(w) ? "" : "none";
+  document.getElementById("blackDepthSel").style.display = engineBots.includes(b) ? "" : "none";
 }
 
 function updatePlayButton() {
@@ -1237,6 +1297,26 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // Click-to-move
   document.getElementById("board").addEventListener("click", onBoardClick);
+
+  // Populate depth selectors. Bots: 1..20 (default 3). Analysis: 1..20 (default 12).
+  const DEPTHS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
+  function populateDepthSel(id, defaultDepth) {
+    const sel = document.getElementById(id);
+    sel.innerHTML = DEPTHS.map(d =>
+      `<option value="${d}"${d === defaultDepth ? " selected" : ""}>Depth ${d}</option>`
+    ).join("");
+  }
+  populateDepthSel("whiteDepthSel", 3);
+  populateDepthSel("blackDepthSel", 3);
+  populateDepthSel("analysisDepthSel", 12);
+
+  // Analysis depth change: invalidate cache and re-analyze at new depth.
+  document.getElementById("analysisDepthSel").addEventListener("change", () => {
+    evalsByFen.clear();
+    liveAnalysisGen++;
+    refreshAnalysisUI();
+    if (liveAnalysisEnabled) scheduleLiveAnalysis();
+  });
 
   document.getElementById("whiteSel").addEventListener("change", () => {
     updateBotDesc();
