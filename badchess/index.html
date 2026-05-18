@@ -446,6 +446,9 @@ class Engine {
     this.pendingResolver = null;
     this.pendingScore = null;
     this.queue = Promise.resolve();
+    this._reqCounter = 0;
+    this.activeReq = null; // request ID currently being evaluated, or null between requests
+    this.needsStop = false; // true if a prior request timed out without the engine acknowledging
   }
 
   async init(workerUrl) {
@@ -465,6 +468,8 @@ class Engine {
           onEngineReady(this);
         }
       } else if (line.startsWith("info ")) {
+        // Only record scores when a request is actively in flight.
+        if (this.activeReq === null) return;
         const mateMatch = line.match(/score mate (-?\d+)/);
         const cpMatch = line.match(/score cp (-?\d+)/);
         if (mateMatch) {
@@ -474,7 +479,7 @@ class Engine {
           this.pendingScore = parseInt(cpMatch[1], 10);
         }
       } else if (line.startsWith("bestmove")) {
-        if (this.pendingResolver) {
+        if (this.activeReq !== null && this.pendingResolver) {
           this.pendingResolver(this.pendingScore !== null ? this.pendingScore : 0);
         }
       }
@@ -488,24 +493,35 @@ class Engine {
   evaluate(fen, depth) {
     const task = this.queue.then(() => new Promise((resolve) => {
       if (!this.ready) { resolve(0); return; }
+      const reqId = ++this._reqCounter;
+      this.activeReq = reqId;
       this.pendingScore = null;
       let settled = false;
       const finish = (val) => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
+        this.activeReq = null;
         this.pendingResolver = null;
         resolve(val);
       };
       this.pendingResolver = (val) => finish(val);
       // Scale timeout with depth — deep searches can take a while.
-      // depth 5 ~ a few hundred ms, depth 12 ~ 1-3s, depth 15 ~ 5-30s in tactical positions.
+      // depth 5 ~ a few hundred ms, depth 12 ~ 1-3s, depth 20 ~ 30-100s in tactical positions.
       const timeoutMs = Math.max(8000, depth * 5000);
       const timer = setTimeout(() => {
         console.warn(`[${this.label}] evaluate() timed out for fen=${fen} depth=${depth}`);
+        this.needsStop = true; // engine may still be searching; cancel it before next request
         finish(this.pendingScore !== null ? this.pendingScore : 0);
       }, timeoutMs);
-      this.worker.postMessage("stop");
+      // Send `stop` only if the previous request timed out (engine may still be searching).
+      // In the normal case where bestmove fired, the engine is idle and `stop` is unnecessary
+      // — and worse, interleaving stop/position/go can cause the engine to return shallow
+      // scores from interrupted searches, which is what was breaking the Best/Worst bots.
+      if (this.needsStop) {
+        this.worker.postMessage("stop");
+        this.needsStop = false;
+      }
       this.worker.postMessage("position fen " + fen);
       this.worker.postMessage("go depth " + depth);
     }));
