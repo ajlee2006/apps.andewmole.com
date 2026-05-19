@@ -381,6 +381,7 @@
         <button class="btn" id="backBtn">Take Back</button>
         <button class="btn" id="resetBtn">New Game</button>
         <button class="btn" id="shareBtn">Share</button>
+        <button class="btn" id="replayBtn" style="display:none">Replay</button>
         <label class="toggle">
           <input type="checkbox" id="liveAnalysisToggle" checked>
           Live analysis
@@ -563,6 +564,11 @@ class Engine {
         this.worker.postMessage("stop");
         this.needsStop = false;
       }
+      // Reset Stockfish's internal state before each search. Without this,
+      // accumulated transposition-table entries from earlier candidate searches
+      // occasionally trigger deep extensions, making one candidate take 30-60s
+      // while siblings finish in <1s.
+      this.worker.postMessage("ucinewgame");
       if (window.DEBUG_ENGINE) console.log(`[${this.label}] -> position fen ${fen}; go depth ${depth}`);
       this.worker.postMessage("position fen " + fen);
       this.worker.postMessage("go depth " + depth);
@@ -924,6 +930,32 @@ function exitReviewMode() {
   setTimeout(runBotsIfNeeded, 100);
 }
 
+let replayRunning = false;
+let replayCancelled = false;
+
+async function playReplay() {
+  if (replayRunning) { replayCancelled = true; return; }
+  const total = game.history().length;
+  if (total === 0) return;
+  replayRunning = true;
+  replayCancelled = false;
+  enterReviewMode(0);
+  const btn = document.getElementById("replayBtn");
+  btn.style.display = "";
+  btn.textContent = "Stop replay";
+  // Step ply-by-ply with a delay so the user can see each move.
+  for (let p = 1; p <= total; p++) {
+    if (replayCancelled) break;
+    await new Promise(r => setTimeout(r, 700));
+    if (replayCancelled) break;
+    jumpToPly(p);
+  }
+  replayRunning = false;
+  replayCancelled = false;
+  btn.textContent = "Replay";
+  updateStatus(); // re-evaluate button visibility
+}
+
 /* ----- The four bots ----- */
 async function botWorst(depth) {
   if (!stockfishReady) {
@@ -945,12 +977,21 @@ async function botWorst(depth) {
   for (let i = 0; i < moves.length; i++) {
     const m = moves[i];
     sandbox.move(m);
-    const whitePov = await evaluateWhitePOV(sandbox.fen(), depth);
+    // Worst bot preference: LOSING > DRAW > WINNING.
+    // Override the engine score for terminal/drawn outcomes so they sort correctly:
+    //   loss (we get mated) → -∞  (best for Worst)
+    //   draw (stalemate / 50-move / repetition / insufficient material) → +50000  (avoid unless only alternative is winning)
+    //   normal → Stockfish eval
+    let ourScore;
+    if (sandbox.in_stalemate() || sandbox.in_draw()) {
+      ourScore = 50000;
+    } else {
+      const whitePov = await evaluateWhitePOV(sandbox.fen(), depth);
+      ourScore = weAreWhite ? whitePov : -whitePov;
+    }
     sandbox.undo();
-    const ourScore = weAreWhite ? whitePov : -whitePov;
     if (ourScore < chosenScoreForUs) { chosenScoreForUs = ourScore; chosen = m; }
     botProgress(i + 1, moves.length);
-    // For the WORST bot, the worst-for-us move is one where we get mated → score is very negative.
     if (chosenScoreForUs <= -90000) break;
   }
   return chosen;
@@ -1189,9 +1230,10 @@ function onDragStart(source, piece) {
   if (game.game_over()) return false;
   if (currentPlayer() !== "human") return false;
   if (!pieceBelongsToTurn(piece)) return false;
+  // Don't clear selection here — a tap will look like a drag-start at mousedown but never produces a real drop.
+  // We'll clear in onDrop (real drag) or in handleTap (tap completed).
   clearHighlights();
   showLegalMoves(source);
-  selectedSquare = null; // dragging takes over from clicking
 }
 
 function onDrop(source, target) {
@@ -1207,6 +1249,8 @@ function onDrop(source, target) {
 
 function onSnapEnd() {
   board.position(game.fen());
+  // board.position rebuilds DOM and wipes highlight classes; re-apply if we have a selection.
+  if (selectedSquare) showLegalMoves(selectedSquare);
 }
 
 /* Click-to-move via tap detection.
@@ -1308,6 +1352,11 @@ function updateStatus() {
     setStatus(color + " to move, " + color + " is in check");
   } else {
     setStatus(color + " to move");
+  }
+  // Replay button: visible only when the game has ended and there are moves to replay.
+  const replayBtn = document.getElementById("replayBtn");
+  if (replayBtn) {
+    replayBtn.style.display = (game.game_over() && game.history().length > 0 && !replayRunning) ? "" : "none";
   }
 }
 
@@ -1651,6 +1700,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // Share button
   document.getElementById("shareBtn").addEventListener("click", shareGame);
+  document.getElementById("replayBtn").addEventListener("click", playReplay);
 
   // Apply any state encoded in the URL. Depth selectors must already be populated by this point.
   const loadedFromUrl = loadStateFromUrl();
