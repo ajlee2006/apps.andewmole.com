@@ -182,6 +182,31 @@
   }
   .engine-status.ready { color: #7ab87a; }
   .engine-status.error { color: #d97a7a; }
+
+  .share-toast {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: #1f2a1f;
+    border: 1px solid #3c5a3c;
+    color: #b8d8b8;
+    border-radius: 3px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .share-toast.error { background: #2a1f1f; border-color: #5a3c3c; color: #d8b8b8; }
+  .share-toast input {
+    flex: 1;
+    min-width: 0;
+    background: #0e0e0e;
+    border: 1px solid #444;
+    color: #e0e0e0;
+    padding: 4px 8px;
+    border-radius: 2px;
+    font-family: monospace;
+    font-size: 12px;
+  }
   footer {
     margin-top: 30px;
     padding: 16px 24px;
@@ -355,11 +380,13 @@
         <button class="btn" id="playBtn" style="display:none">Start</button>
         <button class="btn" id="backBtn">Take Back</button>
         <button class="btn" id="resetBtn">New Game</button>
+        <button class="btn" id="shareBtn">Share</button>
         <label class="toggle">
           <input type="checkbox" id="liveAnalysisToggle" checked>
           Live analysis
         </label>
       </div>
+      <div class="share-toast" id="shareToast" style="display:none"></div>
       <div class="engine-status" id="engineStatus">Loading engine…</div>
 
       <div class="analysis-section" id="analysisSection">
@@ -408,6 +435,7 @@ let board = null;
 let thinking = false;
 let stopRequested = false;
 let paused = false; // when true, the bot loop won't auto-run; user must click Start/Resume
+let botLoopGen = 0; // bumped to invalidate any in-flight bot loop iteration
 let selectedSquare = null; // for click-to-move highlighting
 
 /* ----- Analysis state -----
@@ -445,6 +473,7 @@ class Engine {
     this.ready = false;
     this.pendingResolver = null;
     this.pendingScore = null;
+    this.pendingDepth = 0;
     this.queue = Promise.resolve();
     this._reqCounter = 0;
     this.activeReq = null; // request ID currently being evaluated, or null between requests
@@ -460,6 +489,7 @@ class Engine {
     }
     this.worker.onmessage = (e) => {
       const line = typeof e.data === "string" ? e.data : "";
+      if (window.DEBUG_ENGINE) console.log(`[${this.label}] <- ${line}`);
       if (line === "uciok") {
         this.worker.postMessage("isready");
       } else if (line === "readyok") {
@@ -470,19 +500,22 @@ class Engine {
       } else if (line.startsWith("info ")) {
         // Only record scores when a request is actively in flight.
         if (this.activeReq === null) return;
-        // Skip aspiration-window failures — `lowerbound`/`upperbound` scores
-        // are NOT real evaluations; they only indicate the search's window
-        // overflowed. The next info line will have the refined score.
-        // (Latching onto one of these and then resolving on `bestmove` was
-        // the source of the Best/Worst bots picking horrendous moves.)
+        // Skip aspiration-window failures — `lowerbound`/`upperbound` scores are NOT real evaluations.
         if (line.includes("lowerbound") || line.includes("upperbound")) return;
+        // Parse depth too — only update score if this info is at the highest depth we've seen.
+        // (Some stockfish.js builds emit shallow re-searches AFTER deep ones in rare cases.)
+        const depthMatch = line.match(/\bdepth (\d+)/);
+        const lineDepth = depthMatch ? parseInt(depthMatch[1], 10) : 0;
+        if (lineDepth < this.pendingDepth) return;
         const mateMatch = line.match(/score mate (-?\d+)/);
         const cpMatch = line.match(/score cp (-?\d+)/);
         if (mateMatch) {
           const m = parseInt(mateMatch[1], 10);
           this.pendingScore = m > 0 ? 100000 - m : -100000 - m;
+          this.pendingDepth = lineDepth;
         } else if (cpMatch) {
           this.pendingScore = parseInt(cpMatch[1], 10);
+          this.pendingDepth = lineDepth;
         }
       } else if (line.startsWith("bestmove")) {
         if (this.activeReq !== null && this.pendingResolver) {
@@ -502,6 +535,7 @@ class Engine {
       const reqId = ++this._reqCounter;
       this.activeReq = reqId;
       this.pendingScore = null;
+      this.pendingDepth = 0;
       let settled = false;
       const finish = (val) => {
         if (settled) return;
@@ -525,9 +559,11 @@ class Engine {
       // — and worse, interleaving stop/position/go can cause the engine to return shallow
       // scores from interrupted searches, which is what was breaking the Best/Worst bots.
       if (this.needsStop) {
+        if (window.DEBUG_ENGINE) console.log(`[${this.label}] -> stop`);
         this.worker.postMessage("stop");
         this.needsStop = false;
       }
+      if (window.DEBUG_ENGINE) console.log(`[${this.label}] -> position fen ${fen}; go depth ${depth}`);
       this.worker.postMessage("position fen " + fen);
       this.worker.postMessage("go depth " + depth);
     }));
@@ -662,7 +698,7 @@ function buildAnalysisData() {
     const drop = before - after;
     if      (drop >= 300) classifications[i] = "blunder";
     else if (drop >= 150) classifications[i] = "mistake";
-    else if (drop >=  60) classifications[i] = "inaccuracy";
+    else if (drop >= 100) classifications[i] = "inaccuracy";
   }
   const complete = evals.every(e => e != null);
   return { evals, classifications, fens, complete };
@@ -890,45 +926,67 @@ function exitReviewMode() {
 
 /* ----- The four bots ----- */
 async function botWorst(depth) {
-  const moves = game.moves({ verbose: true });
-  if (moves.length === 0) return null;
   if (!stockfishReady) {
+    const moves = game.moves({ verbose: true });
+    if (moves.length === 0) return null;
     console.warn("Worst bot: engine not ready, falling back to random.");
     return moves[Math.floor(Math.random() * moves.length)];
   }
-  // We want the move that, after we play it, leaves us in the WORST position.
-  // "Best for us" = highest White-POV eval if we are White, lowest if we are Black.
-  // So "worst for us" inverts that.
-  const weAreWhite = (game.turn() === "w");
+  // Use an isolated chess.js instance for candidate evaluation. This way the live
+  // `game` is never mid-move-evaluation when an outside caller (e.g. Share button,
+  // PGN renderer) reads it.
+  const sandbox = new Chess(game.fen());
+  const moves = sandbox.moves({ verbose: true });
+  if (moves.length === 0) return null;
+  const weAreWhite = (sandbox.turn() === "w");
   let chosen = moves[0];
-  let chosenScoreForUs = Infinity; // we want to MINIMIZE this (find the worst-for-us move)
-  for (const m of moves) {
-    game.move(m);
-    const whitePov = await evaluateWhitePOV(game.fen(), depth);
-    game.undo();
+  let chosenScoreForUs = Infinity;
+  botProgress(0, moves.length);
+  for (let i = 0; i < moves.length; i++) {
+    const m = moves[i];
+    sandbox.move(m);
+    const whitePov = await evaluateWhitePOV(sandbox.fen(), depth);
+    sandbox.undo();
     const ourScore = weAreWhite ? whitePov : -whitePov;
     if (ourScore < chosenScoreForUs) { chosenScoreForUs = ourScore; chosen = m; }
+    botProgress(i + 1, moves.length);
+    // For the WORST bot, the worst-for-us move is one where we get mated → score is very negative.
+    if (chosenScoreForUs <= -90000) break;
   }
   return chosen;
 }
 
-// Best: pick the move that leaves us in the best position. Symmetric to Worst.
 async function botBest(depth) {
-  const moves = game.moves({ verbose: true });
-  if (moves.length === 0) return null;
   if (!stockfishReady) {
+    const moves = game.moves({ verbose: true });
+    if (moves.length === 0) return null;
     console.warn("Best bot: engine not ready, falling back to random.");
     return moves[Math.floor(Math.random() * moves.length)];
   }
-  const weAreWhite = (game.turn() === "w");
-  let chosen = moves[0];
-  let chosenScoreForUs = -Infinity; // maximize the score from OUR perspective
+  const sandbox = new Chess(game.fen());
+  const moves = sandbox.moves({ verbose: true });
+  if (moves.length === 0) return null;
+  // Instant: if any candidate is mate, play it immediately (chess.js detection, microseconds).
   for (const m of moves) {
-    game.move(m);
-    const whitePov = await evaluateWhitePOV(game.fen(), depth);
-    game.undo();
+    sandbox.move(m);
+    const isMate = sandbox.in_checkmate();
+    sandbox.undo();
+    if (isMate) return m;
+  }
+  const weAreWhite = (sandbox.turn() === "w");
+  let chosen = moves[0];
+  let chosenScoreForUs = -Infinity;
+  botProgress(0, moves.length);
+  for (let i = 0; i < moves.length; i++) {
+    const m = moves[i];
+    sandbox.move(m);
+    const whitePov = await evaluateWhitePOV(sandbox.fen(), depth);
+    sandbox.undo();
     const ourScore = weAreWhite ? whitePov : -whitePov;
     if (ourScore > chosenScoreForUs) { chosenScoreForUs = ourScore; chosen = m; }
+    botProgress(i + 1, moves.length);
+    // Found a mating move — no need to evaluate the rest.
+    if (chosenScoreForUs >= 90000) break;
   }
   return chosen;
 }
@@ -940,13 +998,14 @@ function botRandom() {
 }
 
 async function botNoCheck(depth) {
-  const moves = game.moves({ verbose: true });
+  const sandbox = new Chess(game.fen());
+  const moves = sandbox.moves({ verbose: true });
   if (moves.length === 0) return null;
 
   const nonChecking = moves.filter(m => {
-    game.move(m);
-    const c = game.in_check();
-    game.undo();
+    sandbox.move(m);
+    const c = sandbox.in_check();
+    sandbox.undo();
     return !c;
   });
 
@@ -959,15 +1018,18 @@ async function botNoCheck(depth) {
   }
 
   // Worst non-checking move: same logic as botWorst but restricted to nonChecking.
-  const weAreWhite = (game.turn() === "w");
+  const weAreWhite = (sandbox.turn() === "w");
   let chosen = nonChecking[0];
   let chosenScoreForUs = Infinity;
-  for (const m of nonChecking) {
-    game.move(m);
-    const whitePov = await evaluateWhitePOV(game.fen(), depth);
-    game.undo();
+  botProgress(0, nonChecking.length);
+  for (let i = 0; i < nonChecking.length; i++) {
+    const m = nonChecking[i];
+    sandbox.move(m);
+    const whitePov = await evaluateWhitePOV(sandbox.fen(), depth);
+    sandbox.undo();
     const ourScore = weAreWhite ? whitePov : -whitePov;
     if (ourScore < chosenScoreForUs) { chosenScoreForUs = ourScore; chosen = m; }
+    botProgress(i + 1, nonChecking.length);
   }
   return chosen;
 }
@@ -1045,33 +1107,52 @@ function bothBots() {
 }
 
 /* ----- Game loop: keep running while it's a bot's turn (and we're not paused) ----- */
+// Called from inside engine-using bots to indicate progress through their candidate list.
+function botProgress(done, total) {
+  if (!thinking) return; // ignore stale calls from a loop that's been cancelled
+  setStatus(`Bot is thinking… (${done}/${total})`, "thinking");
+}
+
 async function runBotsIfNeeded() {
   if (paused) { updatePlayButton(); return; }
-  while (!game.game_over() && currentPlayer() !== "human" && !stopRequested && !paused) {
-    thinking = true;
-    updatePlayButton();
-    setStatus("Bot is thinking…", "thinking");
-    await new Promise(r => setTimeout(r, 30));
+  const myGen = botLoopGen;
+  // Helper: should we still be the active loop?
+  const stillActive = () => botLoopGen === myGen;
+  try {
+    while (!game.game_over() && currentPlayer() !== "human" && !stopRequested && !paused) {
+      if (!stillActive()) return; // a reset/pause/etc invalidated us
+      thinking = true;
+      updatePlayButton();
+      setStatus("Bot is thinking…", "thinking");
+      await new Promise(r => setTimeout(r, 30));
+      if (!stillActive()) return;
 
-    const move = await botMove(currentPlayer());
-    if (stopRequested || paused) break;
-    if (!move) break;
+      const move = await botMove(currentPlayer());
+      if (!stillActive()) return;
+      if (stopRequested || paused) break;
+      if (!move) break;
 
-    game.move(move);
-    board.position(game.fen());
-    renderPgn();
-    updateStatus();
-    scheduleLiveAnalysis();
+      game.move(move);
+      board.position(game.fen());
+      renderPgn();
+      updateStatus();
+      scheduleLiveAnalysis();
 
-    // small pause between bot moves so you can watch
-    if (bothBots() && !game.game_over()) {
-      await new Promise(r => setTimeout(r, 400));
+      // small pause between bot moves so you can watch
+      if (bothBots() && !game.game_over()) {
+        await new Promise(r => setTimeout(r, 400));
+        if (!stillActive()) return;
+      }
+    }
+  } finally {
+    // Cleanup only if we're still the active loop. (If we got pre-empted, the new loop handles its own state.)
+    if (stillActive()) {
+      thinking = false;
+      stopRequested = false;
+      updateStatus(); // refresh even at game-over since in-loop status was "Bot is thinking…"
+      updatePlayButton();
     }
   }
-  thinking = false;
-  stopRequested = false;
-  updatePlayButton();
-  if (!game.game_over()) updateStatus();
 }
 
 /* ----- Click-to-move + drag highlights ----- */
@@ -1128,22 +1209,55 @@ function onSnapEnd() {
   board.position(game.fen());
 }
 
-/* Click handler: tap a piece to select, tap a target to move (or another piece to switch). */
-function onBoardClick(e) {
-  if (thinking || game.game_over()) return;
-  if (reviewMode) return;
+/* Click-to-move via tap detection.
+   chessboard.js intercepts mousedown on pieces to start drags, which swallows the
+   `click` event entirely. We work around this by tracking mousedown/touchstart
+   pointer position and detecting "tap with no movement" → treat as a click. */
+function squareAtPoint(x, y) {
+  const els = document.elementsFromPoint(x, y);
+  for (const el of els) {
+    if (el.classList && el.classList.contains("square-55d63")) {
+      const sq = el.getAttribute("data-square");
+      if (sq) return sq;
+    }
+  }
+  return null;
+}
+
+let tapStart = null; // { x, y, square, t }
+
+function onBoardPointerDown(e) {
+  if (thinking || game.game_over() || reviewMode) { tapStart = null; return; }
+  if (currentPlayer() !== "human") { tapStart = null; return; }
+  const pt = e.touches ? e.touches[0] : e;
+  const square = squareAtPoint(pt.clientX, pt.clientY);
+  if (!square) { tapStart = null; return; }
+  tapStart = { x: pt.clientX, y: pt.clientY, square, t: Date.now() };
+}
+
+function onBoardPointerUp(e) {
+  if (!tapStart) return;
+  const pt = (e.changedTouches && e.changedTouches[0]) || e;
+  const dx = pt.clientX - tapStart.x;
+  const dy = pt.clientY - tapStart.y;
+  const moved = Math.hypot(dx, dy);
+  const elapsed = Date.now() - tapStart.t;
+  const startSquare = tapStart.square;
+  tapStart = null;
+  // If the pointer moved much, treat as a drag — chessboard.js handles it via onDrop.
+  if (moved > 6) return;
+  // Long-press also = not a tap, leave it for drag handlers.
+  if (elapsed > 600) return;
+  // Re-validate state after the up event.
+  if (thinking || game.game_over() || reviewMode) return;
   if (currentPlayer() !== "human") return;
+  handleTap(startSquare);
+}
 
-  // find the square element
-  const sqEl = e.target.closest(".square-55d63");
-  if (!sqEl) return;
-  const square = sqEl.getAttribute("data-square");
-  if (!square) return;
-
-  const piece = game.get(square); // chess.js: {type, color} or null
+function handleTap(square) {
+  const piece = game.get(square); // {type, color} or null
 
   if (selectedSquare) {
-    // Try to make a move from selectedSquare -> square
     const legalTargets = game.moves({ square: selectedSquare, verbose: true });
     const match = legalTargets.find(m => m.to === square);
     if (match) {
@@ -1157,10 +1271,8 @@ function onBoardClick(e) {
       setTimeout(runBotsIfNeeded, 60);
       return;
     }
-    // Clicked something that isn't a legal target
     selectedSquare = null;
     clearHighlights();
-    // If they clicked another of their own pieces, switch selection
     if (piece && ((game.turn() === "w" && piece.color === "w") ||
                   (game.turn() === "b" && piece.color === "b"))) {
       selectedSquare = square;
@@ -1169,7 +1281,6 @@ function onBoardClick(e) {
     return;
   }
 
-  // No current selection — start one if it's their piece
   if (piece && ((game.turn() === "w" && piece.color === "w") ||
                 (game.turn() === "b" && piece.color === "b"))) {
     selectedSquare = square;
@@ -1271,7 +1382,10 @@ function updatePlayButton() {
 }
 
 function newGame() {
-  if (thinking) { stopRequested = true; }
+  // Force any in-flight bot loop to abort cleanly without touching the new game state.
+  botLoopGen++;
+  thinking = false;
+  stopRequested = false;
   evalsByFen.clear();
   liveAnalysisGen++;
   reviewMode = false;
@@ -1281,6 +1395,10 @@ function newGame() {
   board.start();
   selectedSquare = null;
   clearHighlights();
+  // Clear any shared-link params from the URL so back-button / refresh doesn't restore them.
+  if (window.location.search) {
+    history.replaceState(null, "", window.location.pathname);
+  }
   // Bot vs bot starts paused (user clicks Start). Otherwise auto-play.
   paused = bothBots();
   updateStatus();
@@ -1315,6 +1433,105 @@ function takeBack() {
   refreshAnalysisUI();
 }
 
+/* ===== Share / load state via URL =====
+
+   Encoded params (all optional):
+     w   = white player  (human|best|worst|random|nocheck|priority)
+     b   = black player  (same)
+     wd  = white bot depth (1-20)
+     bd  = black bot depth (1-20)
+     ad  = analysis depth (1-20)
+     m   = move list in UCI long-algebraic, comma-separated (e.g. "e2e4,e7e5,g1f3")
+           Promotion moves end with the piece letter, e.g. "e7e8q".
+
+   On load: if any params are present, configure the dropdowns/depths, then replay
+   the moves into the game state. The board is positioned at the final position.
+   Bot-vs-bot games load paused so the recipient sees the shared position. */
+
+function buildShareUrl() {
+  const params = new URLSearchParams();
+  params.set("w",  whitePlayer());
+  params.set("b",  blackPlayer());
+  params.set("wd", document.getElementById("whiteDepthSel").value);
+  params.set("bd", document.getElementById("blackDepthSel").value);
+  params.set("ad", document.getElementById("analysisDepthSel").value);
+  const history = game.history({ verbose: true });
+  if (history.length > 0) {
+    const uci = history.map(m => m.from + m.to + (m.promotion || "")).join(",");
+    params.set("m", uci);
+  }
+  const base = window.location.origin + window.location.pathname;
+  return base + "?" + params.toString();
+}
+
+async function shareGame() {
+  const url = buildShareUrl();
+  const toast = document.getElementById("shareToast");
+  // Try the modern Clipboard API first.
+  let copied = false;
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(url);
+      copied = true;
+    } catch (e) {
+      // fall through to fallback
+    }
+  }
+  if (copied) {
+    toast.className = "share-toast";
+    toast.innerHTML = `<span>✓ Link copied to clipboard</span>`;
+    toast.style.display = "";
+    setTimeout(() => { toast.style.display = "none"; }, 3500);
+  } else {
+    // Clipboard failed (insecure context, perms denied, etc.) — show the URL inline so the user can copy it manually.
+    toast.className = "share-toast";
+    toast.innerHTML = `<span>Copy link:</span><input type="text" readonly>`;
+    const input = toast.querySelector("input");
+    input.value = url;
+    toast.style.display = "";
+    input.focus();
+    input.select();
+  }
+}
+
+function loadStateFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  if (![...params.keys()].length) return false;
+
+  const validPlayers = new Set(["human", "best", "worst", "random", "nocheck", "priority"]);
+  const w = params.get("w");
+  const b = params.get("b");
+  if (w && validPlayers.has(w)) document.getElementById("whiteSel").value = w;
+  if (b && validPlayers.has(b)) document.getElementById("blackSel").value = b;
+
+  const setDepthIfValid = (selId, val) => {
+    const n = parseInt(val, 10);
+    if (!Number.isFinite(n) || n < 1 || n > 20) return;
+    const sel = document.getElementById(selId);
+    sel.value = String(n);
+  };
+  setDepthIfValid("whiteDepthSel", params.get("wd"));
+  setDepthIfValid("blackDepthSel", params.get("bd"));
+  setDepthIfValid("analysisDepthSel", params.get("ad"));
+
+  // Replay moves into the game state. Use UCI input — chess.js accepts {from, to, promotion}.
+  const movesStr = params.get("m") || "";
+  if (movesStr) {
+    const moves = movesStr.split(",");
+    for (const u of moves) {
+      if (!u || u.length < 4) continue;
+      const move = { from: u.slice(0, 2), to: u.slice(2, 4) };
+      if (u.length >= 5) move.promotion = u[4];
+      const result = game.move(move);
+      if (result === null) {
+        console.warn("Shared link contained an illegal move; halting replay at this point:", u);
+        break;
+      }
+    }
+  }
+  return true;
+}
+
 /* ----- Boot ----- */
 window.addEventListener("DOMContentLoaded", () => {
   board = Chessboard("board", {
@@ -1327,7 +1544,18 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   // Click-to-move
-  document.getElementById("board").addEventListener("click", onBoardClick);
+  // Click-to-move (tap detection that survives chessboard.js's drag handlers).
+  // Use capture phase so we run BEFORE chessboard.js's jQuery handlers can stopPropagation.
+  // Bind on document (filtered to clicks within the board) for the broadest reach.
+  const boardEl = document.getElementById("board");
+  document.addEventListener("mousedown", (e) => {
+    if (boardEl.contains(e.target)) onBoardPointerDown(e);
+  }, true);
+  document.addEventListener("touchstart", (e) => {
+    if (boardEl.contains(e.target)) onBoardPointerDown(e);
+  }, { capture: true, passive: true });
+  document.addEventListener("mouseup", onBoardPointerUp, true);
+  document.addEventListener("touchend", onBoardPointerUp, true);
 
   // Populate depth selectors. Bots: 1..20 (default 3). Analysis: 1..20 (default 12).
   const DEPTHS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
@@ -1375,9 +1603,12 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("backBtn").addEventListener("click", takeBack);
   document.getElementById("playBtn").addEventListener("click", () => {
     if (thinking) {
-      // Pause: request a stop after current move completes
+      // Pause: invalidate the running loop so it returns at the next await.
       paused = true;
       stopRequested = true;
+      botLoopGen++;
+      thinking = false;
+      updateStatus();
       updatePlayButton();
     } else {
       // Start or Resume
@@ -1418,10 +1649,20 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Share button
+  document.getElementById("shareBtn").addEventListener("click", shareGame);
+
+  // Apply any state encoded in the URL. Depth selectors must already be populated by this point.
+  const loadedFromUrl = loadStateFromUrl();
+  if (loadedFromUrl) {
+    board.position(game.fen());
+    renderPgn();
+  }
+
   updateBotDesc();
   updateStatus();
-  // Pause initially if both players are bots (default has Black as a bot, White as human, so this is false by default)
-  paused = bothBots();
+  // Pause initially if both players are bots, OR if we loaded a game from URL (so the recipient sees the shared position).
+  paused = bothBots() || loadedFromUrl;
   updatePlayButton();
   initEngines();
 
