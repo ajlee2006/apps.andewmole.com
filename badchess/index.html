@@ -470,6 +470,12 @@ class Engine {
       } else if (line.startsWith("info ")) {
         // Only record scores when a request is actively in flight.
         if (this.activeReq === null) return;
+        // Skip aspiration-window failures — `lowerbound`/`upperbound` scores
+        // are NOT real evaluations; they only indicate the search's window
+        // overflowed. The next info line will have the refined score.
+        // (Latching onto one of these and then resolving on `bestmove` was
+        // the source of the Best/Worst bots picking horrendous moves.)
+        if (line.includes("lowerbound") || line.includes("upperbound")) return;
         const mateMatch = line.match(/score mate (-?\d+)/);
         const cpMatch = line.match(/score cp (-?\d+)/);
         if (mateMatch) {
@@ -616,8 +622,9 @@ function evaluateForAnalysis(fen, depth) {
   return Promise.resolve(0);
 }
 
-async function evaluateRelative(fen, depth) {
-  // Used by bots — route to bot engine.
+// Always returns the score in centipawns from WHITE's perspective.
+// (Stockfish's raw output is from the side-to-move's POV, so we negate when Black is to move.)
+async function evaluateWhitePOV(fen, depth) {
   const score = await evaluateForBot(fen, depth);
   const stm = fen.split(" ")[1];
   return stm === "w" ? score : -score;
@@ -889,20 +896,23 @@ async function botWorst(depth) {
     console.warn("Worst bot: engine not ready, falling back to random.");
     return moves[Math.floor(Math.random() * moves.length)];
   }
-  let bestMove = moves[0];
-  let bestScore = -Infinity;
+  // We want the move that, after we play it, leaves us in the WORST position.
+  // "Best for us" = highest White-POV eval if we are White, lowest if we are Black.
+  // So "worst for us" inverts that.
+  const weAreWhite = (game.turn() === "w");
+  let chosen = moves[0];
+  let chosenScoreForUs = Infinity; // we want to MINIMIZE this (find the worst-for-us move)
   for (const m of moves) {
     game.move(m);
-    const score = await evaluateRelative(game.fen(), depth);
+    const whitePov = await evaluateWhitePOV(game.fen(), depth);
     game.undo();
-    if (score > bestScore) { bestScore = score; bestMove = m; }
+    const ourScore = weAreWhite ? whitePov : -whitePov;
+    if (ourScore < chosenScoreForUs) { chosenScoreForUs = ourScore; chosen = m; }
   }
-  return bestMove;
+  return chosen;
 }
 
-// Best: pick the move whose resulting position is worst for the opponent
-// (= lowest relative score from their perspective, = best for us).
-// Symmetric to botWorst with the comparison flipped.
+// Best: pick the move that leaves us in the best position. Symmetric to Worst.
 async function botBest(depth) {
   const moves = game.moves({ verbose: true });
   if (moves.length === 0) return null;
@@ -910,15 +920,17 @@ async function botBest(depth) {
     console.warn("Best bot: engine not ready, falling back to random.");
     return moves[Math.floor(Math.random() * moves.length)];
   }
-  let bestMove = moves[0];
-  let bestScore = Infinity;
+  const weAreWhite = (game.turn() === "w");
+  let chosen = moves[0];
+  let chosenScoreForUs = -Infinity; // maximize the score from OUR perspective
   for (const m of moves) {
     game.move(m);
-    const score = await evaluateRelative(game.fen(), depth);
+    const whitePov = await evaluateWhitePOV(game.fen(), depth);
     game.undo();
-    if (score < bestScore) { bestScore = score; bestMove = m; }
+    const ourScore = weAreWhite ? whitePov : -whitePov;
+    if (ourScore > chosenScoreForUs) { chosenScoreForUs = ourScore; chosen = m; }
   }
-  return bestMove;
+  return chosen;
 }
 
 function botRandom() {
@@ -946,15 +958,18 @@ async function botNoCheck(depth) {
     return nonChecking[Math.floor(Math.random() * nonChecking.length)];
   }
 
-  let bestMove = nonChecking[0];
-  let bestScore = -Infinity;
+  // Worst non-checking move: same logic as botWorst but restricted to nonChecking.
+  const weAreWhite = (game.turn() === "w");
+  let chosen = nonChecking[0];
+  let chosenScoreForUs = Infinity;
   for (const m of nonChecking) {
     game.move(m);
-    const score = await evaluateRelative(game.fen(), depth);
+    const whitePov = await evaluateWhitePOV(game.fen(), depth);
     game.undo();
-    if (score > bestScore) { bestScore = score; bestMove = m; }
+    const ourScore = weAreWhite ? whitePov : -whitePov;
+    if (ourScore < chosenScoreForUs) { chosenScoreForUs = ourScore; chosen = m; }
   }
-  return bestMove;
+  return chosen;
 }
 
 function botPriority() {
