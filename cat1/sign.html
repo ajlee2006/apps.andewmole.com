@@ -346,12 +346,31 @@ function enterFullscreen() {
   const el = document.documentElement;
   const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
   if (req) req.call(el).catch(() => {});
-  document.body.classList.add('fs-active');
 }
-document.addEventListener('click', enterFullscreen, { once: true });
-document.addEventListener('touchend', enterFullscreen, { once: true });
+document.addEventListener('click', enterFullscreen);
+document.addEventListener('touchend', enterFullscreen);
 
-// Auto-hide the hint after 10s even if the user hasn't tapped.
+// Hide the hint whenever we're actually in fullscreen (or whenever the
+// viewport is filled — covers PWA standalone mode and iOS Add to Home Screen).
+function isFullscreenish() {
+  return !!(
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.mozFullScreenElement ||
+    document.msFullscreenElement ||
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches ||
+    (window.navigator.standalone === true)
+  );
+}
+function updateFsHint() {
+  document.body.classList.toggle('fs-active', isFullscreenish());
+}
+document.addEventListener('fullscreenchange', updateFsHint);
+document.addEventListener('webkitfullscreenchange', updateFsHint);
+updateFsHint();   // initial check on load
+
+// Auto-hide the hint after 10s even if not fullscreen yet.
 setTimeout(() => document.body.classList.add('fs-active'), 10000);
 </script>
 </body>
