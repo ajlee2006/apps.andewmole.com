@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lightning Risk Sign</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<style>
+  /* ============================================================
+     Lightning Risk Sign — fullscreen single-sector display.
+     URL: sign.html?sector=02   (any sector name from the API)
+     ============================================================ */
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100dvh;
+    width: 100vw;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    color: #fff;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s ease;
+    background: #888;          /* default: grey while loading */
+  }
+
+  /* The bottom info strip — subtle, no background, just text */
+  #info {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 10px 14px;
+    font-size: 16px;
+    line-height: 1.5;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.45);   /* keeps text readable over any background */
+  }
+  #info .item { white-space: nowrap; }
+  #info .item .k { opacity: 0.65; }
+  #info #alert {
+    flex-basis: 100%;
+    font-weight: 600;
+    padding-top: 4px;
+    display: none;
+  }
+  #info #alert.visible { display: block; }
+
+  /* Error / no-signal centre message (only shown on grey states) */
+  #message {
+    font-size: 6vh;
+    font-weight: 600;
+    text-align: center;
+    padding: 0 20px;
+    display: none;
+  }
+  body.no-signal #message,
+  body.error #message { display: block; }
+
+  /* Tap-for-fullscreen hint — disappears after first tap */
+  #fs-hint {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    background: rgba(0,0,0,0.35);
+    color: #fff;
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    pointer-events: none;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  }
+  body.fs-active #fs-hint { display: none; }
+
+  /* ----------- State backgrounds ----------- */
+  body.cat-3      { background: #00cc44; }       /* bright green */
+  body.cat-2      { background: #ffe000; color: #1a1a1a; }   /* bright yellow */
+  body.pending    { background: #f4b8b0; color: #4a1010; }   /* pale solid red */
+  body.no-signal  { background: #888; }           /* grey */
+  body.error      { background: #444; }           /* dark grey */
+
+  /* CAT 1 — flash between bright and dark red */
+  body.cat-1 {
+    animation: flash-cat1 1s steps(2, jump-none) infinite;
+  }
+  @keyframes flash-cat1 {
+    0%, 49.999% { background-color: #ff1a1a; }
+    50%, 100%   { background-color: #6a0000; }
+  }
+
+  /* CAT 1 incoming — slower, bright vs dark orange */
+  body.cat-1-incoming {
+    animation: flash-incoming 1.5s steps(2, jump-none) infinite;
+  }
+  @keyframes flash-incoming {
+    0%, 49.999% { background-color: #ff8800; }
+    50%, 100%   { background-color: #803400; }
+  }
+
+  /* Light-background states need dark text instead of white for the strip */
+  body.cat-2 #info,
+  body.pending #info {
+    color: #1a1a1a;
+    text-shadow: 0 1px 2px rgba(255,255,255,0.5);
+  }
+  body.cat-2 #info .item .k,
+  body.pending #info .item .k { opacity: 0.6; }
+</style>
+</head>
+<body>
+  <div id="message">&hellip;</div>
+  <div id="fs-hint">Tap to fullscreen</div>
+  <div id="info">
+    <div class="item"><span class="k">Sector</span> <span id="sector">&mdash;</span></div>
+    <div class="item"><span class="k">Status</span> <span id="status">&mdash;</span></div>
+    <div class="item"><span class="k">Now</span> <span id="now">&mdash;</span></div>
+    <div class="item"><span class="k">Updated</span> <span id="updated">&mdash;</span></div>
+    <div class="item"><span class="k">Refreshed</span> <span id="refreshed">&mdash;</span></div>
+    <div id="alert"></div>
+  </div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const WEATHER_URL    = "https://api.andewmole.com/cat1/getWeatherInfo";
+const HEAVY_RAIN_URL = "https://api.andewmole.com/cat1/HeavyRain";
+const POLL_MS        = 10000;          // 10 seconds
+const STALE_LIMIT_MS = 5 * 60 * 1000;  // 5 minutes -> grey "no signal"
+
+// CAT raw values from the API map to display states.
+const STATUS_TO_STATE = {
+  '3':  'cat-3',
+  '2':  'cat-2',
+  '1':  'cat-1-incoming',  // after time-window logic, may become cat-1 or pending
+  '0':  'cat-1',
+  '-1': 'pending'
+};
+const STATE_LABELS = {
+  'cat-3':         'CAT 3',
+  'cat-2':         'CAT 2',
+  'cat-1-incoming':'CAT 1 incoming',
+  'cat-1':         'CAT 1',
+  'pending':       'Pending CAT clear',
+  'no-signal':     'No signal',
+  'error':         'Error'
+};
+
+// ============================================================
+// Setup
+// ============================================================
+const params = new URLSearchParams(location.search);
+const SECTOR = (params.get('sector') || '').trim();
+
+if (!SECTOR) {
+  showError('Missing ?sector= parameter');
+}
+
+document.getElementById('sector').textContent = SECTOR || '—';
+
+// ============================================================
+// State
+// ============================================================
+let lastSuccessAt = null;        // Date of last successful weather fetch
+let currentCatInfo = null;       // [raw, startTime, endTime, updateTime] for SECTOR
+let currentAlert = '';           // current heavy-rain alert text (empty if none)
+let lastRefreshedAt = null;
+
+// ============================================================
+// Render
+// ============================================================
+function applyState(state) {
+  document.body.className = state;
+  document.getElementById('status').textContent = STATE_LABELS[state] || '—';
+  // Only show centre text for error / no-signal states; otherwise blank.
+  const msgEl = document.getElementById('message');
+  if (state === 'no-signal') msgEl.textContent = 'No signal';
+  else if (state === 'error') { /* leave whatever showError set */ }
+  else msgEl.textContent = '';
+}
+
+function showError(msg) {
+  applyState('error');
+  document.getElementById('message').textContent = msg;
+}
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function formatHMS(d) {
+  if (!(d instanceof Date) || isNaN(d)) return '—';
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function computeStateForCatInfo(info) {
+  // info = [raw, startTime, endTime, updateTime]
+  let raw = String(info[0]);
+  const now = new Date();
+  if (raw === '1') {
+    const nowMin = Math.floor(now.getTime() / 60000);
+    const startMin = Math.floor(info[1].getTime() / 60000);
+    const endMin = Math.floor(info[2].getTime() / 60000);
+    if (nowMin >= startMin) {
+      raw = '0';
+      if (nowMin > endMin) raw = '-1';
+    }
+  }
+  return STATUS_TO_STATE[raw] || null;
+}
+
+function tick() {
+  // Update the "Now" clock every second.
+  document.getElementById('now').textContent = formatHMS(new Date());
+
+  // Check for stale data -> no-signal override.
+  if (lastSuccessAt && (Date.now() - lastSuccessAt.getTime() > STALE_LIMIT_MS)) {
+    applyState('no-signal');
+    return;
+  }
+
+  // Re-evaluate the current state (the time-window may have crossed a boundary
+  // since the last fetch).
+  if (currentCatInfo) {
+    const state = computeStateForCatInfo(currentCatInfo);
+    if (state) {
+      applyState(state);
+      document.getElementById('updated').textContent = formatHMS(currentCatInfo[3]);
+    }
+  }
+
+  // Refresh the displayed alert.
+  const alertEl = document.getElementById('alert');
+  if (currentAlert) {
+    alertEl.textContent = '⚠ ' + currentAlert;
+    alertEl.classList.add('visible');
+  } else {
+    alertEl.classList.remove('visible');
+  }
+}
+setInterval(tick, 1000);
+tick();
+
+// ============================================================
+// Weather poll
+// ============================================================
+async function refreshWeather() {
+  if (!SECTOR) return;
+  try {
+    const res = await fetch(WEATHER_URL, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+
+    // Find our sector in the response.
+    const sectors = data && data.data && data.data.armysectors;
+    if (!Array.isArray(sectors)) throw new Error('Bad response shape');
+
+    let found = null;
+    for (const entry of sectors) {
+      const name = (entry.sector && entry.sector.name || '').slice(7);
+      if (name === SECTOR) { found = entry; break; }
+    }
+    if (!found) {
+      showError('Unknown sector: ' + SECTOR);
+      return;
+    }
+
+    const w = found.weather;
+    const tzOffsetMs = new Date().getTimezoneOffset() * 60000;
+    const startTime  = new Date(Date.parse(w.cat_start_on) + tzOffsetMs);
+    const endTime    = new Date(Date.parse(w.cat_end_on)   + tzOffsetMs);
+    const updateTime = new Date(Date.parse(w.update_on)    + tzOffsetMs);
+    currentCatInfo = [w.CAT, startTime, endTime, updateTime];
+
+    lastSuccessAt = new Date();
+    lastRefreshedAt = lastSuccessAt;
+    document.getElementById('refreshed').textContent = formatHMS(lastRefreshedAt);
+    document.getElementById('updated').textContent = formatHMS(updateTime);
+
+    tick();   // immediately re-render with fresh data
+  } catch (err) {
+    console.warn('Weather refresh failed:', err);
+    // Don't change the display — let the stale check eventually flip to no-signal.
+  }
+}
+
+// ============================================================
+// Heavy rain alert poll
+// ============================================================
+async function refreshHeavyRain() {
+  try {
+    const ts = Math.floor(Date.now() / 1000);
+    const res = await fetch(`${HEAVY_RAIN_URL}?ts=${ts}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const warning = data && data.warning;
+    if (!warning || warning.trim().toUpperCase() === 'NIL') {
+      currentAlert = '';
+    } else {
+      const title = (data.title || '').trim();
+      const body  = warning.replace(/<br\s*\/?>/gi, ' ').trim();
+      currentAlert = title ? `${title} — ${body}` : body;
+    }
+  } catch (err) {
+    console.warn('Heavy rain refresh failed:', err);
+  }
+}
+
+// Kick off
+if (SECTOR) {
+  refreshWeather();
+  refreshHeavyRain();
+  setInterval(refreshWeather, POLL_MS);
+  setInterval(refreshHeavyRain, POLL_MS);
+}
+
+// ============================================================
+// Wake Lock — keep the screen on while the page is visible.
+// ============================================================
+let wakeLock = null;
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch (err) {
+    console.warn('Wake lock failed:', err.message);
+  }
+}
+// Browsers drop the wake lock when the tab is backgrounded; re-request on return.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !wakeLock) requestWakeLock();
+});
+requestWakeLock();
+
+// ============================================================
+// Fullscreen — must be triggered by a user gesture, so wait for tap.
+// ============================================================
+function enterFullscreen() {
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+  if (req) req.call(el).catch(() => {});
+  document.body.classList.add('fs-active');
+}
+document.addEventListener('click', enterFullscreen, { once: true });
+document.addEventListener('touchend', enterFullscreen, { once: true });
+</script>
+</body>
+</html>
