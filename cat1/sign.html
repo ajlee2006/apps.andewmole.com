@@ -66,21 +66,6 @@
   body.no-signal #message,
   body.error #message { display: block; }
 
-  /* Tap-for-fullscreen hint — disappears after first tap */
-  #fs-hint {
-    position: fixed;
-    top: 12px;
-    right: 12px;
-    background: rgba(0,0,0,0.35);
-    color: #fff;
-    font-size: 13px;
-    padding: 6px 10px;
-    border-radius: 4px;
-    pointer-events: none;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-  }
-  body.fs-active #fs-hint { display: none; }
-
   /* ----------- State backgrounds ----------- */
   body.cat-3      { background: #00cc44; }       /* bright green */
   body.cat-2      { background: #ffe000; color: #1a1a1a; }   /* bright yellow */
@@ -118,7 +103,6 @@
 </head>
 <body>
   <div id="message">&hellip;</div>
-  <div id="fs-hint">Tap to fullscreen</div>
   <div id="info">
     <div class="item"><span class="k">Sector</span> <span id="sector">&mdash;</span></div>
     <div class="item"><span class="k">Status</span> <span id="status">&mdash;</span></div>
@@ -340,7 +324,7 @@ document.addEventListener('visibilitychange', () => {
 requestWakeLock();
 
 // ============================================================
-// Fullscreen — must be triggered by a user gesture, so wait for tap.
+// Fullscreen — tap anywhere to enter (must be a user gesture).
 // ============================================================
 function enterFullscreen() {
   const el = document.documentElement;
@@ -349,29 +333,6 @@ function enterFullscreen() {
 }
 document.addEventListener('click', enterFullscreen);
 document.addEventListener('touchend', enterFullscreen);
-
-// Hide the hint whenever we're actually in fullscreen (or whenever the
-// viewport is filled — covers PWA standalone mode and iOS Add to Home Screen).
-function isFullscreenish() {
-  return !!(
-    document.fullscreenElement ||
-    document.webkitFullscreenElement ||
-    document.mozFullScreenElement ||
-    document.msFullscreenElement ||
-    window.matchMedia('(display-mode: standalone)').matches ||
-    window.matchMedia('(display-mode: fullscreen)').matches ||
-    (window.navigator.standalone === true)
-  );
-}
-function updateFsHint() {
-  document.body.classList.toggle('fs-active', isFullscreenish());
-}
-document.addEventListener('fullscreenchange', updateFsHint);
-document.addEventListener('webkitfullscreenchange', updateFsHint);
-updateFsHint();   // initial check on load
-
-// Auto-hide the hint after 10s even if not fullscreen yet.
-setTimeout(() => document.body.classList.add('fs-active'), 10000);
 </script>
 </body>
 </html>
