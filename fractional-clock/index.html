@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Time Now Is</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --panel: #1a1a1a;
+    --panel-edge: #2a2a2a;
+    --panel-highlight: #3a3a3a;
+    --panel-shadow: #000;
+    --hinge: #050505;
+    --ink: #e8e6e0;
+    --muted: #6b6b6b;
+    --dim: #8a8a8a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Oswald', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body {
+    background:
+      radial-gradient(ellipse at 50% 0%, #14110e 0%, transparent 60%),
+      radial-gradient(ellipse at 50% 100%, #0d0a08 0%, transparent 50%),
+      var(--bg);
+    padding: 48px 24px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 36px;
+  }
+  /* Optical centering: a phantom spacer below the content pushes everything
+     slightly above the geometric midpoint so the visual weight feels centered. */
+  body::after {
+    content: "";
+    flex: 0 0 6vh;
+    pointer-events: none;
+  }
+
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    z-index: 100;
+    mix-blend-mode: overlay;
+    opacity: 0.7;
+  }
+
+  .back-link {
+    position: fixed;
+    top: 18px;
+    left: 22px;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 400;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    color: var(--dim);
+    text-decoration: none;
+    z-index: 200;
+    transition: color 0.2s ease;
+  }
+  .back-link:hover { color: var(--ink); }
+  .back-link::before {
+    content: "← ";
+    opacity: 0.7;
+  }
+
+  .date-tag {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 500;
+    font-size: clamp(14px, 1.9vw, 18px);
+    color: var(--dim);
+    letter-spacing: 0.08em;
+    padding: 6px 18px;
+    border-top: 1px solid #2a2a2a;
+    border-bottom: 1px solid #2a2a2a;
+  }
+
+  h1 {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    font-size: clamp(34px, 6vw, 60px);
+    text-align: center;
+    line-height: 1;
+    color: var(--ink);
+    letter-spacing: 0.02em;
+  }
+
+  /* shared flip panel styling */
+  .panel {
+    position: relative;
+    background: var(--panel);
+    border-radius: 10px;
+    box-shadow:
+      0 14px 30px -8px var(--panel-shadow),
+      0 0 0 1px var(--panel-edge) inset,
+      0 1px 0 var(--panel-highlight) inset;
+    overflow: hidden;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .panel::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: 50%;
+    height: 2px;
+    background: var(--hinge);
+    z-index: 5;
+    transform: translateY(-1px);
+  }
+  .panel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg,
+      rgba(255,255,255,0.04) 0%,
+      rgba(255,255,255,0) 50%,
+      rgba(0,0,0,0.28) 100%);
+    pointer-events: none;
+  }
+  .panel .digits {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .panel .digits.flipping {
+    animation: flipPulse 0.35s ease;
+  }
+  @keyframes flipPulse {
+    0%   { transform: scaleY(1); filter: brightness(1); }
+    50%  { transform: scaleY(0.92); filter: brightness(1.3); }
+    100% { transform: scaleY(1); filter: brightness(1); }
+  }
+
+  /* HERO fraction display — bumped ~25% wider */
+  .fraction {
+    display: flex;
+    align-items: center;
+    gap: clamp(18px, 3.2vw, 36px);
+    flex-wrap: nowrap;
+  }
+  .fraction.whole-hour .stack { display: none; }
+
+  .panel.whole {
+    width: clamp(138px, 20vw, 225px);
+    height: clamp(150px, 22vw, 250px);
+  }
+  .panel.whole .digits {
+    font-size: clamp(90px, 14vw, 160px);
+  }
+
+  .stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .panel.frac-cell {
+    width: clamp(138px, 20vw, 225px);
+    height: clamp(80px, 12vw, 130px);
+  }
+  .panel.frac-cell .digits {
+    font-size: clamp(50px, 8vw, 90px);
+  }
+  /* repeating-digit overline inside the panel */
+  .panel.frac-cell .digits .rep {
+    position: relative;
+    display: inline-block;
+  }
+  .panel.frac-cell .digits .rep::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0;
+    top: -0.08em;
+    height: 0.06em;
+    background: var(--ink);
+    border-radius: 2px;
+  }
+  .bar {
+    width: clamp(150px, 22vw, 260px);
+    height: 4px;
+    background: var(--ink);
+    border-radius: 2px;
+    opacity: 0.85;
+  }
+
+  .panel.meridiem {
+    width: clamp(100px, 14vw, 165px);
+    height: clamp(80px, 12vw, 130px);
+  }
+  .panel.meridiem .digits {
+    font-size: clamp(34px, 5vw, 56px);
+    letter-spacing: 0.08em;
+  }
+
+  /* secondary forms — fixed column widths so nothing shifts as the value length changes */
+  .secondary {
+    display: grid;
+    grid-template-columns: 160px 240px;
+    gap: 14px 28px;
+    align-items: baseline;
+    margin-top: 8px;
+  }
+  .secondary .label {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 500;
+    font-size: clamp(14px, 1.8vw, 18px);
+    color: var(--dim);
+    text-align: right;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+  .secondary .value {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 500;
+    font-size: clamp(20px, 2.4vw, 26px);
+    color: var(--ink);
+    letter-spacing: 0.04em;
+    text-align: left;
+    white-space: nowrap;
+    overflow: visible;
+    line-height: 1.1;
+  }
+  .secondary .value .ap {
+    color: var(--dim);
+    margin-left: 8px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+  }
+  /* overline for repeating digits in the decimal value */
+  .secondary .value .rep {
+    position: relative;
+    display: inline-block;
+  }
+  .secondary .value .rep::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0;
+    top: 0.05em;
+    height: 0.07em;
+    background: var(--ink);
+    border-radius: 1px;
+  }
+
+  @media (max-width: 640px) {
+    .fraction { gap: 12px; }
+    .secondary {
+      grid-template-columns: 1fr;
+      gap: 4px 0;
+      justify-items: center;
+      text-align: center;
+    }
+    .secondary .label { text-align: center; }
+    .secondary .value { text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+  <a class="back-link" href="/">Back to home</a>
+
+  <div class="date-tag" id="date">— Loading —</div>
+
+  <h1>The time now is</h1>
+
+  <div class="fraction" aria-label="time as a fraction">
+    <div class="panel whole"><div class="digits" id="whole">0</div></div>
+
+    <div class="stack">
+      <div class="panel frac-cell"><div class="digits" id="num">0</div></div>
+      <div class="bar"></div>
+      <div class="panel frac-cell"><div class="digits" id="den">1</div></div>
+    </div>
+
+    <div class="panel meridiem"><div class="digits" id="ap">AM</div></div>
+  </div>
+
+  <div class="secondary">
+    <div class="label">Decimal form</div>
+    <div class="value"><span id="decOut">—</span><span class="ap" id="decAp">am</span></div>
+
+    <div class="label">Normal form</div>
+    <div class="value"><span id="normOut">—</span><span class="ap" id="normAp">am</span></div>
+  </div>
+
+<script>
+  const $ = id => document.getElementById(id);
+
+  function gcd(a, b) {
+    a = Math.abs(a); b = Math.abs(b);
+    while (b) { [a, b] = [b, a % b]; }
+    return a || 1;
+  }
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  // returns { intPart, nonRepeat, repeat } for h + p/q
+  function decimalParts(h, p, q) {
+    if (p === 0) return { intPart: String(h), nonRepeat: "", repeat: "" };
+    const g0 = gcd(p, q);
+    p = p / g0; q = q / g0;
+    let q2 = q, twos = 0, fives = 0;
+    while (q2 % 2 === 0) { q2 /= 2; twos++; }
+    while (q2 % 5 === 0) { q2 /= 5; fives++; }
+    const nonRepeatLen = Math.max(twos, fives);
+    const terminates = (q2 === 1);
+
+    let repeatLen = 0;
+    if (!terminates) {
+      let r = 1 % q2;
+      do {
+        r = (r * 10) % q2;
+        repeatLen++;
+      } while (r !== 1 && repeatLen < 1000);
+    }
+
+    let remainder = p, digits = "";
+    for (let i = 0; i < nonRepeatLen + repeatLen; i++) {
+      remainder *= 10;
+      digits += Math.floor(remainder / q);
+      remainder = remainder % q;
+    }
+    let nonRepeat = digits.slice(0, nonRepeatLen);
+    let repeat = digits.slice(nonRepeatLen);
+    if (terminates) {
+      nonRepeat = nonRepeat.replace(/0+$/, '');
+      repeat = "";
+    }
+    return { intPart: String(h), nonRepeat, repeat };
+  }
+
+  function decimalHTML(parts) {
+    const { intPart, nonRepeat, repeat } = parts;
+    if (!nonRepeat && !repeat) return intPart;
+    let s = intPart + '.';
+    s += nonRepeat;
+    if (repeat) s += `<span class="rep">${repeat}</span>`;
+    return s;
+  }
+
+  // for the fraction-form numerator/denominator, also support overlined repeating
+  // (used when num or den itself wants special display — but for our fraction it's just integers)
+
+  const prev = {};
+  function setDigit(id, val) {
+    const el = $(id);
+    val = String(val);
+    if (prev[id] !== val) {
+      el.textContent = val;
+      el.classList.remove('flipping');
+      void el.offsetWidth;
+      el.classList.add('flipping');
+      prev[id] = val;
+    }
+  }
+
+  function setDigitHTML(id, html) {
+    const el = $(id);
+    if (prev[id] !== html) {
+      el.innerHTML = html;
+      el.classList.remove('flipping');
+      void el.offsetWidth;
+      el.classList.add('flipping');
+      prev[id] = html;
+    }
+  }
+
+  function update() {
+    const now = new Date();
+    const h24 = now.getHours();
+    const m = now.getMinutes();
+    const s = now.getSeconds();
+
+    const apUpper = h24 >= 12 ? 'PM' : 'AM';
+    const apLower = h24 >= 12 ? 'pm' : 'am';
+    let h12 = h24 % 12;
+    if (h12 === 0) h12 = 12;
+
+    const opts = { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' };
+    $('date').textContent = now.toLocaleDateString('en-GB', opts);
+
+    const num0 = m * 60 + s;
+    const den0 = 3600;
+    const g = gcd(num0, den0);
+    const num = num0 === 0 ? 0 : num0 / g;
+    const den = num0 === 0 ? 1 : den0 / g;
+
+    document.querySelector('.fraction').classList.toggle('whole-hour', num0 === 0);
+
+    setDigit('whole', h12);
+    setDigit('num', num);
+    setDigit('den', den);
+    setDigit('ap', apUpper);
+
+    const parts = decimalParts(h12, num0, den0);
+    setDigitHTML('decOut', decimalHTML(parts));
+    $('decAp').textContent = apLower;
+
+    setDigitHTML('normOut', `${h12}:${pad(m)}:${pad(s)}`);
+    $('normAp').textContent = apLower;
+  }
+
+  update();
+  const msToNext = 1000 - (Date.now() % 1000);
+  setTimeout(() => {
+    update();
+    setInterval(update, 1000);
+  }, msToNext);
+</script>
+</body>
+</html>
