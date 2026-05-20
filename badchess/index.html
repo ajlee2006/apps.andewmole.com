@@ -1249,8 +1249,25 @@ function onDrop(source, target) {
 
 function onSnapEnd() {
   board.position(game.fen());
-  // board.position rebuilds DOM and wipes highlight classes; re-apply if we have a selection.
   if (selectedSquare) showLegalMoves(selectedSquare);
+}
+
+// chessboard.js rebuilds square contents during snapback animations and other
+// internal redraws, which wipes our highlight CSS classes. Observe the board
+// for any DOM mutation and re-apply highlights if we still have a selection.
+function installHighlightWatcher() {
+  const boardEl = document.getElementById("board");
+  if (!boardEl) return;
+  const obs = new MutationObserver(() => {
+    if (selectedSquare) {
+      // Only re-apply if the selection's own class is missing (avoid redraw loops).
+      const sqEl = document.querySelector('.square-' + selectedSquare);
+      if (sqEl && !sqEl.classList.contains("highlight-selected")) {
+        showLegalMoves(selectedSquare);
+      }
+    }
+  });
+  obs.observe(boardEl, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
 }
 
 /* Click-to-move via tap detection.
@@ -1715,6 +1732,7 @@ window.addEventListener("DOMContentLoaded", () => {
   paused = bothBots() || loadedFromUrl;
   updatePlayButton();
   initEngines();
+  installHighlightWatcher();
 
   window.addEventListener("resize", () => board.resize());
 
