@@ -350,6 +350,9 @@ function enterFullscreen() {
 }
 document.addEventListener('click', enterFullscreen, { once: true });
 document.addEventListener('touchend', enterFullscreen, { once: true });
+
+// Auto-hide the hint after 10s even if the user hasn't tapped.
+setTimeout(() => document.body.classList.add('fs-active'), 10000);
 </script>
 </body>
 </html>
