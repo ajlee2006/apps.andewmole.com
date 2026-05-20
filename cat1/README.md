@@ -1,7 +1,7 @@
 ### README for proxy.js - SafeGuardian API wrapper
 tl;dr: I'm running `node proxy.js` on my Raspberry Pi at home, and using Cloudflare Tunnel so that it's accessible at [api.andewmole.com/cat1](https://api.andewmole.com/cat1).
 
-This proxy is necessary due to CORS Access-Control-Allow-Origin on SafeGuardian side.
+This proxy is necessary due to CORS Access-Control-Allow-Origin restriction on SafeGuardian side.
 
 Setup:
 ```bash
