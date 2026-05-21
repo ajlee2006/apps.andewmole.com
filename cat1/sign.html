@@ -65,6 +65,15 @@
   }
   body.no-signal #message,
   body.error #message { display: block; }
+  /* Countdown to CAT 1 — large, bold */
+  body.cat-1-incoming #message {
+    display: block;
+    font-size: 22vh;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    text-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
 
   /* ----------- State backgrounds ----------- */
   body.cat-3      { background: #00cc44; }       /* bright green */
@@ -162,13 +171,15 @@ let lastRefreshedAt = null;
 // ============================================================
 // Render
 // ============================================================
-function applyState(state) {
+function applyState(state, extraText) {
   document.body.className = state;
   document.getElementById('status').textContent = STATE_LABELS[state] || '—';
-  // Only show centre text for error / no-signal states; otherwise blank.
+  // Centre text: error/no-signal show a status, cat-1-incoming shows a countdown,
+  // every other state has no centre text.
   const msgEl = document.getElementById('message');
   if (state === 'no-signal') msgEl.textContent = 'No signal';
   else if (state === 'error') { /* leave whatever showError set */ }
+  else if (state === 'cat-1-incoming') msgEl.textContent = extraText || '';
   else msgEl.textContent = '';
 }
 
@@ -214,7 +225,14 @@ function tick() {
   if (currentCatInfo) {
     const state = computeStateForCatInfo(currentCatInfo);
     if (state) {
-      applyState(state);
+      let extra = '';
+      if (state === 'cat-1-incoming') {
+        // Time until CAT 1 starts, rounded UP to minutes (1s -> "1 min").
+        const msUntil = currentCatInfo[1].getTime() - Date.now();
+        const mins = Math.max(1, Math.ceil(msUntil / 60000));
+        extra = mins === 1 ? '1 min' : mins + ' mins';
+      }
+      applyState(state, extra);
       document.getElementById('updated').textContent = formatHMS(currentCatInfo[3]);
     }
   }
