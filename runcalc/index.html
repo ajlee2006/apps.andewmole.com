@@ -38,19 +38,17 @@
   .container { max-width: 1080px; margin: 0 auto; }
 
   /* Header */
-  .hero { margin-bottom: 28px; position: relative; }
+  .hero { margin-bottom: 28px; }
   .back-home {
-    position: absolute;
-    top: 4px;
-    right: 0;
-    font-size: 13px;
-    color: var(--text-2);
-    text-decoration: none;
     display: inline-flex;
     align-items: center;
     gap: 4px;
+    font-size: 13px;
+    color: var(--text-2);
+    text-decoration: none;
     padding: 6px 10px;
     border-radius: var(--radius-sm);
+    margin: 0 0 12px -10px;
     transition: background 0.15s, color 0.15s;
   }
   .back-home:hover { background: var(--accent-soft); color: var(--accent); }
@@ -345,6 +343,15 @@
   }
   th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
   tbody tr:last-child td { border-bottom: none; }
+  /* Horizontal scroll for wide tables on narrow screens */
+  .table-scroll {
+    overflow-x: auto;
+    margin: 0 -18px;
+    padding: 0 18px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .train-table { min-width: 480px; }
+  .train-table th, .train-table td { white-space: nowrap; }
 
   /* Toggle */
   .toggle {
@@ -584,18 +591,20 @@
   <div class="card">
     <div class="card-head"><div class="card-title">Suggested Training Paces</div></div>
     <div class="card-body">
-      <table>
-        <thead><tr>
-          <th>
-            Workout
-            <span class="info" data-tip="Five workout intensities (Daniels' E/M/T/I/R system). E builds aerobic base; M is marathon goal pace; T is comfortably hard (lactate threshold); I targets VO₂max with hard intervals; R is short, fast reps for speed and economy.">?</span>
-          </th>
-          <th class="num">Pace (min/400m)</th>
-          <th class="num">Pace (min/km)</th>
-          <th class="num">Pace (min/mile)</th>
-        </tr></thead>
-        <tbody id="trainTable"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table class="train-table">
+          <thead><tr>
+            <th>
+              Workout
+              <span class="info" data-tip="Five workout intensities (Daniels' E/M/T/I/R system). E builds aerobic base; M is marathon goal pace; T is comfortably hard (lactate threshold); I targets VO₂max with hard intervals; R is short, fast reps for speed and economy.">?</span>
+            </th>
+            <th class="num">Pace (min/400m)</th>
+            <th class="num">Pace (min/km)</th>
+            <th class="num">Pace (min/mile)</th>
+          </tr></thead>
+          <tbody id="trainTable"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
