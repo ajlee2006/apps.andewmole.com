@@ -37,7 +37,6 @@
   }
   .container { max-width: 1080px; margin: 0 auto; }
 
-  /* Header */
   .hero { margin-bottom: 28px; }
   .back-home {
     display: inline-flex;
@@ -64,7 +63,7 @@
     color: var(--text-2);
     margin: 6px 0 0;
     font-size: 15px;
-    max-width: 620px;
+    max-width: 680px;
   }
   .unit-system {
     margin-top: 14px;
@@ -87,9 +86,10 @@
     border-radius: var(--radius);
     margin-bottom: 14px;
     box-shadow: var(--shadow);
-    /* removed overflow:hidden so tooltips can escape */
     position: relative;
   }
+  .card.race-actual { border-top: 3px solid var(--text-3); }
+  .card.race-hypothetical { border-top: 3px solid var(--accent); }
   .card-head {
     padding: 14px 18px 0;
     display: flex;
@@ -104,6 +104,17 @@
     text-transform: uppercase;
     color: var(--text-3);
   }
+  .card-title-large {
+    font-size: 18px;
+    text-transform: none;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    font-weight: 600;
+  }
+  .card-title-large em {
+    font-style: normal;
+    color: var(--accent);
+  }
   .card-meta {
     font-size: 12px;
     color: var(--text-3);
@@ -111,8 +122,14 @@
   }
   .card-meta.invalid { color: var(--warn); }
   .card-body { padding: 14px 18px 18px; }
+  .card-intro {
+    font-size: 13px;
+    color: var(--text-2);
+    margin: 4px 0 0;
+    max-width: 680px;
+  }
 
-  /* Tooltip */
+  /* Tooltips */
   .info {
     display: inline-flex;
     align-items: center;
@@ -143,7 +160,7 @@
     font-weight: 400;
     line-height: 1.4;
     width: max-content;
-    max-width: 260px;
+    max-width: min(260px, calc(100vw - 20px));
     text-align: left;
     letter-spacing: 0;
     text-transform: none;
@@ -152,10 +169,9 @@
     transition: opacity 0.15s;
     z-index: 9999;
     box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-    /* positioned via JS so it never clips */
     left: var(--tt-x, 0);
     top: var(--tt-y, 0);
-    transform: translate(-50%, -100%);
+    transform: translateY(-100%);
   }
   .info:hover::after { opacity: 1; }
 
@@ -235,13 +251,10 @@
     box-shadow: 0 2px 6px rgba(91, 76, 214, 0.25);
   }
 
-  /* Layouts */
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  @media (max-width: 820px) { .grid-2 { grid-template-columns: 1fr; } }
-
+  /* Field rows */
   .field {
     display: grid;
-    grid-template-columns: 140px 1fr 210px;
+    grid-template-columns: 160px 1fr 220px;
     gap: 14px;
     align-items: center;
     margin: 10px 0;
@@ -252,7 +265,40 @@
     font-weight: 500;
     display: flex;
     align-items: center;
+    gap: 8px;
   }
+  .field-label input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--border-strong);
+    border-radius: 3px;
+    cursor: pointer;
+    flex-shrink: 0;
+    position: relative;
+    background: var(--surface);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .field-label input[type="checkbox"]:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .field-label input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .field-label input[type="checkbox"]:hover { border-color: var(--accent); }
+  .field.disabled .field-input { opacity: 0.4; pointer-events: none; }
+  .field.disabled input[type="range"] { opacity: 0.4; pointer-events: none; }
+  .field.disabled .field-label { color: var(--text-3); }
   .field-input {
     display: flex;
     gap: 6px;
@@ -261,7 +307,7 @@
   }
   .field-input input[type="text"],
   .field-input input[type="number"] {
-    width: 100px;
+    width: 110px;
     text-align: right;
     font-size: 13px;
     font-variant-numeric: tabular-nums;
@@ -276,16 +322,86 @@
     .field-input { justify-content: flex-start; }
   }
 
+  /* Section subhead within cards */
   .subhead {
     font-size: 11px;
     font-weight: 600;
     color: var(--text-3);
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    margin: 6px 0 4px;
+    margin: 16px 0 4px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
   }
+  .subhead:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+  .subhead-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .subhead-toggle input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--border-strong);
+    border-radius: 3px;
+    cursor: pointer;
+    flex-shrink: 0;
+    position: relative;
+    background: var(--surface);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .subhead-toggle input[type="checkbox"]:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .subhead-toggle input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .subhead-toggle input[type="checkbox"]:hover { border-color: var(--accent); }
 
-  /* Results */
+  /* Treadmill toggle for course type */
+  .toggle {
+    display: inline-flex;
+    background: var(--surface-2);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+    border: 1px solid var(--border);
+  }
+  .toggle button {
+    border: 0;
+    background: transparent;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--text-2);
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+    font-weight: 500;
+  }
+  .toggle button:hover:not(.active):not(:disabled) { color: var(--text); }
+  .toggle button.active {
+    background: var(--surface);
+    color: var(--accent);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .toggle button:disabled { color: var(--text-3); cursor: not-allowed; opacity: 0.5; }
+
+  /* Results grid */
   .results {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -322,6 +438,7 @@
     .results { grid-template-columns: repeat(2, 1fr); }
   }
 
+  /* Tables */
   table {
     width: 100%;
     border-collapse: collapse;
@@ -343,7 +460,6 @@
   }
   th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
   tbody tr:last-child td { border-bottom: none; }
-  /* Horizontal scroll for wide tables on narrow screens */
   .table-scroll {
     overflow-x: auto;
     margin: 0 -18px;
@@ -353,109 +469,31 @@
   .train-table { min-width: 480px; }
   .train-table th, .train-table td { white-space: nowrap; }
 
-  /* Toggle */
-  .toggle {
-    display: inline-flex;
-    background: var(--surface-2);
-    border-radius: var(--radius-sm);
-    padding: 3px;
-    border: 1px solid var(--border);
-  }
-  .toggle button {
-    border: 0;
-    background: transparent;
-    padding: 6px 14px;
-    cursor: pointer;
-    font-size: 13px;
-    font-family: inherit;
-    color: var(--text-2);
-    border-radius: 4px;
-    transition: background 0.15s, color 0.15s;
-    font-weight: 500;
-  }
-  .toggle button:hover:not(.active):not(:disabled) { color: var(--text); }
-  .toggle button.active {
-    background: var(--surface);
-    color: var(--accent);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-  }
-  .toggle button:disabled { color: var(--text-3); cursor: not-allowed; opacity: 0.5; }
-
-  /* Treadmill column layout */
-  .tm-columns {
-    display: grid;
-    grid-template-columns: 1fr 60px 1fr;
-    gap: 16px;
-    align-items: start;
-    margin-bottom: 14px;
-  }
-  .tm-col {
-    background: var(--accent-fade);
-    border-radius: var(--radius-sm);
-    padding: 14px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    border: 1px solid var(--border);
-  }
-  .tm-col-label {
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--text-3);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-  .tm-arrow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--accent);
-    font-size: 24px;
-    font-weight: 300;
-    padding-top: 38px;
-  }
-  .tm-grade {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .tm-grade-row {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-  }
-  .tm-grade-row input[type="range"] { flex: 1; }
-  .tm-grade-row input[type="number"] {
-    width: 60px;
-    text-align: right;
-    font-size: 13px;
-    font-variant-numeric: tabular-nums;
-    padding: 6px 8px;
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
-    background: white;
-  }
-  .tm-grade-row .pct { color: var(--text-3); font-size: 13px; }
-  .tm-grade-label {
-    font-size: 12px;
-    color: var(--text-2);
-  }
-  .tm-grade.hidden { display: none; }
-  @media (max-width: 720px) {
-    .tm-columns { grid-template-columns: 1fr; }
-    .tm-arrow { transform: rotate(90deg); padding-top: 0; }
-  }
-
+  /* Delta display */
   .delta-pos { color: var(--warn); }
   .delta-neg { color: var(--good); }
   .delta-zero { color: var(--text-3); }
 
-  .note {
-    font-size: 12px;
-    color: var(--text-3);
-    margin-top: 10px;
-    font-style: italic;
+  /* Two-column layout for actual/hypothetical race side-by-side on wide screens */
+  .race-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
   }
+  @media (max-width: 980px) {
+    .race-pair { grid-template-columns: 1fr; }
+  }
+
+  /* "Same as actual" link */
+  .copy-link {
+    font-size: 11px;
+    color: var(--accent);
+    cursor: pointer;
+    margin-left: 8px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .copy-link:hover { color: var(--text); }
 
   footer {
     text-align: center;
@@ -463,6 +501,8 @@
     font-size: 12px;
     margin-top: 30px;
   }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -471,7 +511,7 @@
   <div class="hero">
     <a href="/" class="back-home">← Back to home</a>
     <h1>Running <em>Calculator</em></h1>
-    <p>Predict race times, training paces, and conditions-adjusted equivalents from a single recent race. Based on the Daniels &amp; Gilbert VDOT model.</p>
+    <p>Enter your most recent race with the conditions you ran it in. Then set the conditions of a hypothetical race to see what you could run. Based on the Daniels &amp; Gilbert VDOT model with empirical altitude, temperature, wind and elevation corrections.</p>
     <div class="unit-system">
       <span class="unit-system-label">Units</span>
       <div class="toggle" id="unitSystemToggle">
@@ -481,107 +521,305 @@
     </div>
   </div>
 
-  <!-- =================== YOUR RACE =================== -->
+  <div class="race-pair">
+
+    <!-- =================== ACTUAL RACE =================== -->
+    <div class="card race-actual">
+      <div class="card-head">
+        <div class="card-title card-title-large">Your <em>actual</em> race</div>
+      </div>
+      <div class="card-body">
+        <p class="card-intro">The race you ran, with the conditions you ran it in.</p>
+
+        <div class="subhead">Race</div>
+        <div class="field">
+          <div class="field-label">
+            Distance
+            <select id="actDistPreset" style="font-size:11px;padding:3px 22px 3px 6px;margin-left:8px;background-position:right 5px center;">
+              <option value="">presets…</option>
+              <option value="1.5">1500 m</option>
+              <option value="1.609344">1 mile</option>
+              <option value="3">3 km</option>
+              <option value="5">5 km</option>
+              <option value="8">8 km</option>
+              <option value="10">10 km</option>
+              <option value="16.09344">10 miles</option>
+              <option value="21.0975">Half marathon</option>
+              <option value="42.195">Marathon</option>
+              <option value="50">50 km</option>
+            </select>
+          </div>
+          <input type="range" id="actDistSlider" min="0.4" max="50" step="0.1" value="10">
+          <div class="field-input">
+            <input type="number" id="actDist" value="10" step="0.1" min="0.1" max="200">
+            <select id="actDistUnit">
+              <option value="km">km</option>
+              <option value="mi">mi</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-label">Finish time</div>
+          <input type="range" id="actTimeSlider" min="60" max="18000" step="1" value="3000">
+          <div class="field-input">
+            <input type="text" id="actTime" value="50:00" placeholder="mm:ss or h:mm:ss" style="width:130px">
+          </div>
+        </div>
+
+        <div class="subhead">Conditions</div>
+        <div class="field" id="actAltField">
+          <div class="field-label"><input type="checkbox" id="actAltEnable" checked> Altitude</div>
+          <input type="range" id="actAltSlider" min="0" max="3500" step="10" value="0">
+          <div class="field-input">
+            <input type="number" id="actAlt" value="0" step="10">
+            <select id="actAltUnit">
+              <option value="m">m</option>
+              <option value="ft">ft</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" id="actTempField">
+          <div class="field-label"><input type="checkbox" id="actTempEnable" checked> Temperature</div>
+          <input type="range" id="actTempSlider" min="-10" max="40" step="0.1" value="25">
+          <div class="field-input">
+            <input type="number" id="actTemp" value="25" step="0.1">
+            <select id="actTempUnit">
+              <option value="C">°C</option>
+              <option value="F">°F</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" id="actWindField">
+          <div class="field-label"><input type="checkbox" id="actWindEnable" checked> Headwind <span class="info" data-tip="Wind component opposing your direction of travel. Positive = headwind (slows you), negative = tailwind (helps).">?</span></div>
+          <input type="range" id="actWindSlider" min="-9" max="9" step="0.1" value="0">
+          <div class="field-input">
+            <input type="number" id="actWind" value="0" step="0.1">
+            <select id="actWindUnit">
+              <option value="mps">m/s</option>
+              <option value="kph">kph</option>
+              <option value="mph">mph</option>
+              <option value="fps">ft/s</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="subhead subhead-toggle"><input type="checkbox" id="actCourseEnable" checked> Course profile</div>
+        <div class="field" id="actCourseField">
+          <div class="field-label">Course type</div>
+          <div></div>
+          <div class="field-input">
+            <div class="toggle" data-course-toggle="act">
+              <button data-course="outdoor" class="active">Outdoor</button>
+              <button data-course="treadmill">Treadmill</button>
+            </div>
+          </div>
+        </div>
+        <div data-course-rows="act-outdoor">
+          <div class="field">
+            <div class="field-label">Total uphills</div>
+            <input type="range" id="actUpSlider" min="0" max="2000" step="5" value="0">
+            <div class="field-input">
+              <input type="number" id="actUp" value="0" step="5">
+              <select id="actUpUnit">
+                <option value="m">m</option>
+                <option value="ft">ft</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">Total downhills</div>
+            <input type="range" id="actDnSlider" min="0" max="2000" step="5" value="0">
+            <div class="field-input">
+              <input type="number" id="actDn" value="0" step="5">
+              <select id="actDnUnit">
+                <option value="m">m</option>
+                <option value="ft">ft</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div data-course-rows="act-treadmill" style="display:none">
+          <div class="field">
+            <div class="field-label">Incline grade</div>
+            <input type="range" id="actGradeSlider" min="0" max="15" step="0.1" value="1">
+            <div class="field-input">
+              <input type="number" id="actGrade" value="1" step="0.1" min="0" max="15">
+              <span style="color:var(--text-3);width:24px">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================== HYPOTHETICAL RACE =================== -->
+    <div class="card race-hypothetical">
+      <div class="card-head">
+        <div class="card-title card-title-large">Your <em>hypothetical</em> race <span class="copy-link" id="copyFromActual">Copy from actual</span></div>
+      </div>
+      <div class="card-body">
+        <p class="card-intro">A race you'd like to predict. Change any variable to see how your performance would differ.</p>
+
+        <div class="subhead">Race</div>
+        <div class="field">
+          <div class="field-label">
+            Distance
+            <select id="hypDistPreset" style="font-size:11px;padding:3px 22px 3px 6px;margin-left:8px;background-position:right 5px center;">
+              <option value="">presets…</option>
+              <option value="1.5">1500 m</option>
+              <option value="1.609344">1 mile</option>
+              <option value="3">3 km</option>
+              <option value="5">5 km</option>
+              <option value="8">8 km</option>
+              <option value="10">10 km</option>
+              <option value="16.09344">10 miles</option>
+              <option value="21.0975">Half marathon</option>
+              <option value="42.195">Marathon</option>
+              <option value="50">50 km</option>
+            </select>
+          </div>
+          <input type="range" id="hypDistSlider" min="0.4" max="50" step="0.1" value="21.0975">
+          <div class="field-input">
+            <input type="number" id="hypDist" value="21.0975" step="0.1" min="0.1" max="200">
+            <select id="hypDistUnit">
+              <option value="km">km</option>
+              <option value="mi">mi</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="subhead">Conditions</div>
+        <div class="field" id="hypAltField">
+          <div class="field-label"><input type="checkbox" id="hypAltEnable" checked> Altitude</div>
+          <input type="range" id="hypAltSlider" min="0" max="3500" step="10" value="0">
+          <div class="field-input">
+            <input type="number" id="hypAlt" value="0" step="10">
+            <select id="hypAltUnit">
+              <option value="m">m</option>
+              <option value="ft">ft</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" id="hypTempField">
+          <div class="field-label"><input type="checkbox" id="hypTempEnable" checked> Temperature</div>
+          <input type="range" id="hypTempSlider" min="-10" max="40" step="0.1" value="25">
+          <div class="field-input">
+            <input type="number" id="hypTemp" value="25" step="0.1">
+            <select id="hypTempUnit">
+              <option value="C">°C</option>
+              <option value="F">°F</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" id="hypWindField">
+          <div class="field-label"><input type="checkbox" id="hypWindEnable" checked> Headwind</div>
+          <input type="range" id="hypWindSlider" min="-9" max="9" step="0.1" value="0">
+          <div class="field-input">
+            <input type="number" id="hypWind" value="0" step="0.1">
+            <select id="hypWindUnit">
+              <option value="mps">m/s</option>
+              <option value="kph">kph</option>
+              <option value="mph">mph</option>
+              <option value="fps">ft/s</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="subhead subhead-toggle"><input type="checkbox" id="hypCourseEnable" checked> Course profile</div>
+        <div class="field" id="hypCourseField">
+          <div class="field-label">Course type</div>
+          <div></div>
+          <div class="field-input">
+            <div class="toggle" data-course-toggle="hyp">
+              <button data-course="outdoor" class="active">Outdoor</button>
+              <button data-course="treadmill">Treadmill</button>
+            </div>
+          </div>
+        </div>
+        <div data-course-rows="hyp-outdoor">
+          <div class="field">
+            <div class="field-label">Total uphills</div>
+            <input type="range" id="hypUpSlider" min="0" max="2000" step="5" value="0">
+            <div class="field-input">
+              <input type="number" id="hypUp" value="0" step="5">
+              <select id="hypUpUnit">
+                <option value="m">m</option>
+                <option value="ft">ft</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">Total downhills</div>
+            <input type="range" id="hypDnSlider" min="0" max="2000" step="5" value="0">
+            <div class="field-input">
+              <input type="number" id="hypDn" value="0" step="5">
+              <select id="hypDnUnit">
+                <option value="m">m</option>
+                <option value="ft">ft</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div data-course-rows="hyp-treadmill" style="display:none">
+          <div class="field">
+            <div class="field-label">Incline grade</div>
+            <input type="range" id="hypGradeSlider" min="0" max="15" step="0.1" value="1">
+            <div class="field-input">
+              <input type="number" id="hypGrade" value="1" step="0.1" min="0" max="15">
+              <span style="color:var(--text-3);width:24px">%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- =================== ACTUAL RACE — STATS =================== -->
+  <div class="card">
+    <div class="card-head"><div class="card-title">Actual race — Stats</div></div>
+    <div class="card-body">
+      <div class="results" style="grid-template-columns: repeat(3, 1fr)">
+        <div class="stat"><div class="label">Distance</div><div class="value" id="actStatDist">—</div></div>
+        <div class="stat"><div class="label">Time</div><div class="value" id="actStatTime">—</div></div>
+        <div class="stat featured">
+          <div class="label">VDOT<span class="info" data-tip="VDOT is Jack Daniels' fitness measure — your effective VO₂max accounting for running economy. This figure is what you actually showed in these conditions.">?</span></div>
+          <div class="value" id="actStatVdot">—</div>
+        </div>
+        <div class="stat"><div class="label">Pace / 400 m</div><div class="value" id="actStatPace400">—</div></div>
+        <div class="stat"><div class="label">Pace / km</div><div class="value" id="actStatPaceKm">—</div></div>
+        <div class="stat"><div class="label">Pace / mile</div><div class="value" id="actStatPaceMi">—</div></div>
+        <div class="stat"><div class="label">Speed (km/h)</div><div class="value" id="actStatKph">—</div></div>
+        <div class="stat"><div class="label">Speed (mph)</div><div class="value" id="actStatMph">—</div></div>
+        <div class="stat">
+          <div class="label">%VO₂max<span class="info" data-tip="Fraction of your maximum oxygen uptake you sustained for this race duration. Marathon ≈ 80%, 5K ≈ 95%, mile >100% (anaerobic).">?</span></div>
+          <div class="value" id="actStatPct">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================== HYPOTHETICAL RACE — STATS =================== -->
   <div class="card">
     <div class="card-head">
-      <div class="card-title">Your Race</div>
-      <div class="card-meta" id="raceVdotMeta"></div>
+      <div class="card-title">Hypothetical race — Predicted stats</div>
+      <div class="card-meta" id="hypDeltaMeta"></div>
     </div>
     <div class="card-body">
-      <div class="field">
-        <div class="field-label">
-          Distance
-          <select id="raceDistPreset" style="font-size:11px;padding:3px 22px 3px 6px;margin-left:8px;background-position:right 5px center;">
-            <option value="">presets…</option>
-            <option value="1.5">1500 m</option>
-            <option value="1.609344">1 mile</option>
-            <option value="3">3 km</option>
-            <option value="5">5 km</option>
-            <option value="8">8 km</option>
-            <option value="10">10 km</option>
-            <option value="16.09344">10 miles</option>
-            <option value="21.0975">Half marathon</option>
-            <option value="42.195">Marathon</option>
-            <option value="50">50 km</option>
-          </select>
-        </div>
-        <input type="range" id="raceDistSlider" min="0.4" max="50" step="0.1" value="10">
-        <div class="field-input">
-          <input type="number" id="raceDist" value="10" step="0.1" min="0.1" max="200">
-          <select id="raceDistUnit">
-            <option value="km">km</option>
-            <option value="mi">mi</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="field">
-        <div class="field-label">Finish time</div>
-        <input type="range" id="raceTimeSlider" min="60" max="18000" step="1" value="2700">
-        <div class="field-input">
-          <input type="text" id="raceTime" value="45:00" placeholder="mm:ss or h:mm:ss" style="width:130px">
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- =================== RACE PACE =================== -->
-  <div class="card">
-    <div class="card-head"><div class="card-title">Race Pace &amp; Conversions</div></div>
-    <div class="card-body">
-      <div class="results">
-        <div class="stat"><div class="label">Distance</div><div class="value" id="paceDist">—</div></div>
-        <div class="stat"><div class="label">Time</div><div class="value" id="paceTime">—</div></div>
-        <div class="stat"><div class="label">Pace</div><div class="value" id="pacePerKm">—</div></div>
-        <div class="stat"><div class="label">Pace</div><div class="value" id="pacePerMi">—</div></div>
-        <div class="stat"><div class="label">Speed</div><div class="value" id="paceKph">—</div></div>
-        <div class="stat"><div class="label">Speed</div><div class="value" id="paceMph">—</div></div>
-        <div class="stat"><div class="label">Pace</div><div class="value" id="pacePer400">—</div></div>
-        <div class="stat featured">
-          <div class="label">VDOT<span class="info" data-tip="VDOT is Jack Daniels' fitness measure — your effective VO₂max accounting for running economy. Higher = fitter. Roughly: VDOT 30 ≈ slow recreational runner, 50 ≈ competitive amateur, 70+ ≈ elite.">?</span></div>
-          <div class="value" id="paceVdot">—</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- =================== PREDICTED FINISH =================== -->
-  <div class="card">
-    <div class="card-head"><div class="card-title">Predicted Finish at Other Distance</div></div>
-    <div class="card-body">
-      <div class="field">
-        <div class="field-label">
-          Distance
-          <select id="predDistPreset" style="font-size:11px;padding:3px 22px 3px 6px;margin-left:8px;background-position:right 5px center;">
-            <option value="">presets…</option>
-            <option value="1.5">1500 m</option>
-            <option value="1.609344">1 mile</option>
-            <option value="3">3 km</option>
-            <option value="5">5 km</option>
-            <option value="8">8 km</option>
-            <option value="10">10 km</option>
-            <option value="16.09344">10 miles</option>
-            <option value="21.0975">Half marathon</option>
-            <option value="42.195">Marathon</option>
-            <option value="50">50 km</option>
-          </select>
-        </div>
-        <input type="range" id="predSlider" min="0.4" max="50" step="0.1" value="21.0975">
-        <div class="field-input">
-          <input type="number" id="predDist" value="21.0975" step="0.1" min="0.1" max="200">
-          <select id="predUnit">
-            <option value="km">km</option>
-            <option value="mi">mi</option>
-          </select>
-        </div>
-      </div>
-      <div class="results">
-        <div class="stat featured"><div class="label">Predicted time</div><div class="value" id="predTime">—</div></div>
-        <div class="stat"><div class="label">Pace</div><div class="value" id="predKm">—</div></div>
-        <div class="stat"><div class="label">Pace</div><div class="value" id="predMi">—</div></div>
+      <div class="results" style="grid-template-columns: repeat(3, 1fr)">
+        <div class="stat"><div class="label">Distance</div><div class="value" id="hypStatDist">—</div></div>
+        <div class="stat featured"><div class="label">Predicted time</div><div class="value" id="hypStatTime">—</div></div>
         <div class="stat">
-          <div class="label">%VO₂max<span class="info" data-tip="Fraction of your maximum oxygen uptake you'd need to sustain for this distance. Higher % = shorter, faster effort. A marathon is typically ~80%, a 5K ~95%, a mile >100% (anaerobic contribution).">?</span></div>
-          <div class="value" id="predPct">—</div>
+          <div class="label">VDOT<span class="info" data-tip="Effective VDOT for this hypothetical race — your neutral fitness scaled by altitude and temperature.">?</span></div>
+          <div class="value" id="hypStatVdot">—</div>
+        </div>
+        <div class="stat"><div class="label">Pace / 400 m</div><div class="value" id="hypStatPace400">—</div></div>
+        <div class="stat"><div class="label">Pace / km</div><div class="value" id="hypStatPaceKm">—</div></div>
+        <div class="stat"><div class="label">Pace / mile</div><div class="value" id="hypStatPaceMi">—</div></div>
+        <div class="stat"><div class="label">Speed (km/h)</div><div class="value" id="hypStatKph">—</div></div>
+        <div class="stat"><div class="label">Speed (mph)</div><div class="value" id="hypStatMph">—</div></div>
+        <div class="stat">
+          <div class="label">%VO₂max<span class="info" data-tip="Fraction of your maximum oxygen uptake you'd sustain for this race duration.">?</span></div>
+          <div class="value" id="hypStatPct">—</div>
         </div>
       </div>
     </div>
@@ -589,15 +827,12 @@
 
   <!-- =================== TRAINING PACES =================== -->
   <div class="card">
-    <div class="card-head"><div class="card-title">Suggested Training Paces</div></div>
+    <div class="card-head"><div class="card-title">Suggested Training Paces <span class="info" data-tip="Paces you should hit in the same conditions as your actual race (same altitude, temperature, headwind). Adjust by feel if conditions differ.">?</span></div></div>
     <div class="card-body">
       <div class="table-scroll">
         <table class="train-table">
           <thead><tr>
-            <th>
-              Workout
-              <span class="info" data-tip="Five workout intensities (Daniels' E/M/T/I/R system). E builds aerobic base; M is marathon goal pace; T is comfortably hard (lactate threshold); I targets VO₂max with hard intervals; R is short, fast reps for speed and economy.">?</span>
-            </th>
+            <th>Workout <span class="info" data-tip="Five workout intensities (Daniels' E/M/T/I/R system). E builds aerobic base; M is marathon goal pace; T is comfortably hard (lactate threshold); I targets VO₂max with hard intervals; R is short, fast reps for speed and economy.">?</span></th>
             <th class="num">Pace (min/400m)</th>
             <th class="num">Pace (min/km)</th>
             <th class="num">Pace (min/mile)</th>
@@ -608,256 +843,14 @@
     </div>
   </div>
 
-  <!-- =================== ALTITUDE + TEMPERATURE =================== -->
-  <div class="grid-2">
-
-    <div class="card">
-      <div class="card-head"><div class="card-title">Equivalent Time by Altitude<span class="info" data-tip="Assumes runner is acclimatized. VDOT drops 0.88% per 1000 m above the reference altitude.">?</span></div></div>
-      <div class="card-body">
-        <div class="field">
-          <div class="field-label">Race altitude</div>
-          <input type="range" id="altRaceSlider" min="0" max="3500" step="10" value="0">
-          <div class="field-input">
-            <input type="number" id="altRace" value="0" step="10">
-            <select id="altRaceUnit">
-              <option value="m">m</option>
-              <option value="ft">ft</option>
-            </select>
-          </div>
-        </div>
-        <div class="field">
-          <div class="field-label">Target altitude</div>
-          <input type="range" id="altTargetSlider" min="0" max="3500" step="10" value="1500">
-          <div class="field-input">
-            <input type="number" id="altTarget" value="1500" step="10">
-            <select id="altTargetUnit">
-              <option value="m">m</option>
-              <option value="ft">ft</option>
-            </select>
-          </div>
-        </div>
-        <div class="results" style="grid-template-columns:1fr 1fr 1fr">
-          <div class="stat featured"><div class="label">Equivalent time</div><div class="value" id="altTime">—</div></div>
-          <div class="stat"><div class="label">Pace</div><div class="value" id="altPace">—</div></div>
-          <div class="stat"><div class="label">Δ vs your race</div><div class="value" id="altDelta">—</div></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-head"><div class="card-title">Equivalent Time by Temperature<span class="info" data-tip="Warmer = slower; cooler = faster (symmetric quadratic VO₂ penalty per degree of difference).">?</span></div></div>
-      <div class="card-body">
-        <div class="field">
-          <div class="field-label">Race temperature</div>
-          <input type="range" id="tempRaceSlider" min="-10" max="40" step="0.1" value="15">
-          <div class="field-input">
-            <input type="number" id="tempRace" value="15" step="0.1">
-            <select id="tempRaceUnit">
-              <option value="C">°C</option>
-              <option value="F">°F</option>
-            </select>
-          </div>
-        </div>
-        <div class="field">
-          <div class="field-label">Target temperature</div>
-          <input type="range" id="tempTargetSlider" min="-10" max="40" step="0.1" value="25">
-          <div class="field-input">
-            <input type="number" id="tempTarget" value="25" step="0.1">
-            <select id="tempTargetUnit">
-              <option value="C">°C</option>
-              <option value="F">°F</option>
-            </select>
-          </div>
-        </div>
-        <div class="results" style="grid-template-columns:1fr 1fr 1fr">
-          <div class="stat featured"><div class="label">Equivalent time</div><div class="value" id="tempTime">—</div></div>
-          <div class="stat"><div class="label">Pace</div><div class="value" id="tempPace">—</div></div>
-          <div class="stat"><div class="label">Δ vs your race</div><div class="value" id="tempDelta">—</div></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- =================== COURSE PROFILE =================== -->
-  <div class="card">
-    <div class="card-head"><div class="card-title">Equivalent Time by Course Elevation<span class="info" data-tip="Uphill cost ≈ twice the downhill credit (0.93 vs 0.49 mL O₂/kg per vertical meter).">?</span></div></div>
-    <div class="card-body">
-      <div class="subhead">Your race course</div>
-      <div class="field">
-        <div class="field-label">Total uphills</div>
-        <input type="range" id="hillUp1Slider" min="0" max="2000" step="5" value="0">
-        <div class="field-input">
-          <input type="number" id="hillUp1" value="0" step="5">
-          <select id="hillUp1Unit">
-            <option value="m">m</option>
-            <option value="ft">ft</option>
-          </select>
-        </div>
-      </div>
-      <div class="field">
-        <div class="field-label">Total downhills</div>
-        <input type="range" id="hillDn1Slider" min="0" max="2000" step="5" value="0">
-        <div class="field-input">
-          <input type="number" id="hillDn1" value="0" step="5">
-          <select id="hillDn1Unit">
-            <option value="m">m</option>
-            <option value="ft">ft</option>
-          </select>
-        </div>
-      </div>
-      <div class="subhead" style="margin-top:14px">Target course</div>
-      <div class="field">
-        <div class="field-label">Total uphills</div>
-        <input type="range" id="hillUp2Slider" min="0" max="2000" step="5" value="100">
-        <div class="field-input">
-          <input type="number" id="hillUp2" value="100" step="5">
-          <select id="hillUp2Unit">
-            <option value="m">m</option>
-            <option value="ft">ft</option>
-          </select>
-        </div>
-      </div>
-      <div class="field">
-        <div class="field-label">Total downhills</div>
-        <input type="range" id="hillDn2Slider" min="0" max="2000" step="5" value="100">
-        <div class="field-input">
-          <input type="number" id="hillDn2" value="100" step="5">
-          <select id="hillDn2Unit">
-            <option value="m">m</option>
-            <option value="ft">ft</option>
-          </select>
-        </div>
-      </div>
-      <div class="results" style="grid-template-columns:1fr 1fr 1fr">
-        <div class="stat featured"><div class="label">Target time</div><div class="value" id="hillTarget">—</div></div>
-        <div class="stat"><div class="label">Pace</div><div class="value" id="hillPace">—</div></div>
-        <div class="stat"><div class="label">Δ vs your race</div><div class="value" id="hillDelta">—</div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- =================== TREADMILL / OUTDOOR =================== -->
-  <div class="card">
-    <div class="card-head"><div class="card-title">Treadmill ↔ Outdoor Equivalent Pace<span class="info" data-tip="A 1% treadmill grade approximates flat outdoor running. 0% treadmill is easier than outdoors (no air resistance).">?</span></div></div>
-    <div class="card-body">
-
-      <div class="tm-columns">
-        <div class="tm-col">
-          <div class="tm-col-label">From</div>
-          <div class="toggle" id="tmFromToggle">
-            <button data-mode="outdoor" class="active">Outdoor (level ground)</button>
-            <button data-mode="treadmill">Treadmill</button>
-          </div>
-          <div class="tm-grade hidden" id="tmFromGrade">
-            <div class="tm-grade-label">Incline</div>
-            <div class="tm-grade-row">
-              <input type="range" id="tmFromGradeSlider" min="0" max="15" step="0.1" value="1">
-              <input type="number" id="tmFromGradeNum" value="1" step="0.1" min="0" max="15">
-              <span class="pct">%</span>
-            </div>
-          </div>
-        </div>
-        <div class="tm-arrow">→</div>
-        <div class="tm-col">
-          <div class="tm-col-label">To</div>
-          <div class="toggle" id="tmToToggle">
-            <button data-mode="outdoor">Outdoor (level ground)</button>
-            <button data-mode="treadmill" class="active">Treadmill</button>
-          </div>
-          <div class="tm-grade" id="tmToGrade">
-            <div class="tm-grade-label">Incline</div>
-            <div class="tm-grade-row">
-              <input type="range" id="tmToGradeSlider" min="0" max="15" step="0.1" value="1">
-              <input type="number" id="tmToGradeNum" value="1" step="0.1" min="0" max="15">
-              <span class="pct">%</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="field">
-        <div class="field-label">Input pace</div>
-        <input type="range" id="tmPaceSlider" min="150" max="900" step="1" value="270">
-        <div class="field-input">
-          <input type="text" id="tmPace" value="4:30" style="width:80px">
-          <select id="tmPaceUnit">
-            <option value="km">/km</option>
-            <option value="mi">/mile</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="field">
-        <div class="field-label">Race distance</div>
-        <input type="range" id="tmRaceSlider" min="0.4" max="50" step="0.1" value="10">
-        <div class="field-input">
-          <input type="number" id="tmRaceDist" value="10" step="0.1" min="0.1" max="200">
-          <select id="tmRaceUnit">
-            <option value="km">km</option>
-            <option value="mi">mi</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="results">
-        <div class="stat featured"><div class="label">Equivalent pace</div><div class="value" id="tmEqPace">—</div></div>
-        <div class="stat"><div class="label">Pace</div><div class="value" id="tmEqKm">—</div></div>
-        <div class="stat"><div class="label">Pace</div><div class="value" id="tmEqMi">—</div></div>
-        <div class="stat"><div class="label">Race time at this pace</div><div class="value" id="tmRaceTime">—</div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- =================== WIND =================== -->
-  <div class="card">
-    <div class="card-head"><div class="card-title">Equivalent Pace by Wind Speed<span class="info" data-tip="Positive values = headwind; negative = tailwind. Quadratic in wind speed (Pugh model).">?</span></div></div>
-    <div class="card-body">
-      <div class="field">
-        <div class="field-label">Reference wind</div>
-        <input type="range" id="windRefSlider" min="-9" max="9" step="0.1" value="0">
-        <div class="field-input">
-          <input type="number" id="windRef" value="0" step="0.1">
-          <select id="windRefUnit">
-            <option value="mps">m/s</option>
-            <option value="kph">kph</option>
-            <option value="mph">mph</option>
-            <option value="fps">ft/s</option>
-          </select>
-        </div>
-      </div>
-      <div class="field">
-        <div class="field-label">Target wind</div>
-        <input type="range" id="windTargetSlider" min="-9" max="9" step="0.1" value="2">
-        <div class="field-input">
-          <input type="number" id="windTarget" value="2" step="0.1">
-          <select id="windTargetUnit">
-            <option value="mps">m/s</option>
-            <option value="kph">kph</option>
-            <option value="mph">mph</option>
-            <option value="fps">ft/s</option>
-          </select>
-        </div>
-      </div>
-      <div class="results">
-        <div class="stat featured"><div class="label">Equivalent time</div><div class="value" id="windTime">—</div></div>
-        <div class="stat"><div class="label">Pace</div><div class="value" id="windPace">—</div></div>
-        <div class="stat">
-          <div class="label">VO₂ demand Δ<span class="info" data-tip="Change in oxygen demand at the same speed. Positive = headwind makes it harder; negative = tailwind helps.">?</span></div>
-          <div class="value" id="windPct">—</div>
-        </div>
-        <div class="stat"><div class="label">Δ vs your race</div><div class="value" id="windDelta">—</div></div>
-      </div>
-    </div>
-  </div>
-
   <footer>
-    Credits: <a href="https://runsmartproject.com/calculator/" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">Daniels &amp; Gilbert (VDOT)</a> · <a href="http://www.runworks.com/calculator.html" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">Runworks Running Calculator</a>
+    Credits: <a href="https://runsmartproject.com/calculator/" target="_blank" rel="noopener">Daniels &amp; Gilbert (VDOT)</a> · <a href="http://www.runworks.com/calculator.html" target="_blank" rel="noopener">Runworks Running Calculator</a>
   </footer>
 </div>
 
 <script>
 // ============================================================================
-// Core
+// Core Daniels-Gilbert VDOT model
 // ============================================================================
 function vo2(v) { return -4.60 + 0.182258*v + 0.000104*v*v; }
 function pctMax(t) { return 0.8 + 0.1894393*Math.exp(-0.012778*t) + 0.2989558*Math.exp(-0.1932605*t); }
@@ -870,17 +863,32 @@ function timeFor(d_m, targetVdot) {
   }
   return (lo + hi) / 2;
 }
+function solveOutdoorV(target) {
+  const a = 0.000104, b = 0.182258, c = -4.60 - target;
+  return (-b + Math.sqrt(b*b - 4*a*c)) / (2*a);
+}
+
+// ============================================================================
+// Conditions adjustments
+// ============================================================================
+const REF_TEMP_C = 15.5556;  // 60 °F neutral reference
+function altitudeFactor(altM) { return 1 - 8.8006e-6 * altM; }
+function tempFactor(tempC) {
+  const dF = (tempC - REF_TEMP_C) * 9/5;
+  return 1 - 1.4257e-3 * dF - 1.0241e-5 * dF * Math.abs(dF);
+}
+function windVo2Pct(wMph) { return 0.02 * wMph * wMph + 0.88 * wMph; }
+function hillTimeDelta(H_m, F_m, v_m_per_min) {
+  return (0.926 * H_m - 0.489 * F_m) / vo2(v_m_per_min) * 60;
+}
 
 // ============================================================================
 // Parsers / formatters
 // ============================================================================
-// STRICT: minutes and seconds parts must be exactly 2 digits.
-// Accepts: "M:SS", "MM:SS", "MMM:SS", "H:MM:SS", "HH:MM:SS", optional ".d+" on the last part.
 function parseTime(s) {
   if (s === null || s === undefined) return NaN;
   s = String(s).trim();
   if (s === "") return NaN;
-  // Hours:MM:SS or M(any digits):SS where SS must be 2 digits
   if (!/^\d{1,3}:\d{2}(:\d{2})?(\.\d+)?$/.test(s)) return NaN;
   const parts = s.split(":").map(p => parseFloat(p));
   if (parts.some(isNaN)) return NaN;
@@ -894,7 +902,6 @@ function parseTime(s) {
   }
   return NaN;
 }
-
 function fmtTime(secs, withTenths = false) {
   if (!isFinite(secs) || secs < 0) return "—";
   const h = Math.floor(secs / 3600);
@@ -912,24 +919,18 @@ function fmtPace(secsPerUnit) {
   const s = secsPerUnit - m * 60;
   return `${m}:${s.toFixed(1).padStart(4,"0")}`;
 }
-function fmtPaceShort(secsPerUnit) {
-  if (!isFinite(secsPerUnit) || secsPerUnit < 0) return "—";
-  const m = Math.floor(secsPerUnit / 60);
-  const s = Math.round(secsPerUnit - m * 60);
-  return `${m}:${String(s).padStart(2,"0")}`;
-}
 function fmtDelta(secs) {
   if (!isFinite(secs)) return "—";
-  const sign = secs > 0 ? "+" : secs < 0 ? "−" : "";
+  if (Math.abs(secs) < 0.5) return `<span class="delta-zero">±0s</span>`;
+  const sign = secs > 0 ? "+" : "−";
   const abs = Math.abs(secs);
-  const cls = secs > 0.5 ? "delta-pos" : secs < -0.5 ? "delta-neg" : "delta-zero";
+  const cls = secs > 0 ? "delta-pos" : "delta-neg";
   return `<span class="${cls}">${sign}${fmtTime(abs, abs < 60)}</span>`;
 }
-function fmtBothPaces(secPerKm) {
-  if (!isFinite(secPerKm)) return "—";
-  return `${fmtPaceShort(secPerKm)}/km · ${fmtPaceShort(secPerKm * KM_PER_MI)}/mi`;
-}
 
+// ============================================================================
+// Unit conversions
+// ============================================================================
 const KM_PER_MI = 1.609344;
 const M_PER_FT = 0.3048;
 function distToM(val, unit) { return unit === "mi" ? val * KM_PER_MI * 1000 : val * 1000; }
@@ -938,112 +939,275 @@ function tempToC(val, unit) { return unit === "F" ? (val - 32) * 5/9 : val; }
 function windToMph(val, unit) {
   if (unit === "kph") return val / KM_PER_MI;
   if (unit === "mps") return val * 2.23694;
-  if (unit === "fps") return val * 0.681818;  // ft/s to mph
+  if (unit === "fps") return val * 0.681818;
   return val;
 }
 
-function altitudeFactor(altM) { return 1 - 8.8006e-6 * altM; }
-function tempPenaltyForDelta(dF) {
-  return 1 - 1.4257e-3 * dF - 1.0241e-5 * dF * Math.abs(dF);
+function convertValue(val, fromUnit, toUnit, family) {
+  if (fromUnit === toUnit) return val;
+  if (!isFinite(val)) return val;
+  if (family === "distance") {
+    if (fromUnit === "km" && toUnit === "mi") return val / KM_PER_MI;
+    if (fromUnit === "mi" && toUnit === "km") return val * KM_PER_MI;
+  } else if (family === "elevation") {
+    if (fromUnit === "m" && toUnit === "ft") return val / M_PER_FT;
+    if (fromUnit === "ft" && toUnit === "m") return val * M_PER_FT;
+  } else if (family === "temperature") {
+    if (fromUnit === "C" && toUnit === "F") return val * 9/5 + 32;
+    if (fromUnit === "F" && toUnit === "C") return (val - 32) * 5/9;
+  } else if (family === "wind") {
+    let mps = val;
+    if (fromUnit === "mph") mps = val / 2.23694;
+    else if (fromUnit === "kph") mps = val / 3.6;
+    else if (fromUnit === "fps") mps = val * 0.3048;
+    if (toUnit === "mps") return mps;
+    if (toUnit === "mph") return mps * 2.23694;
+    if (toUnit === "kph") return mps * 3.6;
+    if (toUnit === "fps") return mps / 0.3048;
+  }
+  return val;
 }
-function hillTimeDelta(H_m, F_m, v_m_per_min) {
-  return (0.926 * H_m - 0.489 * F_m) / vo2(v_m_per_min) * 60;
+function niceRound(v, family) {
+  if (!isFinite(v)) return v;
+  if (family === "distance") return Math.round(v * 1000) / 1000;
+  if (family === "elevation") return Math.round(v);
+  if (family === "temperature") return Math.round(v * 10) / 10;
+  if (family === "wind") return Math.round(v * 10) / 10;
+  return v;
 }
-function vo2Treadmill(v, g) {
-  return -4.60 + 0.182258*v + 0.000104*v*v + v*g*(0.9017 + 1.2073*g);
-}
-function solveTreadmillV(target, g) {
-  const a = 0.000104;
-  const b = 0.182258 + 0.9017*g + 1.2073*g*g;
-  const c = -4.60 - target;
-  return (-b + Math.sqrt(b*b - 4*a*c)) / (2*a);
-}
-function solveOutdoorV(target) {
-  const a = 0.000104, b = 0.182258, c = -4.60 - target;
-  return (-b + Math.sqrt(b*b - 4*a*c)) / (2*a);
-}
-function windVo2Pct(wMph) { return 0.02 * wMph * wMph + 0.88 * wMph; }
 
+// ============================================================================
+// Combined model — actual race -> neutral VDOT -> hypothetical time
+// ============================================================================
+// Given an actual race performance with full conditions, return the runner's
+// "neutral VDOT" (what they'd show at sea level, 15.5°C neutral, no wind, flat).
+function inferNeutralVdot(actual) {
+  const { distM, timeSec, altM, tempC, windMph, upM, dnM } = actual;
+  const tMin = timeSec / 60;
+  const vActual = distM / tMin;
+
+  // 1) Strip hill penalty (in seconds) using actual velocity
+  const hillSec = hillTimeDelta(upM, dnM, vActual);
+  const tNoHill = timeSec - hillSec;
+  if (tNoHill <= 0) return NaN;
+
+  // 2) Strip wind. At pace v_noHill, VO2 demand was vo2(v_noHill)*(1+p).
+  //    In still air, same supply, demand = vo2(v_still) only. So:
+  //    vo2(v_still) = vo2(v_noHill) * (1 + p)
+  const vNoHill = distM / (tNoHill / 60);
+  const p = windVo2Pct(windMph) / 100;
+  const vo2Still = vo2(vNoHill) * (1 + p);
+  const vStill = solveOutdoorV(vo2Still);
+  const tStill = distM / vStill * 60;
+
+  // 3) Compute observed VDOT for the still-air, flat equivalent time
+  const vdotObserved = vdotOf(distM, tStill / 60);
+
+  // 4) Adjust to neutral by removing altitude and temperature effects
+  const vdotNeutral = vdotObserved / (altitudeFactor(altM) * tempFactor(tempC));
+
+  return vdotNeutral;
+}
+
+// Forward: given neutral VDOT and hypothetical conditions, predict the race time.
+function predictHypothetical(neutralVdot, hyp) {
+  const { distM, altM, tempC, windMph, upM, dnM } = hyp;
+
+  // 1) Effective VDOT under target conditions
+  const vdotEff = neutralVdot * altitudeFactor(altM) * tempFactor(tempC);
+
+  // 2) Flat, still-air time at this VDOT and distance
+  const tFlatStill = timeFor(distM, vdotEff);  // minutes
+  const vFlatStill = distM / tFlatStill;       // m/min
+
+  // 3) Apply wind. At target wind, demand at speed v is vo2(v)*(1+p).
+  //    Supply (vo2 at v) is the still-air vo2(vFlatStill).
+  //    So vo2(v_wind) * (1+p) = vo2(vFlatStill)  =>  vo2(v_wind) = vo2(vFlatStill)/(1+p)
+  const p = windVo2Pct(windMph) / 100;
+  const vo2Target = vo2(vFlatStill) / (1 + p);
+  const vWind = solveOutdoorV(vo2Target);
+  const tWind = distM / vWind * 60;  // seconds
+
+  // 4) Add hill penalty using v_wind
+  const hillSec = hillTimeDelta(upM, dnM, vWind);
+  const tFinal = tWind + hillSec;
+
+  // Also compute the underlying %VO2max for this duration at v_wind
+  // (best estimated using the flat-still equivalent, since that's where VDOT eqn applies)
+  const pctVO2 = pctMax(tFlatStill);
+
+  return { timeSec: tFinal, vMperMin: distM / tFinal * 60, pctVO2, vdotEff };
+}
+
+// ============================================================================
+// State
+// ============================================================================
 const state = {
-  raceDistM: 10000,
-  raceTimeSec: 2700,
-  vdot: 45.26,
-  velocity: 222.22,
-  valid: true,
+  neutralVdot: null,
 };
 
-function readRace() {
-  const distEl = document.getElementById("raceDist");
-  const timeEl = document.getElementById("raceTime");
-  const distVal = parseFloat(distEl.value);
-  const distUnit = document.getElementById("raceDistUnit").value;
-  const timeSec = parseTime(timeEl.value);
+// ============================================================================
+// Read inputs
+// ============================================================================
+// Tracks current course mode per side ("outdoor" or "treadmill")
+const courseMode = { act: "outdoor", hyp: "outdoor" };
 
-  const distValid = !isNaN(distVal) && distVal > 0;
-  const timeValid = !isNaN(timeSec) && timeSec > 0;
-  distEl.classList.toggle("invalid", !distValid);
-  timeEl.classList.toggle("invalid", !timeValid);
-
-  const meta = document.getElementById("raceVdotMeta");
-
-  if (!distValid || !timeValid) {
-    state.valid = false;
-    meta.textContent = !timeValid ? "invalid time format" : "invalid input";
-    meta.classList.add("invalid");
-    return;
-  }
-  state.valid = true;
-  meta.classList.remove("invalid");
-  state.raceDistM = distToM(distVal, distUnit);
-  state.raceTimeSec = timeSec;
-  const t_min = timeSec / 60;
-  state.velocity = state.raceDistM / t_min;
-  state.vdot = vdotOf(state.raceDistM, t_min);
-  meta.textContent = `VDOT ${state.vdot.toFixed(2)}`;
+function isEnabled(id) {
+  const el = document.getElementById(id);
+  return el ? el.checked : true;
 }
 
+function readRaceInputs(prefix) {
+  // prefix = "act" or "hyp"
+  const distEl = document.getElementById(prefix + "Dist");
+  const distVal = parseFloat(distEl.value);
+  const distUnit = document.getElementById(prefix + "DistUnit").value;
+  const distValid = !isNaN(distVal) && distVal > 0;
+  distEl.classList.toggle("invalid", !distValid);
+
+  let timeSec = null;
+  if (prefix === "act") {
+    const timeEl = document.getElementById("actTime");
+    timeSec = parseTime(timeEl.value);
+    const timeValid = isFinite(timeSec) && timeSec > 0;
+    timeEl.classList.toggle("invalid", !timeValid);
+    if (!timeValid) return null;
+  }
+
+  if (!distValid) return null;
+
+  const distM = distToM(distVal, distUnit);
+
+  // Altitude — if disabled, use 0 (sea level)
+  let altM = 0;
+  if (isEnabled(prefix + "AltEnable")) {
+    const altVal = parseFloat(document.getElementById(prefix + "Alt").value) || 0;
+    const altUnit = document.getElementById(prefix + "AltUnit").value;
+    altM = elevToM(altVal, altUnit);
+  }
+
+  // Temperature — if disabled, use neutral reference (15.5°C)
+  let tempC = REF_TEMP_C;
+  if (isEnabled(prefix + "TempEnable")) {
+    const tempVal = parseFloat(document.getElementById(prefix + "Temp").value) || 0;
+    const tempUnit = document.getElementById(prefix + "TempUnit").value;
+    tempC = tempToC(tempVal, tempUnit);
+  }
+
+  // Wind — if disabled, use 0 (still air)
+  let windMph = 0;
+  if (isEnabled(prefix + "WindEnable")) {
+    const windVal = parseFloat(document.getElementById(prefix + "Wind").value) || 0;
+    const windUnit = document.getElementById(prefix + "WindUnit").value;
+    windMph = windToMph(windVal, windUnit);
+  }
+
+  // Course profile — if disabled, no climbs or descents
+  let upM = 0, dnM = 0;
+  if (isEnabled(prefix + "CourseEnable")) {
+    if (courseMode[prefix] === "treadmill") {
+      const gradePct = parseFloat(document.getElementById(prefix + "Grade").value) || 0;
+      upM = distM * (gradePct / 100);
+      dnM = 0;
+    } else {
+      const upVal = parseFloat(document.getElementById(prefix + "Up").value) || 0;
+      const upUnit = document.getElementById(prefix + "UpUnit").value;
+      const dnVal = parseFloat(document.getElementById(prefix + "Dn").value) || 0;
+      const dnUnit = document.getElementById(prefix + "DnUnit").value;
+      upM = elevToM(upVal, upUnit);
+      dnM = elevToM(dnVal, dnUnit);
+    }
+  }
+
+  return {
+    distM,
+    timeSec,
+    altM, tempC, windMph, upM, dnM,
+  };
+}
+
+// ============================================================================
+// Stat display
+// ============================================================================
 const setStat = (id, t) => document.getElementById(id).textContent = t;
 const setHTML = (id, h) => document.getElementById(id).innerHTML = h;
-const clearStats = ids => ids.forEach(id => setStat(id, "—"));
 
-function updatePaceCard() {
-  if (!state.valid) {
-    clearStats(["paceDist","paceTime","pacePerKm","pacePerMi","paceKph","paceMph","pacePer400","paceVdot"]);
+function displayRaceStats(prefix, distM, timeSec, vdot, pctVO2max) {
+  const distKm = distM / 1000;
+  const distMi = distKm / KM_PER_MI;
+  const secPerKm = timeSec / distKm;
+  const secPerMi = timeSec / distMi;
+  const secPer400 = timeSec / (distM / 400);
+  setStat(prefix + "StatDist", `${distKm.toFixed(3)} km`);
+  setStat(prefix + "StatTime", fmtTime(timeSec, timeSec < 3600));
+  setStat(prefix + "StatPaceKm", fmtPace(secPerKm));
+  setStat(prefix + "StatPaceMi", fmtPace(secPerMi));
+  setStat(prefix + "StatKph", (distKm / (timeSec/3600)).toFixed(2));
+  setStat(prefix + "StatMph", (distMi / (timeSec/3600)).toFixed(2));
+  setStat(prefix + "StatPace400", fmtPace(secPer400));
+  setStat(prefix + "StatVdot", isFinite(vdot) ? vdot.toFixed(2) : "—");
+  setStat(prefix + "StatPct", isFinite(pctVO2max) ? (pctVO2max * 100).toFixed(1) + "%" : "—");
+}
+
+function clearStats(prefix) {
+  ["StatDist","StatTime","StatPaceKm","StatPaceMi","StatKph","StatMph","StatPace400","StatVdot","StatPct"]
+    .forEach(s => setStat(prefix + s, "—"));
+}
+
+// ============================================================================
+// Recompute everything
+// ============================================================================
+function recompute() {
+  const actual = readRaceInputs("act");
+  const hyp = readRaceInputs("hyp");
+
+  const hypDeltaMeta = document.getElementById("hypDeltaMeta");
+
+  if (!actual) {
+    clearStats("act");
+    clearStats("hyp");
+    hypDeltaMeta.textContent = "";
+    document.getElementById("trainTable").innerHTML = "";
     return;
   }
-  const distKm = state.raceDistM / 1000;
-  const distMi = distKm / KM_PER_MI;
-  const secPerKm = state.raceTimeSec / distKm;
-  const secPerMi = state.raceTimeSec / distMi;
-  const secPer400 = state.raceTimeSec / (state.raceDistM / 400);
-  setStat("paceDist", `${distKm.toFixed(3)} km`);
-  setStat("paceTime", fmtTime(state.raceTimeSec, state.raceTimeSec < 3600));
-  setStat("pacePerKm", fmtPace(secPerKm) + " /km");
-  setStat("pacePerMi", fmtPace(secPerMi) + " /mi");
-  setStat("paceKph", (distKm / (state.raceTimeSec/3600)).toFixed(2) + " km/h");
-  setStat("paceMph", (distMi / (state.raceTimeSec/3600)).toFixed(2) + " mph");
-  setStat("pacePer400", fmtPace(secPer400) + " /400m");
-  setStat("paceVdot", state.vdot.toFixed(2));
+
+  const neutralVdot = inferNeutralVdot(actual);
+  state.neutralVdot = neutralVdot;
+
+  if (!isFinite(neutralVdot) || neutralVdot < 10 || neutralVdot > 100) {
+    clearStats("act");
+    clearStats("hyp");
+    hypDeltaMeta.textContent = "";
+    document.getElementById("trainTable").innerHTML = "";
+    return;
+  }
+
+  // Actual race: observed VDOT, %VO2max for actual time
+  const observedVdot = vdotOf(actual.distM, actual.timeSec / 60);
+  const actPct = pctMax(actual.timeSec / 60);
+  displayRaceStats("act", actual.distM, actual.timeSec, observedVdot, actPct);
+
+  // Predict hypothetical
+  if (!hyp) {
+    clearStats("hyp");
+    hypDeltaMeta.textContent = "";
+  } else {
+    const pred = predictHypothetical(neutralVdot, hyp);
+    displayRaceStats("hyp", hyp.distM, pred.timeSec, pred.vdotEff, pred.pctVO2);
+    const dSec = pred.timeSec - actual.timeSec;
+    hypDeltaMeta.innerHTML = "Δ time " + fmtDelta(dSec);
+  }
+
+  // Training paces — based on the runner's effective VDOT under the ACTUAL race conditions
+  // (so paces match what they'd hit at the same altitude/temperature/wind they raced in).
+  // Note: training paces don't try to account for hills (they're per-km in steady state).
+  const actEffectiveVdot = neutralVdot * altitudeFactor(actual.altM) * tempFactor(actual.tempC);
+  updateTrainingTable(actEffectiveVdot, actual.windMph);
 }
 
-function updatePredCard() {
-  if (!state.valid) { clearStats(["predTime","predKm","predMi","predPct"]); return; }
-  const distVal = parseFloat(document.getElementById("predDist").value);
-  const unit = document.getElementById("predUnit").value;
-  if (isNaN(distVal) || distVal <= 0) { clearStats(["predTime","predKm","predMi","predPct"]); return; }
-  const d_m = distToM(distVal, unit);
-  const t_min = timeFor(d_m, state.vdot);
-  const t_sec = t_min * 60;
-  setStat("predTime", fmtTime(t_sec, t_sec < 3600));
-  setStat("predKm", fmtPace(t_sec / (d_m / 1000)) + " /km");
-  setStat("predMi", fmtPace(t_sec / (d_m / 1000 / KM_PER_MI)) + " /mi");
-  setStat("predPct", (pctMax(t_min) * 100).toFixed(1) + "%");
-}
-
-function updateTrainingCard() {
+function updateTrainingTable(vdot, windMph = 0) {
   const tbody = document.getElementById("trainTable");
   tbody.innerHTML = "";
-  if (!state.valid) return;
   const paces = [
     ["Easy / long (E)",       0.70],
     ["Marathon pace (M)",     0.84],
@@ -1051,136 +1215,17 @@ function updateTrainingCard() {
     ["Interval / VO₂max (I)", 0.98],
     ["Repetition (R)",        1.05],
   ];
+  const windPenalty = 1 + windVo2Pct(windMph) / 100;
   for (const [name, pct] of paces) {
-    const v = solveOutdoorV(pct * state.vdot);
+    // Effort target = pct * vdot. With wind, demand at velocity v is vo2(v)*(1+p);
+    // To produce same effort, vo2(v_wind) = vo2(v_still)/(1+p)
+    const targetVO2 = (pct * vdot) / windPenalty;
+    const v = solveOutdoorV(targetVO2);
     const secPerKm = 60000 / v;
     const tr = document.createElement("tr");
     tr.innerHTML = `<td>${name}</td><td class="num">${fmtPace(secPerKm * 0.4)}</td><td class="num">${fmtPace(secPerKm)}</td><td class="num">${fmtPace(secPerKm * KM_PER_MI)}</td>`;
     tbody.appendChild(tr);
   }
-}
-
-function updateAltitudeCard() {
-  if (!state.valid) { clearStats(["altTime","altPace"]); setHTML("altDelta","—"); return; }
-  const raceM = elevToM(parseFloat(document.getElementById("altRace").value) || 0, document.getElementById("altRaceUnit").value);
-  const tgtM = elevToM(parseFloat(document.getElementById("altTarget").value) || 0, document.getElementById("altTargetUnit").value);
-  const vdotSL = state.vdot / altitudeFactor(raceM);
-  const vdotTgt = vdotSL * altitudeFactor(tgtM);
-  const t_sec = timeFor(state.raceDistM, vdotTgt) * 60;
-  const secPerKm = t_sec / (state.raceDistM / 1000);
-  setStat("altTime", fmtTime(t_sec, t_sec < 3600));
-  setStat("altPace", fmtBothPaces(secPerKm));
-  setHTML("altDelta", fmtDelta(t_sec - state.raceTimeSec));
-}
-
-function updateTemperatureCard() {
-  if (!state.valid) { clearStats(["tempTime","tempPace"]); setHTML("tempDelta","—"); return; }
-  const raceC = tempToC(parseFloat(document.getElementById("tempRace").value) || 0, document.getElementById("tempRaceUnit").value);
-  const tgtC = tempToC(parseFloat(document.getElementById("tempTarget").value) || 0, document.getElementById("tempTargetUnit").value);
-  const dF = (tgtC - raceC) * 9/5;
-  const factor = tempPenaltyForDelta(dF);
-  const vdotTgt = state.vdot * factor;
-  const t_sec = timeFor(state.raceDistM, vdotTgt) * 60;
-  const secPerKm = t_sec / (state.raceDistM / 1000);
-  setStat("tempTime", fmtTime(t_sec, t_sec < 3600));
-  setStat("tempPace", fmtBothPaces(secPerKm));
-  setHTML("tempDelta", fmtDelta(t_sec - state.raceTimeSec));
-}
-
-function updateHillCard() {
-  if (!state.valid) { clearStats(["hillTarget","hillPace"]); setHTML("hillDelta","—"); return; }
-  const up1 = elevToM(parseFloat(document.getElementById("hillUp1").value)||0, document.getElementById("hillUp1Unit").value);
-  const dn1 = elevToM(parseFloat(document.getElementById("hillDn1").value)||0, document.getElementById("hillDn1Unit").value);
-  const up2 = elevToM(parseFloat(document.getElementById("hillUp2").value)||0, document.getElementById("hillUp2Unit").value);
-  const dn2 = elevToM(parseFloat(document.getElementById("hillDn2").value)||0, document.getElementById("hillDn2Unit").value);
-  const deltaToFlat = -hillTimeDelta(up1, dn1, state.velocity);
-  const tLevel = state.raceTimeSec + deltaToFlat;
-  const v_level = state.raceDistM / (tLevel / 60);
-  const deltaToTarget = hillTimeDelta(up2, dn2, v_level);
-  const tTarget = tLevel + deltaToTarget;
-  const secPerKm = tTarget / (state.raceDistM / 1000);
-  setStat("hillTarget", fmtTime(tTarget, tTarget < 3600));
-  setStat("hillPace", fmtBothPaces(secPerKm));
-  setHTML("hillDelta", fmtDelta(tTarget - state.raceTimeSec));
-}
-
-const tmState = { from: "outdoor", to: "treadmill" };
-
-function updateTreadmillCard() {
-  document.getElementById("tmFromGrade").classList.toggle("hidden", tmState.from !== "treadmill");
-  document.getElementById("tmToGrade").classList.toggle("hidden", tmState.to !== "treadmill");
-
-  const toOutdoor = document.querySelector('#tmToToggle button[data-mode="outdoor"]');
-  const fromOutdoor = document.querySelector('#tmFromToggle button[data-mode="outdoor"]');
-  toOutdoor.disabled = tmState.from === "outdoor";
-  fromOutdoor.disabled = tmState.to === "outdoor";
-
-  const paceUnit = document.getElementById("tmPaceUnit").value;
-  const paceSec = parseTime(document.getElementById("tmPace").value);
-  document.getElementById("tmPace").classList.toggle("invalid", !isFinite(paceSec) || paceSec <= 0);
-
-  if (!isFinite(paceSec) || paceSec <= 0) {
-    clearStats(["tmEqPace","tmEqKm","tmEqMi","tmRaceTime"]);
-    return;
-  }
-
-  const fromGrade = (parseFloat(document.getElementById("tmFromGradeNum").value) || 0) / 100;
-  const toGrade = (parseFloat(document.getElementById("tmToGradeNum").value) || 0) / 100;
-  const distMPerPaceUnit = paceUnit === "mi" ? KM_PER_MI * 1000 : 1000;
-  const v_in = distMPerPaceUnit / paceSec * 60;
-
-  let vo2_input;
-  if (tmState.from === "outdoor") vo2_input = vo2(v_in);
-  else vo2_input = vo2Treadmill(v_in, fromGrade);
-
-  let v_out;
-  if (tmState.to === "outdoor") v_out = solveOutdoorV(vo2_input);
-  else v_out = solveTreadmillV(vo2_input, toGrade);
-
-  const eqPaceSec = distMPerPaceUnit / v_out * 60;
-  const eqKm = 60000 / v_out;
-  const eqMi = eqKm * KM_PER_MI;
-  setStat("tmEqPace", fmtPace(eqPaceSec) + " /" + (paceUnit === "mi" ? "mile" : "km"));
-  setStat("tmEqKm", fmtPace(eqKm) + " /km");
-  setStat("tmEqMi", fmtPace(eqMi) + " /mi");
-
-  const raceDistVal = parseFloat(document.getElementById("tmRaceDist").value);
-  const raceUnit = document.getElementById("tmRaceUnit").value;
-  if (isFinite(raceDistVal) && raceDistVal > 0) {
-    const distM = distToM(raceDistVal, raceUnit);
-    const raceTimeSec = distM / v_out * 60;
-    setStat("tmRaceTime", fmtTime(raceTimeSec, raceTimeSec < 3600));
-  } else {
-    setStat("tmRaceTime", "—");
-  }
-}
-
-function updateWindCard() {
-  if (!state.valid) { clearStats(["windTime","windPace","windPct"]); setHTML("windDelta","—"); return; }
-  const refMph = windToMph(parseFloat(document.getElementById("windRef").value)||0, document.getElementById("windRefUnit").value);
-  const tgtMph = windToMph(parseFloat(document.getElementById("windTarget").value)||0, document.getElementById("windTargetUnit").value);
-  const supplyVO2 = vo2(state.velocity) * (1 + windVo2Pct(refMph)/100);
-  const vo2NewVel = supplyVO2 / (1 + windVo2Pct(tgtMph)/100);
-  const vNew = solveOutdoorV(vo2NewVel);
-  const t_sec = state.raceDistM / vNew * 60;
-  const secPerKm = t_sec / (state.raceDistM / 1000);
-  const pctChange = windVo2Pct(tgtMph) - windVo2Pct(refMph);
-  setStat("windTime", fmtTime(t_sec, t_sec < 3600));
-  setStat("windPace", fmtBothPaces(secPerKm));
-  setStat("windPct", (pctChange >= 0 ? "+" : "") + pctChange.toFixed(2) + "%");
-  setHTML("windDelta", fmtDelta(t_sec - state.raceTimeSec));
-}
-
-function recompute() {
-  readRace();
-  updatePaceCard();
-  updatePredCard();
-  updateTrainingCard();
-  updateAltitudeCard();
-  updateTemperatureCard();
-  updateHillCard();
-  updateTreadmillCard();
-  updateWindCard();
 }
 
 // ============================================================================
@@ -1197,93 +1242,27 @@ function linkPair(sliderId, numberId) {
   });
 }
 
-linkPair("raceDistSlider", "raceDist");
-
-const raceTimeSlider = document.getElementById("raceTimeSlider");
-const raceTimeInput = document.getElementById("raceTime");
-raceTimeSlider.addEventListener("input", () => {
-  raceTimeInput.value = fmtTime(parseFloat(raceTimeSlider.value), false);
-  raceTimeInput.classList.remove("invalid");
+// Race time slider (special: text input format)
+const actTimeSlider = document.getElementById("actTimeSlider");
+const actTimeInput = document.getElementById("actTime");
+actTimeSlider.addEventListener("input", () => {
+  actTimeInput.value = fmtTime(parseFloat(actTimeSlider.value), false);
+  actTimeInput.classList.remove("invalid");
   recompute();
 });
-raceTimeInput.addEventListener("input", () => {
-  const v = parseTime(raceTimeInput.value);
-  if (isFinite(v) && v > 0) raceTimeSlider.value = Math.min(Math.max(v, raceTimeSlider.min), raceTimeSlider.max);
-  recompute();
-});
-
-linkPair("predSlider", "predDist");
-linkPair("altRaceSlider", "altRace");
-linkPair("altTargetSlider", "altTarget");
-linkPair("tempRaceSlider", "tempRace");
-linkPair("tempTargetSlider", "tempTarget");
-linkPair("hillUp1Slider", "hillUp1");
-linkPair("hillDn1Slider", "hillDn1");
-linkPair("hillUp2Slider", "hillUp2");
-linkPair("hillDn2Slider", "hillDn2");
-linkPair("tmFromGradeSlider", "tmFromGradeNum");
-linkPair("tmToGradeSlider", "tmToGradeNum");
-linkPair("tmRaceSlider", "tmRaceDist");
-linkPair("windRefSlider", "windRef");
-linkPair("windTargetSlider", "windTarget");
-
-const tmPaceSlider = document.getElementById("tmPaceSlider");
-const tmPaceInput = document.getElementById("tmPace");
-tmPaceSlider.addEventListener("input", () => {
-  tmPaceInput.value = fmtTime(parseFloat(tmPaceSlider.value), false);
-  tmPaceInput.classList.remove("invalid");
-  recompute();
-});
-tmPaceInput.addEventListener("input", () => {
-  const v = parseTime(tmPaceInput.value);
-  if (isFinite(v) && v > 0) tmPaceSlider.value = Math.min(Math.max(v, tmPaceSlider.min), tmPaceSlider.max);
+actTimeInput.addEventListener("input", () => {
+  const v = parseTime(actTimeInput.value);
+  if (isFinite(v) && v > 0) actTimeSlider.value = Math.min(Math.max(v, parseFloat(actTimeSlider.min)), parseFloat(actTimeSlider.max));
   recompute();
 });
 
-// Helper: convert a value from one unit to another for a given conversion family.
-// Families: distance (km, mi), elevation (m, ft), temperature (C, F), wind (mph, kph, mps).
-function convertValue(val, fromUnit, toUnit, family) {
-  if (fromUnit === toUnit) return val;
-  if (!isFinite(val)) return val;
-  if (family === "distance") {
-    if (fromUnit === "km" && toUnit === "mi") return val / KM_PER_MI;
-    if (fromUnit === "mi" && toUnit === "km") return val * KM_PER_MI;
-  } else if (family === "elevation") {
-    if (fromUnit === "m" && toUnit === "ft") return val / M_PER_FT;
-    if (fromUnit === "ft" && toUnit === "m") return val * M_PER_FT;
-  } else if (family === "temperature") {
-    if (fromUnit === "C" && toUnit === "F") return val * 9/5 + 32;
-    if (fromUnit === "F" && toUnit === "C") return (val - 32) * 5/9;
-  } else if (family === "wind") {
-    // First convert to m/s
-    let mps = val;
-    if (fromUnit === "mph") mps = val / 2.23694;
-    else if (fromUnit === "kph") mps = val / 3.6;
-    else if (fromUnit === "fps") mps = val * 0.3048;
-    // Then to target
-    if (toUnit === "mps") return mps;
-    if (toUnit === "mph") return mps * 2.23694;
-    if (toUnit === "kph") return mps * 3.6;
-    if (toUnit === "fps") return mps / 0.3048;
-  }
-  return val;
-}
+// All other slider/number pairs
+[
+  "actDist","actAlt","actTemp","actWind","actUp","actDn","actGrade",
+  "hypDist","hypAlt","hypTemp","hypWind","hypUp","hypDn","hypGrade",
+].forEach(id => linkPair(id + "Slider", id));
 
-// Round nicely so converted values aren't ugly like 4.999999999
-function niceRound(v, family, unit) {
-  if (!isFinite(v)) return v;
-  if (family === "distance") return Math.round(v * 1000) / 1000;
-  if (family === "elevation") {
-    // round to step appropriate for unit
-    const step = unit === "ft" ? 1 : 1;
-    return Math.round(v / step) * step;
-  }
-  if (family === "temperature") return Math.round(v * 10) / 10;
-  if (family === "wind") return Math.round(v * 10) / 10;
-  return v;
-}
-
-// Generic unit-switch handler that also converts the underlying value.
+// Unit change handlers — preserve quantity by converting value
 function makeUnitHandler({ unitId, inputId, sliderId, family, onUnit }) {
   const unitEl = document.getElementById(unitId);
   unitEl.dataset.prev = unitEl.value;
@@ -1293,11 +1272,10 @@ function makeUnitHandler({ unitId, inputId, sliderId, family, onUnit }) {
     const inp = document.getElementById(inputId);
     const sld = sliderId ? document.getElementById(sliderId) : null;
     const oldVal = parseFloat(inp.value);
-    const newVal = niceRound(convertValue(oldVal, prev, next, family), family, next);
+    const newVal = niceRound(convertValue(oldVal, prev, next, family), family);
     if (isFinite(newVal)) inp.value = newVal;
-    if (onUnit) onUnit(next, sld);  // update slider range etc.
+    if (onUnit) onUnit(next, sld);
     if (sld && isFinite(newVal)) {
-      // Clamp value to slider range, then sync
       const clamped = Math.min(Math.max(newVal, parseFloat(sld.min)), parseFloat(sld.max));
       sld.value = clamped;
       inp.value = clamped;
@@ -1307,178 +1285,241 @@ function makeUnitHandler({ unitId, inputId, sliderId, family, onUnit }) {
   });
 }
 
-// Distance handlers (race, predicted, treadmill race) — convert km <-> mi and update slider max
 function distSliderUpdate(unit, slider) {
   if (!slider) return;
   slider.max = unit === "mi" ? 31 : 50;
 }
-makeUnitHandler({ unitId: "raceDistUnit", inputId: "raceDist", sliderId: "raceDistSlider", family: "distance", onUnit: distSliderUpdate });
-makeUnitHandler({ unitId: "predUnit", inputId: "predDist", sliderId: "predSlider", family: "distance", onUnit: distSliderUpdate });
-makeUnitHandler({ unitId: "tmRaceUnit", inputId: "tmRaceDist", sliderId: "tmRaceSlider", family: "distance", onUnit: distSliderUpdate });
-
-// Altitude handlers
 function altSliderUpdate(unit, slider) {
   if (!slider) return;
   slider.max = unit === "ft" ? 11500 : 3500;
   slider.step = unit === "ft" ? 50 : 10;
 }
-makeUnitHandler({ unitId: "altRaceUnit", inputId: "altRace", sliderId: "altRaceSlider", family: "elevation", onUnit: altSliderUpdate });
-makeUnitHandler({ unitId: "altTargetUnit", inputId: "altTarget", sliderId: "altTargetSlider", family: "elevation", onUnit: altSliderUpdate });
-
-// Temperature handlers
 function tempSliderUpdate(unit, slider) {
   if (!slider) return;
   if (unit === "F") { slider.min = 15; slider.max = 105; }
   else { slider.min = -10; slider.max = 40; }
   slider.step = 0.1;
 }
-makeUnitHandler({ unitId: "tempRaceUnit", inputId: "tempRace", sliderId: "tempRaceSlider", family: "temperature", onUnit: tempSliderUpdate });
-makeUnitHandler({ unitId: "tempTargetUnit", inputId: "tempTarget", sliderId: "tempTargetSlider", family: "temperature", onUnit: tempSliderUpdate });
-
-// Hill handlers (elevation, no temp)
 function hillSliderUpdate(unit, slider) {
   if (!slider) return;
   slider.max = unit === "ft" ? 6500 : 2000;
   slider.step = unit === "ft" ? 20 : 5;
 }
-["hillUp1","hillDn1","hillUp2","hillDn2"].forEach(p => {
-  makeUnitHandler({ unitId: p + "Unit", inputId: p, sliderId: p + "Slider", family: "elevation", onUnit: hillSliderUpdate });
-});
-
-// Wind handlers
 function windSliderUpdate(unit, slider) {
   if (!slider) return;
-  // ~9 m/s ≈ 32 kph ≈ 20 mph ≈ 30 ft/s
   const max = unit === "mph" ? 20 : unit === "kph" ? 32 : unit === "fps" ? 30 : 9;
   slider.min = -max; slider.max = max;
 }
-makeUnitHandler({ unitId: "windRefUnit", inputId: "windRef", sliderId: "windRefSlider", family: "wind", onUnit: windSliderUpdate });
-makeUnitHandler({ unitId: "windTargetUnit", inputId: "windTarget", sliderId: "windTargetSlider", family: "wind", onUnit: windSliderUpdate });
 
-// Treadmill pace unit (km <-> mi) — convert the pace
-const tmPaceUnitEl = document.getElementById("tmPaceUnit");
-tmPaceUnitEl.dataset.prev = tmPaceUnitEl.value;
-tmPaceUnitEl.addEventListener("change", () => {
-  const prev = tmPaceUnitEl.dataset.prev;
-  const next = tmPaceUnitEl.value;
-  const paceInp = document.getElementById("tmPace");
-  const paceSld = document.getElementById("tmPaceSlider");
-  const sec = parseTime(paceInp.value);
-  if (isFinite(sec) && sec > 0) {
-    // pace is sec per unit. Going from "/km" to "/mile": multiply seconds by miles-per-km ratio
-    // pace per mile = pace per km * 1.609344
-    let newSec = sec;
-    if (prev === "km" && next === "mi") newSec = sec * KM_PER_MI;
-    else if (prev === "mi" && next === "km") newSec = sec / KM_PER_MI;
-    const clamped = Math.min(Math.max(newSec, parseFloat(paceSld.min)), parseFloat(paceSld.max));
-    paceSld.value = clamped;
-    paceInp.value = fmtTime(clamped, false);
-  }
-  tmPaceUnitEl.dataset.prev = next;
-  recompute();
+// Apply to actual and hypothetical
+["act","hyp"].forEach(prefix => {
+  makeUnitHandler({ unitId: prefix+"DistUnit",  inputId: prefix+"Dist",  sliderId: prefix+"DistSlider",  family: "distance",    onUnit: distSliderUpdate });
+  makeUnitHandler({ unitId: prefix+"AltUnit",   inputId: prefix+"Alt",   sliderId: prefix+"AltSlider",   family: "elevation",   onUnit: altSliderUpdate });
+  makeUnitHandler({ unitId: prefix+"TempUnit",  inputId: prefix+"Temp",  sliderId: prefix+"TempSlider",  family: "temperature", onUnit: tempSliderUpdate });
+  makeUnitHandler({ unitId: prefix+"WindUnit",  inputId: prefix+"Wind",  sliderId: prefix+"WindSlider",  family: "wind",        onUnit: windSliderUpdate });
+  makeUnitHandler({ unitId: prefix+"UpUnit",    inputId: prefix+"Up",    sliderId: prefix+"UpSlider",    family: "elevation",   onUnit: hillSliderUpdate });
+  makeUnitHandler({ unitId: prefix+"DnUnit",    inputId: prefix+"Dn",    sliderId: prefix+"DnSlider",    family: "elevation",   onUnit: hillSliderUpdate });
 });
 
-// Master Metric/Imperial unit toggle.
-// Each unit has a counterpart in the other system. If a select is already
-// using a unit from the target system, it's left alone.
+// Master Metric/Imperial toggle
 const UNIT_PAIRS = {
-  // distance
   km: "mi", mi: "km",
-  // elevation
   m: "ft", ft: "m",
-  // temperature
   C: "F", F: "C",
-  // wind: m/s ↔ ft/s, kph ↔ mph
   mps: "fps", fps: "mps",
   kph: "mph", mph: "kph",
 };
-// Which units belong to which system
-const METRIC_UNITS = new Set(["km", "m", "C", "mps", "kph"]);
-const IMPERIAL_UNITS = new Set(["mi", "ft", "F", "fps", "mph"]);
-// Pace unit ("km" or "mi") follows distance
-const UNIT_SELECT_IDS = [
-  "raceDistUnit", "predUnit", "tmRaceUnit",
-  "altRaceUnit", "altTargetUnit",
-  "tempRaceUnit", "tempTargetUnit",
-  "hillUp1Unit", "hillDn1Unit", "hillUp2Unit", "hillDn2Unit",
-  "windRefUnit", "windTargetUnit",
-  "tmPaceUnit",
-];
+const METRIC_UNITS = new Set(["km","m","C","mps","kph"]);
+const IMPERIAL_UNITS = new Set(["mi","ft","F","fps","mph"]);
+const ALL_UNIT_SELECTS = [];
+["act","hyp"].forEach(prefix => {
+  ["Dist","Alt","Temp","Wind","Up","Dn"].forEach(k => ALL_UNIT_SELECTS.push(prefix + k + "Unit"));
+});
 document.querySelectorAll("#unitSystemToggle button").forEach(b => {
   b.addEventListener("click", () => {
     const system = b.dataset.system;
     document.querySelectorAll("#unitSystemToggle button").forEach(x => x.classList.remove("active"));
     b.classList.add("active");
     const targetSet = system === "metric" ? METRIC_UNITS : IMPERIAL_UNITS;
-    UNIT_SELECT_IDS.forEach(id => {
+    ALL_UNIT_SELECTS.forEach(id => {
       const el = document.getElementById(id);
       if (!el) return;
       const cur = el.value;
-      // Already in the right system → leave alone
       if (targetSet.has(cur)) return;
       const next = UNIT_PAIRS[cur];
       if (!next) return;
       el.value = next;
-      // Fire change so the existing converter runs (value-preserving conversion)
       el.dispatchEvent(new Event("change"));
     });
   });
 });
 
-function bindToggle(id, side) {
-  document.querySelectorAll(`#${id} button`).forEach(b => {
-    b.addEventListener("click", () => {
-      if (b.disabled) return;
-      const newMode = b.dataset.mode;
-      const otherSide = side === "from" ? "to" : "from";
-      if (newMode === "outdoor" && tmState[otherSide] === "outdoor") return;
-      document.querySelectorAll(`#${id} button`).forEach(x => x.classList.remove("active"));
-      b.classList.add("active");
-      tmState[side] = newMode;
-      recompute();
-    });
+// Presets
+function bindPreset(id, distInputId, sliderId, unitId) {
+  document.getElementById(id).addEventListener("change", (e) => {
+    if (!e.target.value) return;
+    const km = parseFloat(e.target.value);
+    const unit = document.getElementById(unitId).value;
+    const v = niceRound(convertValue(km, "km", unit, "distance"), "distance");
+    const sld = document.getElementById(sliderId);
+    const clamped = Math.min(Math.max(v, parseFloat(sld.min)), parseFloat(sld.max));
+    document.getElementById(distInputId).value = clamped;
+    sld.value = clamped;
+    recompute();
+    e.target.value = "";
   });
 }
-bindToggle("tmFromToggle", "from");
-bindToggle("tmToToggle", "to");
+bindPreset("actDistPreset", "actDist", "actDistSlider", "actDistUnit");
+bindPreset("hypDistPreset", "hypDist", "hypDistSlider", "hypDistUnit");
 
-document.getElementById("raceDist").addEventListener("input", recompute);
-document.getElementById("raceTime").addEventListener("input", recompute);
-
-document.getElementById("raceDistPreset").addEventListener("change", (e) => {
-  if (!e.target.value) return;
-  const km = parseFloat(e.target.value);
-  const unit = document.getElementById("raceDistUnit").value;
-  const v = niceRound(convertValue(km, "km", unit, "distance"), "distance", unit);
-  const sld = document.getElementById("raceDistSlider");
-  const clamped = Math.min(Math.max(v, parseFloat(sld.min)), parseFloat(sld.max));
-  document.getElementById("raceDist").value = clamped;
-  sld.value = clamped;
-  recompute();
-  e.target.value = "";
+// Course type toggle (outdoor / treadmill grade)
+function setCourseMode(prefix, mode) {
+  courseMode[prefix] = mode;
+  // Activate the right button
+  document.querySelectorAll(`[data-course-toggle="${prefix}"] button`).forEach(b => {
+    b.classList.toggle("active", b.dataset.course === mode);
+  });
+  // Show/hide the right rows
+  document.querySelector(`[data-course-rows="${prefix}-outdoor"]`).style.display = mode === "outdoor" ? "" : "none";
+  document.querySelector(`[data-course-rows="${prefix}-treadmill"]`).style.display = mode === "treadmill" ? "" : "none";
+}
+document.querySelectorAll("[data-course-toggle] button").forEach(b => {
+  b.addEventListener("click", () => {
+    const prefix = b.parentElement.dataset.courseToggle;
+    setCourseMode(prefix, b.dataset.course);
+    recompute();
+  });
 });
 
-document.getElementById("predDistPreset").addEventListener("change", (e) => {
-  if (!e.target.value) return;
-  const km = parseFloat(e.target.value);
-  const unit = document.getElementById("predUnit").value;
-  const v = niceRound(convertValue(km, "km", unit, "distance"), "distance", unit);
-  const sld = document.getElementById("predSlider");
-  const clamped = Math.min(Math.max(v, parseFloat(sld.min)), parseFloat(sld.max));
-  document.getElementById("predDist").value = clamped;
-  sld.value = clamped;
-  recompute();
-  e.target.value = "";
+// Enable checkboxes for conditions/course profile.
+// Actual & hypothetical share state — toggling one toggles the other.
+const ENABLE_PAIRS = [
+  // [key, actFields, hypFields, optional act extra, optional hyp extra]
+  ["Alt",    ["actAltField"],    ["hypAltField"]],
+  ["Temp",   ["actTempField"],   ["hypTempField"]],
+  ["Wind",   ["actWindField"],   ["hypWindField"]],
+  ["Course", ["actCourseField"], ["hypCourseField"],
+   ['[data-course-rows="act-outdoor"]','[data-course-rows="act-treadmill"]'],
+   ['[data-course-rows="hyp-outdoor"]','[data-course-rows="hyp-treadmill"]']],
+];
+
+function applyEnableState(checked, fieldIds, extraSelectors) {
+  fieldIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("disabled", !checked);
+  });
+  if (extraSelectors) {
+    extraSelectors.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => {
+        el.querySelectorAll(".field").forEach(f => f.classList.toggle("disabled", !checked));
+      });
+    });
+  }
+}
+
+ENABLE_PAIRS.forEach(([key, actFields, hypFields, actExtra, hypExtra]) => {
+  const actCb = document.getElementById("act" + key + "Enable");
+  const hypCb = document.getElementById("hyp" + key + "Enable");
+  if (!actCb || !hypCb) return;
+  // Initial visual state
+  applyEnableState(actCb.checked, actFields, actExtra);
+  applyEnableState(hypCb.checked, hypFields, hypExtra);
+  // Link: toggling either updates both and re-applies styling
+  function sync(source) {
+    const v = source.checked;
+    if (actCb.checked !== v) actCb.checked = v;
+    if (hypCb.checked !== v) hypCb.checked = v;
+    applyEnableState(v, actFields, actExtra);
+    applyEnableState(v, hypFields, hypExtra);
+    recompute();
+  }
+  actCb.addEventListener("change", () => sync(actCb));
+  hypCb.addEventListener("change", () => sync(hypCb));
 });
 
-// Position tooltips on hover so they never get clipped by parent overflow.
-// Event delegation so it works for every .info regardless of when it was added.
+// "Copy from actual" — copy all condition + distance variables (excluding time) plus course mode
+document.getElementById("copyFromActual").addEventListener("click", () => {
+  const FIELDS = [
+    ["Dist", "DistUnit", "DistSlider"],
+    ["Alt", "AltUnit", "AltSlider"],
+    ["Temp", "TempUnit", "TempSlider"],
+    ["Wind", "WindUnit", "WindSlider"],
+    ["Up", "UpUnit", "UpSlider"],
+    ["Dn", "DnUnit", "DnSlider"],
+  ];
+  FIELDS.forEach(([input, unit, slider]) => {
+    const actVal = document.getElementById("act" + input).value;
+    const actUnit = document.getElementById("act" + unit).value;
+    // Set hyp unit first (without triggering convertValue), then value
+    const hypUnitEl = document.getElementById("hyp" + unit);
+    if (hypUnitEl.value !== actUnit) {
+      hypUnitEl.dataset.prev = actUnit;
+      hypUnitEl.value = actUnit;
+      const slEl = document.getElementById("hyp" + slider);
+      const family = (
+        input === "Dist" ? "distance" :
+        input === "Temp" ? "temperature" :
+        input === "Wind" ? "wind" : "elevation"
+      );
+      const onUnitFn = (
+        family === "distance" ? distSliderUpdate :
+        family === "temperature" ? tempSliderUpdate :
+        family === "wind" ? windSliderUpdate :
+        (input === "Alt" ? altSliderUpdate : hillSliderUpdate)
+      );
+      onUnitFn(actUnit, slEl);
+    }
+    document.getElementById("hyp" + input).value = actVal;
+    document.getElementById("hyp" + slider).value = actVal;
+  });
+  // Also copy course mode + treadmill grade
+  setCourseMode("hyp", courseMode.act);
+  if (courseMode.act === "treadmill") {
+    const g = document.getElementById("actGrade").value;
+    document.getElementById("hypGrade").value = g;
+    document.getElementById("hypGradeSlider").value = g;
+  }
+  recompute();
+});
+
+// Position tooltips via event delegation. Clamp to viewport so they never overflow.
+const _ttCanvas = document.createElement("canvas").getContext("2d");
+_ttCanvas.font = "400 12px " + getComputedStyle(document.body).fontFamily;
+function _ttMeasure(text) {
+  // Measure each line broken at words (max width = min(260, viewport-20))
+  const maxW = Math.min(260, window.innerWidth - 20);
+  const words = String(text).split(/\s+/);
+  let lineW = 0, maxLineW = 0, lines = 1;
+  for (const w of words) {
+    const wW = _ttCanvas.measureText((lineW === 0 ? "" : " ") + w).width;
+    if (lineW + wW > maxW - 24) {  // 24 = horizontal padding
+      lines++;
+      lineW = _ttCanvas.measureText(w).width;
+    } else {
+      lineW += wW;
+    }
+    if (lineW > maxLineW) maxLineW = lineW;
+  }
+  const width = Math.min(maxW, maxLineW + 24);
+  const height = lines * 17 + 16;  // 17 = line-height for 12px/1.4, 16 = vertical padding
+  return { width, height };
+}
 document.addEventListener("mouseover", (e) => {
   const el = e.target.closest(".info");
   if (!el) return;
   const r = el.getBoundingClientRect();
-  el.style.setProperty("--tt-x", (r.left + r.width / 2) + "px");
-  el.style.setProperty("--tt-y", (r.top - 8) + "px");
+  const tip = el.getAttribute("data-tip") || "";
+  const { width, height } = _ttMeasure(tip);
+  const margin = 8;
+  // Desired horizontal center on the ?
+  let left = r.left + r.width / 2 - width / 2;
+  // Clamp to viewport
+  left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+  // Vertical: prefer above; if not enough room, place below
+  let top = r.top - 8;
+  if (top - height < margin) top = r.bottom + 8 + height;  // 'top' here means bottom of tooltip
+  el.style.setProperty("--tt-x", left + "px");
+  el.style.setProperty("--tt-y", top + "px");
 });
 
 recompute();
