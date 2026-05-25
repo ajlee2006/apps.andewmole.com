@@ -508,6 +508,14 @@ body {
 }
 .eta-suffix.gone { color: var(--load-lsd); }
 
+.eta-abs {
+  font-size: 10px;
+  color: var(--text-3);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Right side of arrival cell — bus icon stacked over load bar over wheelchair */
 .eta-icons {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -748,7 +756,7 @@ body {
 
 // ----- Config -----
 const API_BASE = 'https://api.andewmole.com/bustimings';
-const POLL_MS = 10000;
+const POLL_MS = 5000;
 
 // ----- State -----
 // Ordered list of bus stop codes the user has added (top of UI = first in array).
@@ -819,6 +827,30 @@ function escapeHTML(s) {
   return String(s).replace(/[&<>"']/g, c => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   })[c]);
+}
+
+// Compare two arrival responses and return a Map of "serviceNo|busKey" → flashEndMs
+// (a timestamp in ms after which the flash effect should stop). LTA updated its
+// prediction when EstimatedArrival changes between fetches. We only flag changes
+// when BOTH old and new have a non-empty EstimatedArrival, so the initial load
+// (prev === null) doesn't flash everything.
+const FLASH_MS = 900;
+function diffArrivalChanges(prevData, nextData) {
+  const changed = new Map();
+  if (!prevData || !nextData) return changed;
+  const flashEnd = Date.now() + FLASH_MS;
+  const prevByService = new Map();
+  for (const svc of (prevData.Services || [])) prevByService.set(svc.ServiceNo, svc);
+  for (const svc of (nextData.Services || [])) {
+    const prevSvc = prevByService.get(svc.ServiceNo);
+    if (!prevSvc) continue;
+    for (const key of ['NextBus', 'NextBus2', 'NextBus3']) {
+      const a = (prevSvc[key] || {}).EstimatedArrival || '';
+      const b = (svc[key] || {}).EstimatedArrival || '';
+      if (a && b && a !== b) changed.set(svc.ServiceNo + '|' + key, flashEnd);
+    }
+  }
+  return changed;
 }
 
 // ----- Icon library -----
@@ -928,13 +960,16 @@ async function fetchAllArrivals() {
     const code = stops[i];
     const r = results[i];
     if (r.status === 'fulfilled') {
-      stopState.set(code, { data: r.value.data, error: null });
+      const prev = stopState.get(code) || { data: null, error: null };
+      // Detect which (service, slot) timings changed since last fetch
+      const changed = diffArrivalChanges(prev.data, r.value.data);
+      stopState.set(code, { data: r.value.data, error: null, changed });
     } else {
       anyError = true;
       const msg = (r.reason && r.reason.message) || 'fetch failed';
       if (/Failed to fetch|NetworkError/.test(msg)) networkError = true;
       const prev = stopState.get(code) || { data: null, error: null };
-      stopState.set(code, { data: prev.data, error: msg });
+      stopState.set(code, { data: prev.data, error: msg, changed: prev.changed });
     }
   }
 
@@ -1188,11 +1223,11 @@ function renderAllArrivals() {
 
     // Arrivals board
     const board = card.querySelector('.board');
-    renderBoardForStop(board, data ? data.Services : null, now);
+    renderBoardForStop(board, data ? data.Services : null, now, state.changed);
   }
 }
 
-function renderBoardForStop(board, services, now) {
+function renderBoardForStop(board, services, now, changed) {
   if (!services) {
     if (!board.querySelector('.empty-state')) {
       board.innerHTML = '<div class="empty-state">Loading…</div>';
@@ -1239,8 +1274,24 @@ function renderBoardForStop(board, services, now) {
 
     const arrivalsBox = row.querySelector('.arrivals');
     arrivalsBox.innerHTML = '';
+    const nowMs = Date.now();
     for (const key of ['NextBus', 'NextBus2', 'NextBus3']) {
-      arrivalsBox.appendChild(buildArrivalCell(svc[key], now));
+      const arrivalCell = buildArrivalCell(svc[key], now);
+      if (changed) {
+        const slotKey = svc.ServiceNo + '|' + key;
+        const flashEnd = changed.get(slotKey);
+        if (flashEnd) {
+          if (nowMs < flashEnd) {
+            // Linearly fade from full tint to transparent over the flash duration.
+            const t = (flashEnd - nowMs) / FLASH_MS; // 1 → 0
+            const alpha = (0.35 * t).toFixed(3);
+            arrivalCell.style.backgroundColor = `rgba(240, 168, 48, ${alpha})`;
+          } else {
+            changed.delete(slotKey);
+          }
+        }
+      }
+      arrivalsBox.appendChild(arrivalCell);
     }
 
     nextNodes.push(row);
@@ -1287,6 +1338,7 @@ function buildArrivalCell(bus, now) {
   const isScheduled = !bus.Monitored;
   const busType = bus.Type || 'SD';
   const lc = loadClass(bus.Load);
+  const absTime = formatClock(arrival);
 
   const timeHTML = `<span class="eta-time ${past ? 'gone' : ''}">`
     + `<span class="eta-min-num">${sign}${minutes}</span>`
@@ -1298,6 +1350,7 @@ function buildArrivalCell(bus, now) {
   cell.innerHTML = `
     <div class="eta-time-box">
       ${timeHTML}
+      <span class="eta-abs">${absTime}</span>
     </div>
     <div class="eta-icons">
       <span class="bus-icon ${busType === 'DD' ? 'dd' : ''}" title="${escapeHTML(busTypeLabel(busType))}">${busSVG(busType)}</span>
