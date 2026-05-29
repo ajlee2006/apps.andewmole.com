@@ -16,7 +16,7 @@ function solveOutdoorV(target) {
   const a = 0.000104, b = 0.182258, c = -4.60 - target;
   return (-b + Math.sqrt(b*b - 4*a*c)) / (2*a);
 }
-
+ 
 // ============================================================================
 // Conditions adjustments
 // ============================================================================
@@ -30,7 +30,7 @@ function windVo2Pct(wMph) { return 0.02 * wMph * wMph + 0.88 * wMph; }
 function hillTimeDelta(H_m, F_m, v_m_per_min) {
   return (0.926 * H_m - 0.489 * F_m) / vo2(v_m_per_min) * 60;
 }
-
+ 
 // ============================================================================
 // Parsers / formatters
 // ============================================================================
@@ -76,7 +76,7 @@ function fmtDelta(secs) {
   const cls = secs > 0 ? "delta-pos" : "delta-neg";
   return `<span class="${cls}">${sign}${fmtTime(abs, abs < 60)}</span>`;
 }
-
+ 
 // ============================================================================
 // Unit conversions
 // ============================================================================
@@ -91,7 +91,7 @@ function windToMph(val, unit) {
   if (unit === "fps") return val * 0.681818;
   return val;
 }
-
+ 
 function convertValue(val, fromUnit, toUnit, family) {
   if (fromUnit === toUnit) return val;
   if (!isFinite(val)) return val;
@@ -124,7 +124,7 @@ function niceRound(v, family) {
   if (family === "wind") return Math.round(v * 10) / 10;
   return v;
 }
-
+ 
 // ============================================================================
 // Combined model — actual race -> neutral VDOT -> hypothetical time
 // ============================================================================
@@ -134,12 +134,12 @@ function inferNeutralVdot(actual) {
   const { distM, timeSec, altM, tempC, windMph, upM, dnM } = actual;
   const tMin = timeSec / 60;
   const vActual = distM / tMin;
-
+ 
   // 1) Strip hill penalty (in seconds) using actual velocity
   const hillSec = hillTimeDelta(upM, dnM, vActual);
   const tNoHill = timeSec - hillSec;
   if (tNoHill <= 0) return NaN;
-
+ 
   // 2) Strip wind. At pace v_noHill, VO2 demand was vo2(v_noHill)*(1+p).
   //    In still air, same supply, demand = vo2(v_still) only. So:
   //    vo2(v_still) = vo2(v_noHill) * (1 + p)
@@ -148,27 +148,27 @@ function inferNeutralVdot(actual) {
   const vo2Still = vo2(vNoHill) * (1 + p);
   const vStill = solveOutdoorV(vo2Still);
   const tStill = distM / vStill * 60;
-
+ 
   // 3) Compute observed VDOT for the still-air, flat equivalent time
   const vdotObserved = vdotOf(distM, tStill / 60);
-
+ 
   // 4) Adjust to neutral by removing altitude and temperature effects
   const vdotNeutral = vdotObserved / (altitudeFactor(altM) * tempFactor(tempC));
-
+ 
   return vdotNeutral;
 }
-
+ 
 // Forward: given neutral VDOT and hypothetical conditions, predict the race time.
 function predictHypothetical(neutralVdot, hyp) {
   const { distM, altM, tempC, windMph, upM, dnM } = hyp;
-
+ 
   // 1) Effective VDOT under target conditions
   const vdotEff = neutralVdot * altitudeFactor(altM) * tempFactor(tempC);
-
+ 
   // 2) Flat, still-air time at this VDOT and distance
   const tFlatStill = timeFor(distM, vdotEff);  // minutes
   const vFlatStill = distM / tFlatStill;       // m/min
-
+ 
   // 3) Apply wind. At target wind, demand at speed v is vo2(v)*(1+p).
   //    Supply (vo2 at v) is the still-air vo2(vFlatStill).
   //    So vo2(v_wind) * (1+p) = vo2(vFlatStill)  =>  vo2(v_wind) = vo2(vFlatStill)/(1+p)
@@ -176,36 +176,36 @@ function predictHypothetical(neutralVdot, hyp) {
   const vo2Target = vo2(vFlatStill) / (1 + p);
   const vWind = solveOutdoorV(vo2Target);
   const tWind = distM / vWind * 60;  // seconds
-
+ 
   // 4) Add hill penalty using v_wind
   const hillSec = hillTimeDelta(upM, dnM, vWind);
   const tFinal = tWind + hillSec;
-
+ 
   // Also compute the underlying %VO2max for this duration at v_wind
   // (best estimated using the flat-still equivalent, since that's where VDOT eqn applies)
   const pctVO2 = pctMax(tFlatStill);
-
+ 
   return { timeSec: tFinal, vMperMin: distM / tFinal * 60, pctVO2, vdotEff };
 }
-
+ 
 // ============================================================================
 // State
 // ============================================================================
 const state = {
   neutralVdot: null,
 };
-
+ 
 // ============================================================================
 // Read inputs
 // ============================================================================
 // Tracks current course mode per side ("outdoor" or "treadmill")
 const courseMode = { act: "outdoor", hyp: "outdoor" };
-
+ 
 function isEnabled(id) {
   const el = document.getElementById(id);
   return el ? el.checked : true;
 }
-
+ 
 function readRaceInputs(prefix) {
   // prefix = "act" or "hyp"
   const distEl = document.getElementById(prefix + "Dist");
@@ -213,7 +213,7 @@ function readRaceInputs(prefix) {
   const distUnit = document.getElementById(prefix + "DistUnit").value;
   const distValid = !isNaN(distVal) && distVal > 0;
   distEl.classList.toggle("invalid", !distValid);
-
+ 
   let timeSec = null;
   if (prefix === "act") {
     const timeEl = document.getElementById("actTime");
@@ -222,11 +222,11 @@ function readRaceInputs(prefix) {
     timeEl.classList.toggle("invalid", !timeValid);
     if (!timeValid) return null;
   }
-
+ 
   if (!distValid) return null;
-
+ 
   const distM = distToM(distVal, distUnit);
-
+ 
   // Altitude — if disabled, use 0 (sea level)
   let altM = 0;
   if (isEnabled(prefix + "AltEnable")) {
@@ -234,7 +234,7 @@ function readRaceInputs(prefix) {
     const altUnit = document.getElementById(prefix + "AltUnit").value;
     altM = elevToM(altVal, altUnit);
   }
-
+ 
   // Temperature — if disabled, use neutral reference (15.5°C)
   let tempC = REF_TEMP_C;
   if (isEnabled(prefix + "TempEnable")) {
@@ -242,7 +242,7 @@ function readRaceInputs(prefix) {
     const tempUnit = document.getElementById(prefix + "TempUnit").value;
     tempC = tempToC(tempVal, tempUnit);
   }
-
+ 
   // Wind — if disabled, use 0 (still air)
   let windMph = 0;
   if (isEnabled(prefix + "WindEnable")) {
@@ -250,7 +250,7 @@ function readRaceInputs(prefix) {
     const windUnit = document.getElementById(prefix + "WindUnit").value;
     windMph = windToMph(windVal, windUnit);
   }
-
+ 
   // Course profile — if disabled, no climbs or descents
   let upM = 0, dnM = 0;
   if (isEnabled(prefix + "CourseEnable")) {
@@ -267,20 +267,20 @@ function readRaceInputs(prefix) {
       dnM = elevToM(dnVal, dnUnit);
     }
   }
-
+ 
   return {
     distM,
     timeSec,
     altM, tempC, windMph, upM, dnM,
   };
 }
-
+ 
 // ============================================================================
 // Stat display
 // ============================================================================
 const setStat = (id, t) => document.getElementById(id).textContent = t;
 const setHTML = (id, h) => document.getElementById(id).innerHTML = h;
-
+ 
 function displayRaceStats(prefix, distM, timeSec, vdot, pctVO2max) {
   const distKm = distM / 1000;
   const distMi = distKm / KM_PER_MI;
@@ -297,12 +297,12 @@ function displayRaceStats(prefix, distM, timeSec, vdot, pctVO2max) {
   setStat(prefix + "StatVdot", isFinite(vdot) ? vdot.toFixed(2) : "—");
   setStat(prefix + "StatPct", isFinite(pctVO2max) ? (pctVO2max * 100).toFixed(1) + "%" : "—");
 }
-
+ 
 function clearStats(prefix) {
   ["StatDist","StatTime","StatPaceKm","StatPaceMi","StatKph","StatMph","StatPace400","StatVdot","StatPct"]
     .forEach(s => setStat(prefix + s, "—"));
 }
-
+ 
 // ============================================================================
 // Sensitivity chart
 // ============================================================================
@@ -312,18 +312,18 @@ const SENS_COLORS = {
   temperature: "#c4452a",  // red
   wind:        "#d68b1f",  // amber
 };
-
+ 
 function clearSensitivityChart() {
   document.getElementById("sensChart").innerHTML = "";
   document.getElementById("chartLegend").innerHTML = "";
 }
-
+ 
 // Predict race time given full conditions (used by chart sweep)
 function predictTime(neutralVdot, distM, altM, tempC, windMph, upM, dnM) {
   const pred = predictHypothetical(neutralVdot, { distM, altM, tempC, windMph, upM, dnM });
   return pred.timeSec;
 }
-
+ 
 function updateSensitivityChart(neutralVdot, actual, hyp) {
   // Define the four variables we sweep
   const sweeps = [
@@ -372,7 +372,7 @@ function updateSensitivityChart(neutralVdot, actual, hyp) {
       sweepFn: (v) => predictTime(neutralVdot, actual.distM, actual.altM, actual.tempC, v * 2.23694, actual.upM, actual.dnM) / (actual.distM/1000),
     },
   ];
-
+ 
   // Sample each line at high resolution
   const N = 300;
   let yMin = Infinity, yMax = -Infinity;
@@ -402,17 +402,17 @@ function updateSensitivityChart(neutralVdot, actual, hyp) {
       }
     }
   }
-
+ 
   if (!isFinite(yMin) || !isFinite(yMax) || yMin === yMax) {
     clearSensitivityChart();
     return;
   }
-
+ 
   // Add 5% padding to y range
   const yRange = yMax - yMin;
   yMin -= yRange * 0.08;
   yMax += yRange * 0.08;
-
+ 
   // SVG dimensions — adapt to container width.
   // We choose a height that scales gently with width so the chart doesn't
   // become a thin strip on wide screens or a tall narrow box on phones.
@@ -428,7 +428,7 @@ function updateSensitivityChart(neutralVdot, actual, hyp) {
   const padL = 56, padR = 16, padT = 16, padB = 16;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
-
+ 
   // Y axis: convert seconds/km to a position
   function yPos(secPerKm) {
     return padT + (1 - (secPerKm - yMin) / (yMax - yMin)) * plotH;
@@ -437,10 +437,10 @@ function updateSensitivityChart(neutralVdot, actual, hyp) {
   function xPos(t) {
     return padL + t * plotW;
   }
-
+ 
   // Build SVG
   let html = "";
-
+ 
   // Y axis grid lines + labels (5 levels)
   const yTicks = 5;
   for (let i = 0; i <= yTicks; i++) {
@@ -454,11 +454,11 @@ function updateSensitivityChart(neutralVdot, actual, hyp) {
   }
   // Y axis label
   html += `<text class="axis-label" x="${padL}" y="${padT - 4}" text-anchor="start">Pace (min/km)</text>`;
-
+ 
   // X axis baseline
   html += `<line class="axis" x1="${padL}" y1="${padT + plotH}" x2="${W - padR}" y2="${padT + plotH}"/>`;
   html += `<line class="axis" x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}"/>`;
-
+ 
   // Pass 1: lines (with invisible hit-area underneath)
   for (const s of sweeps) {
     const pts = s.points.filter(p => isFinite(p.y));
@@ -470,7 +470,7 @@ function updateSensitivityChart(neutralVdot, actual, hyp) {
     // Visible line
     html += `<path class="series-line" d="${path}" stroke="${s.color}" pointer-events="none"/>`;
   }
-
+ 
   // Pass 2: hypothetical markers (drawn first so actual markers can sit on top)
   for (const s of sweeps) {
     if (s.hyp == null || !isFinite(s.hypY)) continue;
@@ -478,28 +478,28 @@ function updateSensitivityChart(neutralVdot, actual, hyp) {
     if (tHyp < 0 || tHyp > 1) continue;
     html += `<circle class="series-hyp-dot" cx="${xPos(tHyp)}" cy="${yPos(s.hypY)}" r="5" fill="white" stroke="${s.color}" stroke-width="2.5" pointer-events="none"/>`;
   }
-
+ 
   // Pass 3: actual markers — drawn last so they appear on top of hypothetical markers
   for (const s of sweeps) {
     const tCur = (s.current - s.min) / (s.max - s.min);
     if (tCur < 0 || tCur > 1 || !isFinite(s.currentY)) continue;
     html += `<circle class="series-dot" cx="${xPos(tCur)}" cy="${yPos(s.currentY)}" r="5" fill="${s.color}" pointer-events="none"/>`;
   }
-
+ 
   // Hover overlay group (horizontal pace indicator + dot), invisible by default
   html += `<g id="sensHover" pointer-events="none" style="display:none">
     <line id="sensHoverLine" class="hover-line" x1="${padL}" x2="${W - padR}"/>
     <circle id="sensHoverDot" r="5" fill="white" stroke-width="2"/>
   </g>`;
-
+ 
   // Store sweep data globally so the hover handler can read it
   window._sensSweeps = sweeps;
   window._sensGeom = { padL, padR, padT, padB, plotW, plotH, W, H, yMin, yMax };
-
+ 
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   svg.setAttribute("height", H);
   svg.innerHTML = html;
-
+ 
   // Legend — explain the two dot styles up top, then list each variable
   const legend = document.getElementById("chartLegend");
   const swatches = sweeps.map(s => `
@@ -523,16 +523,16 @@ function updateSensitivityChart(neutralVdot, actual, hyp) {
   `;
   legend.innerHTML = swatches + markers;
 }
-
+ 
 // ============================================================================
 // Recompute everything
 // ============================================================================
 function recompute() {
   const actual = readRaceInputs("act");
   const hyp = readRaceInputs("hyp");
-
+ 
   const hypDeltaMeta = document.getElementById("hypDeltaMeta");
-
+ 
   if (!actual) {
     clearStats("act");
     clearStats("hyp");
@@ -541,11 +541,11 @@ function recompute() {
     clearSensitivityChart();
     return;
   }
-
+ 
   const neutralVdot = inferNeutralVdot(actual);
   state.neutralVdot = neutralVdot;
-
-  if (!isFinite(neutralVdot) || neutralVdot < 10 || neutralVdot > 100) {
+ 
+  if (!isFinite(neutralVdot)) {
     clearStats("act");
     clearStats("hyp");
     hypDeltaMeta.textContent = "";
@@ -553,12 +553,12 @@ function recompute() {
     clearSensitivityChart();
     return;
   }
-
+ 
   // Actual race: observed VDOT, %VO2max for actual time
   const observedVdot = vdotOf(actual.distM, actual.timeSec / 60);
   const actPct = pctMax(actual.timeSec / 60);
   displayRaceStats("act", actual.distM, actual.timeSec, observedVdot, actPct);
-
+ 
   // Predict hypothetical
   if (!hyp) {
     clearStats("hyp");
@@ -569,17 +569,17 @@ function recompute() {
     const dSec = pred.timeSec - actual.timeSec;
     hypDeltaMeta.innerHTML = "Δ time " + fmtDelta(dSec);
   }
-
+ 
   // Training paces — based on the runner's effective VDOT under the ACTUAL race conditions
   // (so paces match what they'd hit at the same altitude/temperature/wind they raced in).
   // Note: training paces don't try to account for hills (they're per-km in steady state).
   const actEffectiveVdot = neutralVdot * altitudeFactor(actual.altM) * tempFactor(actual.tempC);
   updateTrainingTable(actEffectiveVdot, actual.windMph);
-
+ 
   // Sensitivity chart
   updateSensitivityChart(neutralVdot, actual, hyp);
 }
-
+ 
 function updateTrainingTable(vdot, windMph = 0) {
   const tbody = document.getElementById("trainTable");
   tbody.innerHTML = "";
@@ -602,7 +602,7 @@ function updateTrainingTable(vdot, windMph = 0) {
     tbody.appendChild(tr);
   }
 }
-
+ 
 // ============================================================================
 // Wiring
 // ============================================================================
@@ -616,7 +616,7 @@ function linkPair(sliderId, numberId) {
     recompute();
   });
 }
-
+ 
 // Race time slider (special: text input format)
 const actTimeSlider = document.getElementById("actTimeSlider");
 const actTimeInput = document.getElementById("actTime");
@@ -630,13 +630,13 @@ actTimeInput.addEventListener("input", () => {
   if (isFinite(v) && v > 0) actTimeSlider.value = Math.min(Math.max(v, parseFloat(actTimeSlider.min)), parseFloat(actTimeSlider.max));
   recompute();
 });
-
+ 
 // All other slider/number pairs
 [
   "actDist","actAlt","actTemp","actWind","actUp","actDn","actGrade",
   "hypDist","hypAlt","hypTemp","hypWind","hypUp","hypDn","hypGrade",
 ].forEach(id => linkPair(id + "Slider", id));
-
+ 
 // Unit change handlers — preserve quantity by converting value
 function makeUnitHandler({ unitId, inputId, sliderId, family, onUnit }) {
   const unitEl = document.getElementById(unitId);
@@ -659,7 +659,7 @@ function makeUnitHandler({ unitId, inputId, sliderId, family, onUnit }) {
     recompute();
   });
 }
-
+ 
 function distSliderUpdate(unit, slider) {
   if (!slider) return;
   slider.max = unit === "mi" ? 31 : 50;
@@ -685,7 +685,7 @@ function windSliderUpdate(unit, slider) {
   const max = unit === "mph" ? 20 : unit === "kph" ? 32 : unit === "fps" ? 30 : 9;
   slider.min = -max; slider.max = max;
 }
-
+ 
 // Apply to actual and hypothetical
 ["act","hyp"].forEach(prefix => {
   makeUnitHandler({ unitId: prefix+"DistUnit",  inputId: prefix+"Dist",  sliderId: prefix+"DistSlider",  family: "distance",    onUnit: distSliderUpdate });
@@ -695,7 +695,7 @@ function windSliderUpdate(unit, slider) {
   makeUnitHandler({ unitId: prefix+"UpUnit",    inputId: prefix+"Up",    sliderId: prefix+"UpSlider",    family: "elevation",   onUnit: hillSliderUpdate });
   makeUnitHandler({ unitId: prefix+"DnUnit",    inputId: prefix+"Dn",    sliderId: prefix+"DnSlider",    family: "elevation",   onUnit: hillSliderUpdate });
 });
-
+ 
 // Master Metric/Imperial toggle
 const UNIT_PAIRS = {
   km: "mi", mi: "km",
@@ -728,7 +728,7 @@ document.querySelectorAll("#unitSystemToggle button").forEach(b => {
     });
   });
 });
-
+ 
 // Presets
 function bindPreset(id, distInputId, sliderId, unitId) {
   document.getElementById(id).addEventListener("change", (e) => {
@@ -746,7 +746,7 @@ function bindPreset(id, distInputId, sliderId, unitId) {
 }
 bindPreset("actDistPreset", "actDist", "actDistSlider", "actDistUnit");
 bindPreset("hypDistPreset", "hypDist", "hypDistSlider", "hypDistUnit");
-
+ 
 // Course type toggle (outdoor / treadmill grade)
 function setCourseMode(prefix, mode) {
   courseMode[prefix] = mode;
@@ -765,7 +765,7 @@ document.querySelectorAll("[data-course-toggle] button").forEach(b => {
     recompute();
   });
 });
-
+ 
 // Enable checkboxes for conditions/course profile.
 // Actual & hypothetical share state — toggling one toggles the other.
 const ENABLE_PAIRS = [
@@ -777,7 +777,7 @@ const ENABLE_PAIRS = [
    ['[data-course-rows="act-outdoor"]','[data-course-rows="act-treadmill"]'],
    ['[data-course-rows="hyp-outdoor"]','[data-course-rows="hyp-treadmill"]']],
 ];
-
+ 
 function applyEnableState(checked, fieldIds, extraSelectors) {
   fieldIds.forEach(id => {
     const el = document.getElementById(id);
@@ -791,7 +791,7 @@ function applyEnableState(checked, fieldIds, extraSelectors) {
     });
   }
 }
-
+ 
 ENABLE_PAIRS.forEach(([key, actFields, hypFields, actExtra, hypExtra]) => {
   const actCb = document.getElementById("act" + key + "Enable");
   const hypCb = document.getElementById("hyp" + key + "Enable");
@@ -811,7 +811,7 @@ ENABLE_PAIRS.forEach(([key, actFields, hypFields, actExtra, hypExtra]) => {
   actCb.addEventListener("change", () => sync(actCb));
   hypCb.addEventListener("change", () => sync(hypCb));
 });
-
+ 
 // "Copy from actual" — copy all condition + distance variables (excluding time) plus course mode
 document.getElementById("copyFromActual").addEventListener("click", () => {
   const FIELDS = [
@@ -856,7 +856,7 @@ document.getElementById("copyFromActual").addEventListener("click", () => {
   }
   recompute();
 });
-
+ 
 // Position tooltips via event delegation. Clamp to viewport so they never overflow.
 const _ttCanvas = document.createElement("canvas").getContext("2d");
 _ttCanvas.font = "400 12px " + getComputedStyle(document.body).fontFamily;
@@ -896,19 +896,19 @@ document.addEventListener("mouseover", (e) => {
   el.style.setProperty("--tt-x", left + "px");
   el.style.setProperty("--tt-y", top + "px");
 });
-
+ 
 // Sensitivity chart hover — delegated on the SVG so re-renders don't lose the handler
 (function() {
   const svg = document.getElementById("sensChart");
   const tip = document.getElementById("sensTip");
   const container = svg.parentElement;
-
+ 
   function hide() {
     tip.classList.remove("visible");
     const hov = document.getElementById("sensHover");
     if (hov) hov.style.display = "none";
   }
-
+ 
   svg.addEventListener("pointermove", (e) => {
     const hit = e.target.closest(".series-hit");
     if (!hit) { hide(); return; }
@@ -918,7 +918,7 @@ document.addEventListener("mouseover", (e) => {
     if (!sweeps || !geom) return;
     const s = sweeps.find(x => x.key === key);
     if (!s) return;
-
+ 
     // Convert pointer position to SVG userspace coords
     const rect = svg.getBoundingClientRect();
     const sx = (e.clientX - rect.left) / rect.width * geom.W;
@@ -937,7 +937,7 @@ document.addEventListener("mouseover", (e) => {
       y: p0.y + (p1.y - p0.y) * frac,
       t: p0.t + (p1.t - p0.t) * frac,
     };
-
+ 
     // Position the hover line + dot
     const hov = document.getElementById("sensHover");
     const line = document.getElementById("sensHoverLine");
@@ -952,13 +952,13 @@ document.addEventListener("mouseover", (e) => {
       dot.setAttribute("stroke", s.color);
       hov.style.display = "";
     }
-
+ 
     // Tooltip content + position
     const m = Math.floor(pt.y / 60);
     const ss = pt.y - m * 60;
     const paceStr = `${m}:${ss.toFixed(1).padStart(4,"0")} /km`;
     tip.innerHTML = `<span class="tip-color" style="background:${s.color}"></span><span class="tip-label">${s.label}</span> <span class="tip-value">${s.formatVal(pt.x)} · pace ${paceStr}</span>`;
-
+ 
     const cRect = container.getBoundingClientRect();
     const localX = e.clientX - cRect.left;
     const localY = e.clientY - cRect.top;
@@ -975,7 +975,7 @@ document.addEventListener("mouseover", (e) => {
   });
   svg.addEventListener("pointerleave", hide);
 })();
-
+ 
 // Re-render chart on container resize so width:height ratio stays sensible
 (function() {
   const svg = document.getElementById("sensChart");
@@ -990,5 +990,5 @@ document.addEventListener("mouseover", (e) => {
   });
   ro.observe(svg.parentElement);
 })();
-
+ 
 recompute();
