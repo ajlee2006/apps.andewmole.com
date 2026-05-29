@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hanzi Stroke Editor</title>
+<link rel="icon" href="/andewmole.png" type="image/png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Hanzi Stroke Editor</h1>
+  <a href="/" class="back-home">← Back to home</a>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>Editor</h2>
+    <div class="actions">
+      <button id="undoBtn" title="Undo (Ctrl+Z)">↶ Undo</button>
+      <button id="redoBtn" title="Redo (Ctrl+Y)">↷ Redo</button>
+      <button id="toggleComposerBtn" title="Show/hide composer panel">⚒ Composer</button>
+      <button id="saveUrlBtn" title="Copy a shareable URL of the current state">🔗 Save URL</button>
+      <button id="exportBtn">Export SVG</button>
+      <button id="clearBtn">Clear</button>
+    </div>
+    <div class="mode-toggle">
+      <label><input type="checkbox" id="showHandles" checked> Show endpoints</label>
+      <label><input type="checkbox" id="showGuides" checked> Show guides</label>
+      <span class="hint">Shift+click or drag-marquee to multi-select</span>
+    </div>
+    <div class="canvas-wrap" id="editorWrap">
+      <div class="zoom-controls">
+        <button id="zoomInBtn" title="Zoom in (or Ctrl + scroll)">+</button>
+        <button id="zoomOutBtn" title="Zoom out">−</button>
+        <button id="zoomResetBtn" title="Reset view (Home)">⌂</button>
+      </div>
+      <svg id="editor" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="1024" height="1024" fill="#fafafa"/>
+        <g id="guidesLayer"></g>
+        <g id="strokesLayer" transform="scale(1, -1) translate(0, -900)"></g>
+      </svg>
+      <div class="canvas-resize-grip" id="canvasResizeGrip" title="Drag to resize editor column"></div>
+    </div>
+    <div id="multiToolbar" class="multi-toolbar">
+      <span id="selCount"></span>
+      <button id="multiDup">Duplicate</button>
+      <button id="multiScaleUp">Scale +</button>
+      <button id="multiScaleDown">Scale −</button>
+      <button id="multiThicken" title="Make strokes thicker">Thicker</button>
+      <button id="multiThinner" title="Make strokes thinner">Thinner</button>
+      <button id="multiToComposer" title="Send source character to composer">→ Composer</button>
+      <button id="multiDel">Delete</button>
+    </div>
+    <div class="stroke-list" id="strokeList"></div>
+  </section>
+
+  <section class="panel" id="composerPanel" style="display:none">
+    <div class="panel-header">
+      <h2>Composer (IDS)</h2>
+      <button id="composerClose" title="Hide composer">×</button>
+    </div>
+    <p class="hint">Pick a layout and components. Bounding-box scaling will fit them.</p>
+    <div class="composer">
+      <label>Layout:
+        <select id="layoutSel">
+          <option value="horizontal">⿰ Left | Right</option>
+          <option value="vertical">⿱ Top / Bottom</option>
+          <option value="enclosure_full">⿴ Outer ◌ Inner</option>
+          <option value="enclosure_top">⿵ Top-open</option>
+          <option value="enclosure_bottom">⿶ Bottom-open</option>
+          <option value="three_h">⿲ Three horizontal</option>
+          <option value="three_v">⿳ Three vertical</option>
+        </select>
+      </label>
+      <div class="comp-inputs">
+        <input class="comp" data-slot="0" maxlength="1" placeholder="木">
+        <input class="comp" data-slot="1" maxlength="1" placeholder="木">
+        <input class="comp" data-slot="2" maxlength="1" placeholder="" disabled>
+      </div>
+      <button id="composeBtn">Compose (geometric)</button>
+    </div>
+    <div class="canvas-wrap small">
+      <svg id="composed" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <clipPath id="composeClip"><rect x="0" y="0" width="1024" height="1024"/></clipPath>
+        </defs>
+        <rect x="0" y="0" width="1024" height="1024" fill="#fafafa"/>
+        <g clip-path="url(#composeClip)">
+          <g id="composedLayer" transform="scale(1, -1) translate(0, -900)"></g>
+        </g>
+        <rect x="0" y="0" width="1024" height="1024" fill="none" stroke="#bbb" stroke-width="2"/>
+      </svg>
+    </div>
+    <div class="actions">
+      <button id="loadComposedBtn">Load result into editor</button>
+    </div>
+  </section>
+
+  <section class="panel" id="radicalsPanel">
+    <h2>Radicals & Components</h2>
+
+    <!-- 1. Preview canvas (shown when a character is picked) -->
+    <div class="rv-canvas-area" id="rvCanvasArea" style="display:none">
+      <div class="rv-canvas-header">
+        <span id="rvCanvasTitle"></span>
+        <span class="rv-canvas-hint">Click strokes to select · drag-marquee for multi-select</span>
+      </div>
+      <div class="rv-canvas-wrap">
+        <svg id="rvCanvas" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1024" height="1024" fill="#fafafa"/>
+          <line x1="512" y1="0" x2="512" y2="1024" stroke="#e0e0e0" stroke-dasharray="6,6"/>
+          <line x1="0" y1="512" x2="1024" y2="512" stroke="#e0e0e0" stroke-dasharray="6,6"/>
+          <g id="rvCanvasLayer" transform="scale(1, -1) translate(0, -900)"></g>
+        </svg>
+      </div>
+      <div class="rv-canvas-actions">
+        <button id="rvSelectAll">Select all</button>
+        <button id="rvSelectNone">Clear</button>
+        <span id="rvSelectionCount" class="rv-count">0 selected</span>
+        <button id="rvToComposer" title="Send this character to composer">→ Composer</button>
+        <button id="rvAddSelected" class="primary">Add selected to main canvas</button>
+      </div>
+    </div>
+
+    <!-- 2. "Characters using [radical]" variants -->
+    <div class="radical-variants" id="radicalVariants" style="display:none">
+      <div class="rv-header">
+        <span id="rvTitle"></span>
+        <button id="rvClose">×</button>
+      </div>
+      <div class="rv-variants" id="rvVariants"></div>
+    </div>
+
+    <!-- 3. Radical selection grid -->
+    <div class="radicals-grid" id="radicalsGrid">Loading…</div>
+
+    <!-- 4. Search bar -->
+    <div class="rad-search-row">
+      <input id="radSearchInput" type="text" placeholder="Search character (pinyin: 'lin', 'lín' · char: 林 · meaning: 'forest')" autocomplete="off">
+      <button id="radSearchClear" title="Clear search and show radical grid">×</button>
+    </div>
+    <p class="hint">214 Kangxi radicals + 82 variants. Click a radical → pick a character → select strokes to add to canvas.</p>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
