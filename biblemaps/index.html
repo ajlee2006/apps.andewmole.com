@@ -46,7 +46,12 @@
   <div class="modal">
     <div class="m-head">
       <div class="m-ref" id="mRef"></div>
-      <select id="mVersion" class="m-version" title="Translation" aria-label="Translation"></select>
+      <div class="m-version" id="mVersion" title="Translation">
+        <button type="button" id="mVersionBtn" class="m-version-btn" aria-haspopup="listbox" aria-expanded="false">
+          <span id="mVersionLabel">KJV</span>
+        </button>
+        <ul id="mVersionMenu" class="m-version-menu" role="listbox" hidden></ul>
+      </div>
       <button class="x" id="mClose">✕</button>
     </div>
     <div class="m-body" id="mBody"></div>
