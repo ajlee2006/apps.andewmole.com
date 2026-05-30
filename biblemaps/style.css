@@ -7,6 +7,27 @@ html,body{margin:0;height:100%;font-family:system-ui,-apple-system,Segoe UI,Robo
 #map{position:absolute;inset:0}
 .leaflet-container{background:#aadaff}
 
+/* Star marker (always shown, replaces circle pin) */
+.star-marker{display:flex;align-items:center;justify-content:center}
+.star-marker svg{width:22px;height:22px;fill:var(--gold);stroke:#7a5a00;stroke-width:1.2;
+  filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.5))}
+
+/* Stop accidental text selection on zoom +/- when double-clicking */
+.leaflet-control-zoom a,
+.leaflet-control-zoom a span{
+  user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  cursor:pointer
+}
+
+/* Marker hover tooltip */
+.leaflet-tooltip{
+  background:var(--paper);border:1px solid var(--line);color:var(--ink);
+  font-size:12.5px;padding:3px 8px;border-radius:6px;
+  box-shadow:0 2px 8px rgba(0,0,0,.2)
+}
+.leaflet-tooltip-top:before{border-top-color:var(--line)}
+
 /* top-right search bar */
 #bar{position:absolute;z-index:1000;top:12px;right:12px;
   display:flex;flex-direction:column;align-items:stretch;width:280px;max-width:calc(100vw - 24px)}
@@ -15,8 +36,8 @@ html,body{margin:0;height:100%;font-family:system-ui,-apple-system,Segoe UI,Robo
   box-shadow:0 4px 18px rgba(0,0,0,.15)}
 #search{border:none;outline:none;background:transparent;font-size:14px;flex:1;padding:4px 6px;min-width:0}
 #bar .pill{font-size:12px;border:1px solid var(--line);background:#fff;border-radius:999px;
-  padding:4px 9px;cursor:pointer;white-space:nowrap}
-#bar .pill.on{background:#fff6df;border-color:var(--gold);color:#7a5a00}
+  padding:4px 9px;cursor:pointer;white-space:nowrap;color:var(--muted);line-height:1}
+#bar .pill:hover{background:#f3ecd9;color:var(--ink)}
 #count{font-size:11px;color:var(--muted);text-align:right;margin-top:4px;padding-right:4px}
 #suggest{margin-top:6px;background:var(--paper);border:1px solid var(--line);
   border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.15);max-height:50vh;overflow:auto;display:none}
@@ -75,8 +96,10 @@ a.verse:hover{border-bottom-style:solid}
 .m-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
 .m-ref{font-family:'Spectral',Georgia,serif;font-weight:600;font-size:18px;flex:1}
 .m-body{padding:16px;overflow:auto;font-size:15.5px;line-height:1.6;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-style:italic;color:var(--red)}
-.m-body.err{color:#7a3b34;font-style:normal;font-size:14px}
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink)}
+.m-body i, .m-body em{font-style:italic}
+.m-body .jesus{color:var(--red)}
+.m-body.err{color:#7a3b34;font-size:14px}
 .x{font-size:18px;width:30px;height:30px;border-radius:8px;border:none;background:transparent;cursor:pointer}
 .x:hover{background:#00000010}
 .info-body{font-style:normal;color:var(--ink)}
