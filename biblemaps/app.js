@@ -11,6 +11,42 @@ const BNUM = {"Gen":1,"Ex":2,"Lev":3,"Num":4,"Deut":5,"Josh":6,"Judg":7,"Ruth":8
 "Phlm":57,"Heb":58,"Jas":59,"1 Pet":60,"2 Pet":61,"1 John":62,"2 John":63,
 "3 John":64,"Jude":65,"Rev":66};
 
+/* ---- bible-api.com translations ---- */
+/* KJV is the default; in the dropdown KJV appears at the very top, then groups by language. */
+const TRANSLATIONS = [
+  // English
+  {id:'kjv',   acronym:'KJV',     name:'King James Version',                          lang:'English'},
+  {id:'asv',   acronym:'ASV',     name:'American Standard Version (1901)',            lang:'English'},
+  {id:'bbe',   acronym:'BBE',     name:'Bible in Basic English',                      lang:'English'},
+  {id:'darby', acronym:'DARBY',   name:'Darby Bible',                                 lang:'English'},
+  {id:'dra',   acronym:'DRA',     name:'Douay-Rheims 1899 American Edition',          lang:'English'},
+  {id:'web',   acronym:'WEB',     name:'World English Bible',                         lang:'English'},
+  {id:'ylt',   acronym:'YLT',     name:"Young's Literal Translation (NT only)",       lang:'English'},
+  // English UK / US
+  {id:'oeb-cw',acronym:'OEB-CW',  name:'Open English Bible, Commonwealth Edition',    lang:'English (UK)'},
+  {id:'webbe', acronym:'WEBBE',   name:'World English Bible, British Edition',        lang:'English (UK)'},
+  {id:'oeb-us',acronym:'OEB-US',  name:'Open English Bible, US Edition',              lang:'English (US)'},
+  // Others
+  {id:'cherokee',  acronym:'CHEROKEE', name:'Cherokee New Testament',                 lang:'Cherokee'},
+  {id:'cuv',       acronym:'CUV',      name:'Chinese Union Version',                  lang:'Chinese'},
+  {id:'bkr',       acronym:'BKR',      name:'Bible kralická',                         lang:'Czech'},
+  {id:'clementine',acronym:'VULGATE',  name:'Clementine Latin Vulgate',               lang:'Latin'},
+  {id:'almeida',   acronym:'ALMEIDA',  name:'João Ferreira de Almeida',               lang:'Portuguese'},
+  {id:'rccv',      acronym:'RCCV',     name:'Romanian Corrected Cornilescu Version',  lang:'Romanian'},
+];
+const TR_BY_ID = Object.fromEntries(TRANSLATIONS.map(t => [t.id, t]));
+function findTranslation(token){
+  if (!token) return null;
+  const k = token.toLowerCase();
+  return TRANSLATIONS.find(t => t.id.toLowerCase() === k || t.acronym.toLowerCase() === k) || null;
+}
+
+let currentVersion = 'kjv';
+try {
+  const saved = localStorage.getItem('bible_version');
+  if (saved && TR_BY_ID[saved]) currentVersion = saved;
+} catch(e){}
+
 /* ---- star persistence ---- */
 let starred = new Set();
 let firstLoad = false;
@@ -228,10 +264,13 @@ function openPanel(r){
   }
   document.getElementById('pBody').innerHTML = html;
   panel.classList.add('show');
+  updateUrl();
 }
 document.getElementById('pClose').onclick = () => {
   panel.classList.remove('show');
   panel.classList.remove('with-swatch');
+  current = null;
+  updateUrl();
 };
 document.getElementById('pStar').onclick = () => {
   if (!current) return;
@@ -246,7 +285,8 @@ document.getElementById('pBody').addEventListener('click', e => {
 });
 
 /* ---- verse modal ---- */
-const cache = {};
+const cache = {};               // key = `${id}|${ref}`
+let activeRef = null;            // ref currently being shown (null if modal closed)
 const ov = document.getElementById('ov');
 
 /* If we ever get markup-bearing text (e.g. <i> for italics, <J> for Jesus
@@ -283,12 +323,15 @@ function sanitizeKJV(rawHtml){
 }
 
 async function showVerse(ref){
+  activeRef = ref;
   const m = ref.match(/^(.*?)\s+(\d+):(\d+)$/);
   const fullLabel = m ? (FULL[m[1]] || m[1]) + ' ' + m[2] + ':' + m[3] : ref;
   document.getElementById('mRef').textContent = fullLabel;
+  document.getElementById('mVersion').value = currentVersion;
   const body = document.getElementById('mBody');
   body.className = 'm-body'; body.textContent = 'Loading…';
   ov.classList.add('show');
+  updateUrl();
 
   function renderAlsoMentioned(){
     const sourceKey = current ? current.key : null;
@@ -305,25 +348,31 @@ async function showVerse(ref){
     return `<div class="also-mentioned">Also mentioned in this verse: ${links}</div>`;
   }
 
-  if (cache[ref]){
-    body.innerHTML = `<div class="verse-text">${cache[ref]}</div>` + renderAlsoMentioned();
+  const cacheKey = currentVersion + '|' + ref;
+  if (cache[cacheKey]){
+    body.innerHTML = `<div class="verse-text">${cache[cacheKey]}</div>` + renderAlsoMentioned();
     return;
   }
   if (!m){ body.className = 'm-body err'; body.textContent = 'Unrecognised reference.'; return; }
   const full = (FULL[m[1]] || m[1]) + ' ' + m[2] + ':' + m[3];
+  const requestVersion = currentVersion;
   try {
-    const res = await fetch('https://bible-api.com/' + encodeURIComponent(full) + '?translation=kjv');
+    const res = await fetch('https://bible-api.com/' + encodeURIComponent(full) + '?translation=' + encodeURIComponent(requestVersion));
     if (!res.ok) throw new Error();
     const j = await res.json();
     const t = (j.text || '').trim();
     if (!t) throw new Error();
-    // bible-api returns plain text; pass it through sanitizer for safety
     const html = sanitizeKJV(t);
-    cache[ref] = html;
-    body.innerHTML = `<div class="verse-text">${html}</div>` + renderAlsoMentioned();
+    cache[requestVersion + '|' + ref] = html;
+    // Only render if user hasn't switched away in the meantime
+    if (activeRef === ref && currentVersion === requestVersion){
+      body.innerHTML = `<div class="verse-text">${html}</div>` + renderAlsoMentioned();
+    }
   } catch (err){
-    body.className = 'm-body err';
-    body.textContent = "Can’t load this verse — you appear to be offline.";
+    if (activeRef === ref && currentVersion === requestVersion){
+      body.className = 'm-body err';
+      body.textContent = "Can’t load this verse — you appear to be offline.";
+    }
   }
 }
 document.getElementById('mBody').addEventListener('click', e => {
@@ -332,14 +381,15 @@ document.getElementById('mBody').addEventListener('click', e => {
   const r = recordByKey.get(a.dataset.key);
   if (!r) return;
   ov.classList.remove('show');
+  activeRef = null;
   map.setView([r.lat, r.lng], Math.max(map.getZoom(), 10), {animate:true});
   openPanel(r);
 });
-document.getElementById('mClose').onclick = () => ov.classList.remove('show');
-ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('show'); });
+document.getElementById('mClose').onclick = () => { ov.classList.remove('show'); activeRef = null; updateUrl(); };
+ov.addEventListener('click', e => { if (e.target === ov){ ov.classList.remove('show'); activeRef = null; updateUrl(); } });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape'){
-    ov.classList.remove('show');
+    if (ov.classList.contains('show')){ ov.classList.remove('show'); activeRef = null; updateUrl(); }
     document.getElementById('infoOv').classList.remove('show');
   }
 });
@@ -372,13 +422,91 @@ document.addEventListener('click', e => {
   if (!e.target.closest('#bar')) document.getElementById('suggest').classList.remove('show');
 });
 
-/* ---- load data ---- */
+/* ---- version dropdown ---- */
+function buildVersionDropdown(){
+  const sel = document.getElementById('mVersion');
+  let html = '';
+  // KJV at the top (ungrouped)
+  const kjv = TR_BY_ID['kjv'];
+  html += `<option value="kjv">${kjv.acronym}</option>`;
+  // Group the rest by language; English variants merge into one "English" group
+  const byLang = {};
+  TRANSLATIONS.forEach(t => {
+    if (t.id === 'kjv') return;
+    const lang = t.lang.startsWith('English') ? 'English' : t.lang;
+    (byLang[lang] = byLang[lang] || []).push(t);
+  });
+  const langs = Object.keys(byLang).sort((a,b) => {
+    if (a === 'English') return -1;
+    if (b === 'English') return 1;
+    return a.localeCompare(b);
+  });
+  langs.forEach(lang => {
+    html += `<optgroup label="${lang}">`;
+    byLang[lang].sort((a,b) => a.acronym.localeCompare(b.acronym))
+      .forEach(t => { html += `<option value="${t.id}">${t.acronym}</option>`; });
+    html += `</optgroup>`;
+  });
+  sel.innerHTML = html;
+  sel.value = currentVersion;
+  sel.addEventListener('change', e => {
+    currentVersion = e.target.value;
+    try { localStorage.setItem('bible_version', currentVersion); } catch(err){}
+    updateUrl();
+    if (activeRef) showVerse(activeRef); // re-render with new translation
+  });
+}
+buildVersionDropdown();
+
+/* ---- URL state (?loc=Name&version=ACR) ---- */
+function updateUrl(){
+  const params = new URLSearchParams();
+  if (current) params.set('loc', current.name);
+  if (currentVersion !== 'kjv'){
+    const t = TR_BY_ID[currentVersion];
+    if (t) params.set('version', t.acronym);
+  }
+  const qs = params.toString();
+  const url = qs ? (location.pathname + '?' + qs) : location.pathname;
+  try { history.replaceState(null, '', url); } catch(e){}
+}
+
+let pendingLoc = null;
+(function readUrl(){
+  const p = new URLSearchParams(location.search);
+  const v = p.get('version');
+  const t = findTranslation(v);
+  if (t){
+    currentVersion = t.id;
+    document.getElementById('mVersion').value = currentVersion;
+    try { localStorage.setItem('bible_version', currentVersion); } catch(e){}
+  }
+  pendingLoc = p.get('loc');
+})();
+
+function dispatchPendingLoc(){
+  if (!pendingLoc) return;
+  const q = pendingLoc.toLowerCase();
+  let target = records.find(r => r.name.toLowerCase() === q);
+  if (!target){
+    for (const r of records){
+      if (r.akas && r.akas.some(a => a[0].toLowerCase() === q)){ target = r; break; }
+    }
+  }
+  pendingLoc = null;
+  if (target){
+    map.setView([target.lat, target.lng], Math.max(map.getZoom(), 9), {animate:false});
+    openPanel(target);
+  }
+}
+
+
 fetch('result.json')
   .then(r => {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   })
-  .then(buildRecords)
+  .then(data => { buildRecords(data); dispatchPendingLoc(); })
   .catch(err => {
     document.getElementById('count').textContent = 'Failed to load result.json';
     console.error('Could not load result.json. If opening via file://, serve over HTTP instead (e.g. `python -m http.server`).', err);
