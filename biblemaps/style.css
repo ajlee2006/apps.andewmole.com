@@ -9,7 +9,7 @@ html,body{margin:0;height:100%;font-family:system-ui,-apple-system,Segoe UI,Robo
 
 /* Star marker (always shown, replaces circle pin) */
 .star-marker{display:flex;align-items:center;justify-content:center}
-.star-marker svg{width:22px;height:22px;fill:var(--gold);stroke:#7a5a00;stroke-width:1.2;
+.star-marker svg{width:22px;height:22px;fill:#facc15;stroke:#a16207;stroke-width:1.2;
   filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.5))}
 
 /* Stop accidental text selection on zoom +/- when double-clicking */
@@ -74,8 +74,11 @@ html,body{margin:0;height:100%;font-family:system-ui,-apple-system,Segoe UI,Robo
 .p-sub{font-size:14px;color:var(--muted);font-weight:400;margin-left:6px}
 .iconbtn{border:none;background:transparent;cursor:pointer;padding:3px;line-height:0;border-radius:8px}
 .iconbtn:hover{background:#0000000d}
+.iconbtn.pclose{font-size:13px;color:var(--muted);width:22px;height:22px;display:flex;
+  align-items:center;justify-content:center;margin-top:2px}
+.iconbtn.pclose:hover{color:var(--ink)}
 .star svg{width:22px;height:22px;fill:none;stroke:var(--muted);stroke-width:1.6}
-.star.on svg{fill:var(--gold);stroke:var(--gold)}
+.star.on svg{fill:#facc15;stroke:#a16207}
 .p-body{padding:0 14px 14px;overflow:auto}
 .verses{font-size:12.5px;line-height:1.7;margin-top:2px}
 a.verse{color:var(--link);cursor:pointer;text-decoration:none;border-bottom:1px dotted #1f5e8c66}
