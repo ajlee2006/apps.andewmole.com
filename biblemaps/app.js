@@ -302,16 +302,17 @@ function buildSuggestions(){
   }
   if (!hits.length){ sg.classList.remove('show'); sg.innerHTML=''; return; }
   sg.innerHTML = hits.map((h, i) => {
+    const verses = combineVerses(h.verses);
     if (h.unlocated){
       return `<div class="sg-item unloc" data-i="${i}">
         <div><span class="sg-name">${h.label}</span><span class="sg-aka">Location unknown</span></div>
-        <div class="sg-verses">${h.verses}</div>
+        <div class="sg-verses">${verses}</div>
       </div>`;
     }
     return `<div class="sg-item" data-i="${i}">
        <div><span class="sg-name">${h.label}</span>` +
        (h.via ? `<span class="sg-aka">→ ${h.via}</span>` : '') +
-       `</div><div class="sg-verses">${h.verses}</div>
+       `</div><div class="sg-verses">${verses}</div>
      </div>`;
   }).join('');
   sg.classList.add('show');
@@ -325,6 +326,21 @@ sg.addEventListener('click', e => {
   openPanel(h.r);
   sg.classList.remove('show');
 });
+
+/* Combine consecutive references from the same book:
+   "Josh 19:26, Josh 21:30" -> "Josh 19:26, 21:30".
+   Returns plain combined text (no links). */
+function combineVerses(str){
+  let prev = null;
+  return str.split(',').map(t => t.trim()).filter(Boolean).map(tok => {
+    const m = tok.match(/^(.*?)\s+(\d+:\d+)$/);
+    if (!m) return tok;
+    const book = m[1], cv = m[2];
+    const label = (book === prev) ? cv : tok;
+    prev = book;
+    return label;
+  }).join(', ');
+}
 
 /* ---- verse rendering + combining ---- */
 function renderVerses(str, sourceName){
