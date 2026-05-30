@@ -22,28 +22,27 @@ try {
 function saveStars(){ try{ localStorage.setItem('bible_stars',JSON.stringify([...starred])); }catch(e){} }
 
 /* ---- map + cycling basemap swatch ---- */
-const map = L.map('map', {zoomControl:true}).setView([31.6, 35.2], 7);
+const MAX_ZOOM = 18; // one below tile max so we never request unavailable tiles
+const map = L.map('map', {zoomControl:true, maxZoom: MAX_ZOOM}).setView([31.6, 35.2], 7);
 
-// Preview tile at z=3, x=4, y=3 covers Mediterranean + Middle East — matches the
-// visible area when the map first loads.
 const esriImagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-  {maxZoom:19, attribution:'Tiles © Esri'});
+  {maxZoom:MAX_ZOOM, attribution:'Tiles © Esri'});
 const esriLabels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-  {maxZoom:19, pane:'overlayPane', opacity:0.95});
+  {maxZoom:MAX_ZOOM, pane:'overlayPane', opacity:0.95});
 const esriTransport = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',
-  {maxZoom:19, pane:'overlayPane', opacity:0.9});
+  {maxZoom:MAX_ZOOM, pane:'overlayPane', opacity:0.9});
 
 const layers = [
-  {
-    name: 'Map',
-    layer: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      {maxZoom:19, attribution:'© OpenStreetMap'}),
-    preview: 'https://a.tile.openstreetmap.org/3/4/3.png'
-  },
   {
     name: 'Satellite',
     layer: L.layerGroup([esriImagery, esriTransport, esriLabels]),
     preview: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/3/3/4'
+  },
+  {
+    name: 'Map',
+    layer: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      {maxZoom:MAX_ZOOM, attribution:'© OpenStreetMap'}),
+    preview: 'https://a.tile.openstreetmap.org/3/4/3.png'
   },
 ];
 let layerIdx = 0;
@@ -66,12 +65,21 @@ swatch.onclick = () => {
 /* ---- markers ---- */
 const cluster = L.markerClusterGroup({maxClusterRadius:45});
 map.addLayer(cluster);
-const records = [];
+const starLayer = L.layerGroup().addTo(map); // unclustered, always-on
 
-function mkStyle(isStar){
-  return {radius:6, color:isStar?'#c79a2b':'#7d1f16', weight:isStar?3:1.5,
-    fillColor:'#c0392b', fillOpacity:.9};
+const STAR_SVG = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5l2.9 5.9 6.5.95-4.7 4.58 1.1 6.47L12 17.9l-5.8 3.05 1.1-6.47-4.7-4.58 6.5-.95z"/></svg>';
+const starIcon = L.divIcon({
+  className: 'star-marker',
+  html: STAR_SVG,
+  iconSize: [22, 22],
+  iconAnchor: [11, 11]
+});
+
+function circleStyle(){
+  return {radius:6, color:'#7d1f16', weight:1.5, fillColor:'#c0392b', fillOpacity:.9};
 }
+
+const records = [];
 
 function buildRecords(data){
   records.length = 0;
@@ -80,34 +88,41 @@ function buildRecords(data){
     const lat = parseFloat(m[0]), lng = parseFloat(m[1]);
     if (isNaN(lat) || isNaN(lng)) continue;
     const [name, sub, verses, akas] = data[key];
-    records.push({key, lat, lng, name, sub, verses, akas, marker:null});
+    records.push({key, lat, lng, name, sub, verses, akas});
   }
   if (firstLoad){
     const j = records.find(r => r.name === 'Jerusalem');
     if (j){ starred.add(j.key); saveStars(); }
   }
-  records.forEach(r => {
-    const cm = L.circleMarker([r.lat, r.lng], mkStyle(starred.has(r.key)));
-    cm.on('click', () => openPanel(r));
-    r.marker = cm;
-  });
   refresh();
 }
 
-let starOnly = false, query = '';
+let query = '';
 function matches(r, q){
   if (!q) return true;
   if (r.name.toLowerCase().includes(q)) return true;
   return r.akas && r.akas.some(a => a[0].toLowerCase().includes(q));
 }
+
+function makeMarker(r){
+  const isStar = starred.has(r.key);
+  const m = isStar
+    ? L.marker([r.lat, r.lng], {icon: starIcon})
+    : L.circleMarker([r.lat, r.lng], circleStyle());
+  m.bindTooltip(r.name, {direction:'top', offset:[0, isStar ? -10 : -6], sticky:false});
+  m.on('click', () => openPanel(r));
+  return m;
+}
+
 function refresh(){
   cluster.clearLayers();
+  starLayer.clearLayers();
   let n = 0;
   records.forEach(r => {
-    if (starOnly && !starred.has(r.key)) return;
     if (!matches(r, query)) return;
-    r.marker.setStyle(mkStyle(starred.has(r.key)));
-    cluster.addLayer(r.marker);
+    const m = makeMarker(r);
+    if (starred.has(r.key)) starLayer.addLayer(m);
+    else cluster.addLayer(m);
     n++;
   });
   document.getElementById('count').textContent = n + ' / ' + records.length;
@@ -119,7 +134,6 @@ function buildSuggestions(){
   if (!query){ sg.classList.remove('show'); sg.innerHTML=''; return; }
   const hits = [];
   for (const r of records){
-    if (starOnly && !starred.has(r.key)) continue;
     if (r.name.toLowerCase().includes(query)){
       hits.push({r, label:r.name, via:null, verses:r.verses});
     } else if (r.akas){
@@ -164,6 +178,17 @@ function renderVerses(str){
   }).join(', ');
 }
 
+/* ---- aka subtitle cleanup ---- */
+function cleanAkaNote(note, mainName){
+  if (!note) return '';
+  // Remove " based on <mainName>" wherever it appears.
+  const esc = mainName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let s = note.replace(new RegExp('\\s*based on\\s+' + esc + '\\.?', 'i'), '').trim();
+  // tidy any dangling punctuation/whitespace
+  s = s.replace(/\s+/g, ' ').replace(/^[,;:.\s]+|[,;:\s]+$/g, '');
+  return s;
+}
+
 /* ---- panel ---- */
 let current = null;
 const panel = document.getElementById('panel');
@@ -180,8 +205,9 @@ function openPanel(r){
     html += `<div class="aka-label">Also known as</div>`;
     r.akas.forEach(a => {
       const [an, note, av] = a;
+      const cleaned = cleanAkaNote(note, r.name);
       html += `<div class="subbox"><div><span class="aka-name">${an}</span>` +
-        (note ? `<span class="aka-note">${note}</span>` : '') + `</div>` +
+        (cleaned ? `<span class="aka-note">${cleaned}</span>` : '') + `</div>` +
         `<div class="verses">${renderVerses(av)}</div></div>`;
     });
   }
@@ -197,17 +223,50 @@ document.getElementById('pStar').onclick = () => {
   if (starred.has(current.key)) starred.delete(current.key); else starred.add(current.key);
   saveStars();
   document.getElementById('pStar').classList.toggle('on', starred.has(current.key));
-  current.marker.setStyle(mkStyle(starred.has(current.key)));
-  if (starOnly) refresh();
+  refresh();
 };
 document.getElementById('pBody').addEventListener('click', e => {
   const a = e.target.closest('a.verse'); if (!a) return;
   showVerse(a.dataset.ref);
 });
 
-/* ---- verse modal ---- */
+/* ---- verse modal (bolls.life KJV with italics + red-letter) ---- */
 const cache = {};
 const ov = document.getElementById('ov');
+
+/* Sanitise bolls.life HTML: keep <i> (translator-added italics) and convert
+   red-letter markup (<J>, common variants) to <span class="jesus">. Strip
+   everything else including Strong's <S>...</S> tags. */
+function sanitizeKJV(rawHtml){
+  const tpl = document.createElement('template');
+  tpl.innerHTML = rawHtml;
+  const out = [];
+  function escText(t){ return t.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+  function walk(node){
+    node.childNodes.forEach(n => {
+      if (n.nodeType === 3){ out.push(escText(n.textContent)); return; }
+      if (n.nodeType !== 1) return;
+      const tag = n.tagName.toLowerCase();
+      const cls = (n.getAttribute && n.getAttribute('class')) || '';
+      const isJesus = tag === 'j' || /jesus|red|wj/i.test(cls)
+        || (tag === 'font' && /red/i.test(n.getAttribute('color') || ''));
+      if (tag === 'i' || tag === 'em'){
+        out.push('<i>'); walk(n); out.push('</i>');
+      } else if (isJesus){
+        out.push('<span class="jesus">'); walk(n); out.push('</span>');
+      } else if (tag === 's' || tag === 'sup' || /strong/i.test(cls)){
+        // skip Strong's numbers / superscripts
+      } else if (tag === 'br'){
+        out.push('<br>');
+      } else {
+        walk(n);
+      }
+    });
+  }
+  walk(tpl.content);
+  return out.join('').replace(/\s+/g, ' ').trim();
+}
+
 async function showVerse(ref){
   const m = ref.match(/^(.*?)\s+(\d+):(\d+)$/);
   const fullLabel = m ? (FULL[m[1]] || m[1]) + ' ' + m[2] + ':' + m[3] : ref;
@@ -215,16 +274,21 @@ async function showVerse(ref){
   const body = document.getElementById('mBody');
   body.className = 'm-body'; body.textContent = 'Loading…';
   ov.classList.add('show');
-  if (cache[ref]){ body.textContent = cache[ref]; return; }
+  if (cache[ref]){ body.innerHTML = cache[ref]; return; }
   if (!m){ body.className = 'm-body err'; body.textContent = 'Unrecognised reference.'; return; }
-  const full = (FULL[m[1]] || m[1]) + ' ' + m[2] + ':' + m[3];
+  const bnum = BNUM[m[1]];
+  if (!bnum){ body.className = 'm-body err'; body.textContent = 'Unknown book.'; return; }
   try {
-    const res = await fetch('https://bible-api.com/' + encodeURIComponent(full) + '?translation=kjv');
+    const url = `https://bolls.life/get-text/KJV/${bnum}/${m[2]}/${m[3]}/`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error();
     const j = await res.json();
-    const t = (j.text || '').trim();
-    if (!t) throw new Error();
-    cache[ref] = t; body.textContent = t;
+    const obj = Array.isArray(j) ? j[0] : j;
+    const raw = obj && obj.text;
+    if (!raw) throw new Error();
+    const html = sanitizeKJV(raw);
+    cache[ref] = html;
+    body.innerHTML = html;
   } catch (err){
     body.className = 'm-body err';
     body.textContent = "Can’t load this verse — you appear to be offline.";
@@ -245,14 +309,24 @@ document.getElementById('infoBtn').onclick = () => infoOv.classList.add('show');
 document.getElementById('infoClose').onclick = () => infoOv.classList.remove('show');
 infoOv.addEventListener('click', e => { if (e.target === infoOv) infoOv.classList.remove('show'); });
 
-/* ---- controls ---- */
-document.getElementById('starFilter').onclick = function(){
-  starOnly = !starOnly; this.classList.toggle('on', starOnly); refresh(); buildSuggestions();
+/* ---- search controls ---- */
+const searchEl = document.getElementById('search');
+const clearBtn = document.getElementById('searchClear');
+function setQuery(v){
+  query = v.trim().toLowerCase();
+  clearBtn.style.visibility = v ? 'visible' : 'hidden';
+  refresh();
+  buildSuggestions();
+}
+searchEl.addEventListener('input', e => setQuery(e.target.value));
+searchEl.addEventListener('focus', buildSuggestions);
+clearBtn.onclick = () => {
+  searchEl.value = '';
+  setQuery('');
+  searchEl.focus();
 };
-document.getElementById('search').addEventListener('input', e => {
-  query = e.target.value.trim().toLowerCase(); refresh(); buildSuggestions();
-});
-document.getElementById('search').addEventListener('focus', buildSuggestions);
+setQuery(''); // sync clear-button visibility
+
 document.addEventListener('click', e => {
   if (!e.target.closest('#bar')) document.getElementById('suggest').classList.remove('show');
 });
