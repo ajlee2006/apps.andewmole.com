@@ -145,6 +145,11 @@ a.verse:hover{border-bottom-style:solid}
 .also-mentioned a.place-link{color:var(--link);cursor:pointer;text-decoration:none;
   border-bottom:1px dotted #1f5e8c66}
 .also-mentioned a.place-link:hover{border-bottom-style:solid}
+.also-mentioned .place-unloc{color:var(--muted);cursor:help;
+  border-bottom:1px dotted var(--muted)}
+
+.sg-item.unloc{cursor:default;opacity:.55}
+.sg-item.unloc:hover{background:transparent}
 .x{font-size:18px;width:30px;height:30px;border-radius:8px;border:none;background:transparent;cursor:pointer}
 .x:hover{background:#00000010}
 .info-body{font-style:normal;color:var(--ink)}
