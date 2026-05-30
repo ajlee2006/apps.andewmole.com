@@ -80,15 +80,30 @@ function circleStyle(){
 }
 
 const records = [];
+const recordByKey = new Map();
+const versesIndex = {}; // "Book Ch:Vs" -> [recordKey, ...]
+
+function indexVerses(str, key){
+  str.split(',').map(t => t.trim()).filter(Boolean).forEach(tok => {
+    if (!/^.*?\s+\d+:\d+$/.test(tok)) return;
+    (versesIndex[tok] = versesIndex[tok] || []).push(key);
+  });
+}
 
 function buildRecords(data){
   records.length = 0;
+  recordByKey.clear();
+  for (const k in versesIndex) delete versesIndex[k];
   for (const key in data){
     const m = key.replace(/[()]/g,'').split(',');
     const lat = parseFloat(m[0]), lng = parseFloat(m[1]);
     if (isNaN(lat) || isNaN(lng)) continue;
     const [name, sub, verses, akas] = data[key];
-    records.push({key, lat, lng, name, sub, verses, akas});
+    const rec = {key, lat, lng, name, sub, verses, akas};
+    records.push(rec);
+    recordByKey.set(key, rec);
+    indexVerses(verses, key);
+    if (akas) akas.forEach(a => indexVerses(a[2], key));
   }
   if (firstLoad){
     const j = records.find(r => r.name === 'Jerusalem');
@@ -274,7 +289,26 @@ async function showVerse(ref){
   const body = document.getElementById('mBody');
   body.className = 'm-body'; body.textContent = 'Loading…';
   ov.classList.add('show');
-  if (cache[ref]){ body.innerHTML = cache[ref]; return; }
+
+  function renderAlsoMentioned(){
+    const sourceKey = current ? current.key : null;
+    const seen = new Set();
+    const others = (versesIndex[ref] || []).filter(k => {
+      if (k === sourceKey || seen.has(k)) return false;
+      seen.add(k); return true;
+    });
+    if (!others.length) return '';
+    const links = others.map(k => {
+      const rr = recordByKey.get(k);
+      return `<a class="place-link" data-key="${k.replace(/"/g,'&quot;')}">${rr.name}</a>`;
+    }).join(', ');
+    return `<div class="also-mentioned">Also mentioned in this verse: ${links}</div>`;
+  }
+
+  if (cache[ref]){
+    body.innerHTML = `<div class="verse-text">${cache[ref]}</div>` + renderAlsoMentioned();
+    return;
+  }
   if (!m){ body.className = 'm-body err'; body.textContent = 'Unrecognised reference.'; return; }
   const bnum = BNUM[m[1]];
   if (!bnum){ body.className = 'm-body err'; body.textContent = 'Unknown book.'; return; }
@@ -288,12 +322,21 @@ async function showVerse(ref){
     if (!raw) throw new Error();
     const html = sanitizeKJV(raw);
     cache[ref] = html;
-    body.innerHTML = html;
+    body.innerHTML = `<div class="verse-text">${html}</div>` + renderAlsoMentioned();
   } catch (err){
     body.className = 'm-body err';
     body.textContent = "Can’t load this verse — you appear to be offline.";
   }
 }
+document.getElementById('mBody').addEventListener('click', e => {
+  const a = e.target.closest('a.place-link');
+  if (!a) return;
+  const r = recordByKey.get(a.dataset.key);
+  if (!r) return;
+  ov.classList.remove('show');
+  map.setView([r.lat, r.lng], Math.max(map.getZoom(), 10), {animate:true});
+  openPanel(r);
+});
 document.getElementById('mClose').onclick = () => ov.classList.remove('show');
 ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('show'); });
 document.addEventListener('keydown', e => {
