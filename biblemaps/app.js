@@ -245,13 +245,13 @@ document.getElementById('pBody').addEventListener('click', e => {
   showVerse(a.dataset.ref);
 });
 
-/* ---- verse modal (bolls.life KJV with italics + red-letter) ---- */
+/* ---- verse modal ---- */
 const cache = {};
 const ov = document.getElementById('ov');
 
-/* Sanitise bolls.life HTML: keep <i> (translator-added italics) and convert
-   red-letter markup (<J>, common variants) to <span class="jesus">. Strip
-   everything else including Strong's <S>...</S> tags. */
+/* If we ever get markup-bearing text (e.g. <i> for italics, <J> for Jesus
+   words), we'll style it. bible-api.com returns plain text so this is a no-op,
+   but it keeps the renderer ready for a markup-rich source later. */
 function sanitizeKJV(rawHtml){
   const tpl = document.createElement('template');
   tpl.innerHTML = rawHtml;
@@ -270,7 +270,7 @@ function sanitizeKJV(rawHtml){
       } else if (isJesus){
         out.push('<span class="jesus">'); walk(n); out.push('</span>');
       } else if (tag === 's' || tag === 'sup' || /strong/i.test(cls)){
-        // skip Strong's numbers / superscripts
+        // skip
       } else if (tag === 'br'){
         out.push('<br>');
       } else {
@@ -310,17 +310,15 @@ async function showVerse(ref){
     return;
   }
   if (!m){ body.className = 'm-body err'; body.textContent = 'Unrecognised reference.'; return; }
-  const bnum = BNUM[m[1]];
-  if (!bnum){ body.className = 'm-body err'; body.textContent = 'Unknown book.'; return; }
+  const full = (FULL[m[1]] || m[1]) + ' ' + m[2] + ':' + m[3];
   try {
-    const url = `https://bolls.life/get-text/KJV/${bnum}/${m[2]}/${m[3]}/`;
-    const res = await fetch(url);
+    const res = await fetch('https://bible-api.com/' + encodeURIComponent(full) + '?translation=kjv');
     if (!res.ok) throw new Error();
     const j = await res.json();
-    const obj = Array.isArray(j) ? j[0] : j;
-    const raw = obj && obj.text;
-    if (!raw) throw new Error();
-    const html = sanitizeKJV(raw);
+    const t = (j.text || '').trim();
+    if (!t) throw new Error();
+    // bible-api returns plain text; pass it through sanitizer for safety
+    const html = sanitizeKJV(t);
     cache[ref] = html;
     body.innerHTML = `<div class="verse-text">${html}</div>` + renderAlsoMentioned();
   } catch (err){
