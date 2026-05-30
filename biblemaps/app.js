@@ -625,7 +625,14 @@ function buildVersionDropdown(){
   }
   function openMenu(){
     syncLabel();
+    // Position the menu under the button (it's position:fixed so it escapes
+    // the modal's overflow:hidden clipping).
+    const r = btn.getBoundingClientRect();
     menu.hidden = false;
+    // Make right-anchored so the menu won't run off the right side of the screen
+    menu.style.top = (r.bottom + 4) + 'px';
+    menu.style.right = (window.innerWidth - r.right) + 'px';
+    menu.style.left = 'auto';
     btn.setAttribute('aria-expanded', 'true');
     // Scroll the selected item into view
     const sel = menu.querySelector('.opt[aria-selected="true"]');
@@ -663,6 +670,7 @@ function buildVersionDropdown(){
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !menu.hidden){ closeMenu(); e.stopPropagation(); }
   });
+  window.addEventListener('resize', () => { if (!menu.hidden) closeMenu(); });
 
   syncLabel();
 }
