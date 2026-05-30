@@ -11,42 +11,6 @@ const BNUM = {"Gen":1,"Ex":2,"Lev":3,"Num":4,"Deut":5,"Josh":6,"Judg":7,"Ruth":8
 "Phlm":57,"Heb":58,"Jas":59,"1 Pet":60,"2 Pet":61,"1 John":62,"2 John":63,
 "3 John":64,"Jude":65,"Rev":66};
 
-/* ---- bible-api.com translations ---- */
-/* KJV is the default; in the dropdown KJV appears at the very top, then groups by language. */
-const TRANSLATIONS = [
-  // English
-  {id:'kjv',   acronym:'KJV',     name:'King James Version',                          lang:'English'},
-  {id:'asv',   acronym:'ASV',     name:'American Standard Version (1901)',            lang:'English'},
-  {id:'bbe',   acronym:'BBE',     name:'Bible in Basic English',                      lang:'English'},
-  {id:'darby', acronym:'DARBY',   name:'Darby Bible',                                 lang:'English'},
-  {id:'dra',   acronym:'DRA',     name:'Douay-Rheims 1899 American Edition',          lang:'English'},
-  {id:'web',   acronym:'WEB',     name:'World English Bible',                         lang:'English'},
-  {id:'ylt',   acronym:'YLT',     name:"Young's Literal Translation (NT only)",       lang:'English'},
-  // English UK / US
-  {id:'oeb-cw',acronym:'OEB-CW',  name:'Open English Bible, Commonwealth Edition',    lang:'English (UK)'},
-  {id:'webbe', acronym:'WEBBE',   name:'World English Bible, British Edition',        lang:'English (UK)'},
-  {id:'oeb-us',acronym:'OEB-US',  name:'Open English Bible, US Edition',              lang:'English (US)'},
-  // Others
-  {id:'cherokee',  acronym:'CHEROKEE', name:'Cherokee New Testament',                 lang:'Cherokee'},
-  {id:'cuv',       acronym:'CUV',      name:'Chinese Union Version',                  lang:'Chinese'},
-  {id:'bkr',       acronym:'BKR',      name:'Bible kralická',                         lang:'Czech'},
-  {id:'clementine',acronym:'VULGATE',  name:'Clementine Latin Vulgate',               lang:'Latin'},
-  {id:'almeida',   acronym:'ALMEIDA',  name:'João Ferreira de Almeida',               lang:'Portuguese'},
-  {id:'rccv',      acronym:'RCCV',     name:'Romanian Corrected Cornilescu Version',  lang:'Romanian'},
-];
-const TR_BY_ID = Object.fromEntries(TRANSLATIONS.map(t => [t.id, t]));
-function findTranslation(token){
-  if (!token) return null;
-  const k = token.toLowerCase();
-  return TRANSLATIONS.find(t => t.id.toLowerCase() === k || t.acronym.toLowerCase() === k) || null;
-}
-
-let currentVersion = 'kjv';
-try {
-  const saved = localStorage.getItem('bible_version');
-  if (saved && TR_BY_ID[saved]) currentVersion = saved;
-} catch(e){}
-
 /* ---- star persistence ---- */
 let starred = new Set();
 let firstLoad = false;
@@ -116,30 +80,15 @@ function circleStyle(){
 }
 
 const records = [];
-const recordByKey = new Map();
-const versesIndex = {}; // "Book Ch:Vs" -> [{key, name}, ...]
-
-function indexVerses(str, key, displayName){
-  str.split(',').map(t => t.trim()).filter(Boolean).forEach(tok => {
-    if (!/^.*?\s+\d+:\d+$/.test(tok)) return;
-    (versesIndex[tok] = versesIndex[tok] || []).push({key, name: displayName});
-  });
-}
 
 function buildRecords(data){
   records.length = 0;
-  recordByKey.clear();
-  for (const k in versesIndex) delete versesIndex[k];
   for (const key in data){
     const m = key.replace(/[()]/g,'').split(',');
     const lat = parseFloat(m[0]), lng = parseFloat(m[1]);
     if (isNaN(lat) || isNaN(lng)) continue;
     const [name, sub, verses, akas] = data[key];
-    const rec = {key, lat, lng, name, sub, verses, akas};
-    records.push(rec);
-    recordByKey.set(key, rec);
-    indexVerses(verses, key, name);
-    if (akas) akas.forEach(a => indexVerses(a[2], key, a[0]));
+    records.push({key, lat, lng, name, sub, verses, akas});
   }
   if (firstLoad){
     const j = records.find(r => r.name === 'Jerusalem');
@@ -264,13 +213,10 @@ function openPanel(r){
   }
   document.getElementById('pBody').innerHTML = html;
   panel.classList.add('show');
-  updateUrl();
 }
 document.getElementById('pClose').onclick = () => {
   panel.classList.remove('show');
   panel.classList.remove('with-swatch');
-  current = null;
-  updateUrl();
 };
 document.getElementById('pStar').onclick = () => {
   if (!current) return;
@@ -284,33 +230,13 @@ document.getElementById('pBody').addEventListener('click', e => {
   showVerse(a.dataset.ref);
 });
 
-/* ---- verse modal ---- */
-/* Use bible-api.com's parameterized API: /data/{trans}/{USFM}/{chapter}.
-   It accepts language-neutral USFM book codes, so non-English translations
-   work (e.g. CUV) where the user-input API would 404 on "2 Kings". We fetch
-   chapters and cache them so multiple verses from the same chapter cost one
-   network call. */
-const USFM = {
-  "Gen":"GEN","Ex":"EXO","Lev":"LEV","Num":"NUM","Deut":"DEU","Josh":"JOS",
-  "Judg":"JDG","Ruth":"RUT","1 Sam":"1SA","2 Sam":"2SA","1 Kgs":"1KI","2 Kgs":"2KI",
-  "1 Chr":"1CH","2 Chr":"2CH","Ezra":"EZR","Neh":"NEH","Est":"EST","Job":"JOB",
-  "Ps":"PSA","Prov":"PRO","Eccl":"ECC","Sng":"SNG","Isa":"ISA","Jer":"JER",
-  "Lam":"LAM","Ezek":"EZK","Dan":"DAN","Hos":"HOS","Joel":"JOL","Amos":"AMO",
-  "Obad":"OBA","Jonah":"JON","Mic":"MIC","Nahum":"NAM","Hab":"HAB","Zeph":"ZEP",
-  "Hag":"HAG","Zech":"ZEC","Mal":"MAL","Matt":"MAT","Mark":"MRK","Luke":"LUK",
-  "John":"JHN","Acts":"ACT","Rom":"ROM","1 Cor":"1CO","2 Cor":"2CO","Gal":"GAL",
-  "Eph":"EPH","Phil":"PHP","Col":"COL","1 Thes":"1TH","2 Thes":"2TH","1 Tim":"1TI",
-  "2 Tim":"2TI","Titus":"TIT","Phlm":"PHM","Heb":"HEB","Jas":"JAS","1 Pet":"1PE",
-  "2 Pet":"2PE","1 John":"1JN","2 John":"2JN","3 John":"3JN","Jude":"JUD","Rev":"REV"
-};
-
-const chapterCache = {};         // key = `${version}|${USFM}|${chapter}` -> Map<verseNum, text>
-let activeRef = null;            // ref currently being shown (null if modal closed)
+/* ---- verse modal (bolls.life KJV with italics + red-letter) ---- */
+const cache = {};
 const ov = document.getElementById('ov');
 
-/* If we ever get markup-bearing text (e.g. <i> for italics, <J> for Jesus
-   words), we'll style it. bible-api.com returns plain text so this is a no-op,
-   but it keeps the renderer ready for a markup-rich source later. */
+/* Sanitise bolls.life HTML: keep <i> (translator-added italics) and convert
+   red-letter markup (<J>, common variants) to <span class="jesus">. Strip
+   everything else including Strong's <S>...</S> tags. */
 function sanitizeKJV(rawHtml){
   const tpl = document.createElement('template');
   tpl.innerHTML = rawHtml;
@@ -329,7 +255,7 @@ function sanitizeKJV(rawHtml){
       } else if (isJesus){
         out.push('<span class="jesus">'); walk(n); out.push('</span>');
       } else if (tag === 's' || tag === 'sup' || /strong/i.test(cls)){
-        // skip
+        // skip Strong's numbers / superscripts
       } else if (tag === 'br'){
         out.push('<br>');
       } else {
@@ -342,106 +268,37 @@ function sanitizeKJV(rawHtml){
 }
 
 async function showVerse(ref){
-  activeRef = ref;
   const m = ref.match(/^(.*?)\s+(\d+):(\d+)$/);
-  document.getElementById('mVersion').value = currentVersion;
+  const fullLabel = m ? (FULL[m[1]] || m[1]) + ' ' + m[2] + ':' + m[3] : ref;
+  document.getElementById('mRef').textContent = fullLabel;
   const body = document.getElementById('mBody');
   body.className = 'm-body'; body.textContent = 'Loading…';
   ov.classList.add('show');
-  updateUrl();
-
-  function renderAlsoMentioned(){
-    const sourceKey = current ? current.key : null;
-    const seen = new Set();
-    const others = (versesIndex[ref] || []).filter(entry => {
-      if (entry.key === sourceKey) return false;
-      const tag = entry.key + '\u0001' + entry.name;
-      if (seen.has(tag)) return false;
-      seen.add(tag);
-      return true;
-    });
-    if (!others.length) return '';
-    const links = others.map(o =>
-      `<a class="place-link" data-key="${o.key.replace(/"/g,'&quot;')}">${o.name}</a>`
-    ).join(', ');
-    return `<div class="also-mentioned">Also mentioned in this verse: ${links}</div>`;
-  }
-
-  function setVerseHtml(html){
-    if (activeRef !== ref || currentVersion !== requestVersion) return;
-    body.className = 'm-body';
-    body.innerHTML = `<div class="verse-text">${html}</div>` + renderAlsoMentioned();
-  }
-  function setError(msg){
-    if (activeRef !== ref || currentVersion !== requestVersion) return;
-    body.className = 'm-body err';
-    body.textContent = msg;
-  }
-
+  if (cache[ref]){ body.innerHTML = cache[ref]; return; }
   if (!m){ body.className = 'm-body err'; body.textContent = 'Unrecognised reference.'; return; }
-  const bookAbbr = m[1], ch = parseInt(m[2], 10), vs = parseInt(m[3], 10);
-  const usfm = USFM[bookAbbr];
-  if (!usfm){ body.className = 'm-body err'; body.textContent = 'Unknown book.'; return; }
-
-  const requestVersion = currentVersion;
-  const cKey = requestVersion + '|' + usfm + '|' + ch;
-
-  function setRefLabel(localizedName){
-    const name = localizedName || FULL[bookAbbr] || bookAbbr;
-    document.getElementById('mRef').textContent = `${name} ${ch}:${vs}`;
-  }
-  // initial header (English fallback) until chapter data arrives
-  setRefLabel(null);
-
-  function pickAndRender(entry){
-    setRefLabel(entry.name);
-    const text = entry.verses.get(vs);
-    if (text == null){
-      setError("This verse isn’t available in the selected translation.");
-      return;
-    }
-    setVerseHtml(sanitizeKJV(text.trim()));
-  }
-
-  if (chapterCache[cKey]){
-    pickAndRender(chapterCache[cKey]);
-    return;
-  }
+  const bnum = BNUM[m[1]];
+  if (!bnum){ body.className = 'm-body err'; body.textContent = 'Unknown book.'; return; }
   try {
-    const url = `https://bible-api.com/data/${encodeURIComponent(requestVersion)}/${usfm}/${ch}`;
+    const url = `https://bolls.life/get-text/KJV/${bnum}/${m[2]}/${m[3]}/`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error('http ' + res.status);
-    const data = await res.json();
-    const verses = (data && data.verses) || (Array.isArray(data) ? data : []);
-    const map = new Map();
-    let localizedName = null;
-    verses.forEach(v => {
-      if (!v) return;
-      if (v.verse != null) map.set(Number(v.verse), v.text || '');
-      if (!localizedName && v.book_name) localizedName = v.book_name;
-    });
-    const entry = { name: localizedName, verses: map };
-    chapterCache[cKey] = entry;
-    pickAndRender(entry);
+    if (!res.ok) throw new Error();
+    const j = await res.json();
+    const obj = Array.isArray(j) ? j[0] : j;
+    const raw = obj && obj.text;
+    if (!raw) throw new Error();
+    const html = sanitizeKJV(raw);
+    cache[ref] = html;
+    body.innerHTML = html;
   } catch (err){
-    setError("Can’t load this verse — you appear to be offline.");
+    body.className = 'm-body err';
+    body.textContent = "Can’t load this verse — you appear to be offline.";
   }
 }
-document.getElementById('mBody').addEventListener('click', e => {
-  const a = e.target.closest('a.place-link');
-  if (!a) return;
-  const r = recordByKey.get(a.dataset.key);
-  if (!r) return;
-  ov.classList.remove('show');
-  activeRef = null;
-  map.setView([r.lat, r.lng], Math.max(map.getZoom(), 10), {animate:true});
-  openPanel(r);
-});
-document.getElementById('mClose').onclick = () => { ov.classList.remove('show'); activeRef = null; updateUrl(); };
-ov.addEventListener('click', e => { if (e.target === ov){ ov.classList.remove('show'); activeRef = null; updateUrl(); } });
+document.getElementById('mClose').onclick = () => ov.classList.remove('show');
+ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('show'); });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape'){
-    if (ov.classList.contains('show')){ ov.classList.remove('show'); activeRef = null; updateUrl(); }
+    ov.classList.remove('show');
     document.getElementById('infoOv').classList.remove('show');
   }
 });
@@ -474,93 +331,13 @@ document.addEventListener('click', e => {
   if (!e.target.closest('#bar')) document.getElementById('suggest').classList.remove('show');
 });
 
-/* ---- version dropdown ---- */
-function buildVersionDropdown(){
-  const sel = document.getElementById('mVersion');
-  let html = '';
-  // Group by language; English variants merge into one "English" group
-  const byLang = {};
-  TRANSLATIONS.forEach(t => {
-    const lang = t.lang.startsWith('English') ? 'English' : t.lang;
-    (byLang[lang] = byLang[lang] || []).push(t);
-  });
-  const langs = Object.keys(byLang).sort((a,b) => {
-    if (a === 'English') return -1;
-    if (b === 'English') return 1;
-    return a.localeCompare(b);
-  });
-  langs.forEach(lang => {
-    html += `<optgroup label="${lang}">`;
-    byLang[lang]
-      .sort((a,b) => {
-        // KJV always first within its group
-        if (a.id === 'kjv') return -1;
-        if (b.id === 'kjv') return 1;
-        return a.acronym.localeCompare(b.acronym);
-      })
-      .forEach(t => { html += `<option value="${t.id}">${t.acronym}</option>`; });
-    html += `</optgroup>`;
-  });
-  sel.innerHTML = html;
-  sel.value = currentVersion;
-  sel.addEventListener('change', e => {
-    currentVersion = e.target.value;
-    try { localStorage.setItem('bible_version', currentVersion); } catch(err){}
-    updateUrl();
-    if (activeRef) showVerse(activeRef); // re-render with new translation
-  });
-}
-buildVersionDropdown();
-
-/* ---- URL state (?loc=Name&version=ACR) ---- */
-function updateUrl(){
-  const params = new URLSearchParams();
-  if (current) params.set('loc', current.name);
-  if (currentVersion !== 'kjv'){
-    const t = TR_BY_ID[currentVersion];
-    if (t) params.set('version', t.acronym);
-  }
-  const qs = params.toString();
-  const url = qs ? (location.pathname + '?' + qs) : location.pathname;
-  try { history.replaceState(null, '', url); } catch(e){}
-}
-
-let pendingLoc = null;
-(function readUrl(){
-  const p = new URLSearchParams(location.search);
-  const v = p.get('version');
-  const t = findTranslation(v);
-  if (t){
-    currentVersion = t.id;
-    document.getElementById('mVersion').value = currentVersion;
-    try { localStorage.setItem('bible_version', currentVersion); } catch(e){}
-  }
-  pendingLoc = p.get('loc');
-})();
-
-function dispatchPendingLoc(){
-  if (!pendingLoc) return;
-  const q = pendingLoc.toLowerCase();
-  let target = records.find(r => r.name.toLowerCase() === q);
-  if (!target){
-    for (const r of records){
-      if (r.akas && r.akas.some(a => a[0].toLowerCase() === q)){ target = r; break; }
-    }
-  }
-  pendingLoc = null;
-  if (target){
-    map.setView([target.lat, target.lng], Math.max(map.getZoom(), 9), {animate:false});
-    openPanel(target);
-  }
-}
-
-
+/* ---- load data ---- */
 fetch('result.json')
   .then(r => {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   })
-  .then(data => { buildRecords(data); dispatchPendingLoc(); })
+  .then(buildRecords)
   .catch(err => {
     document.getElementById('count').textContent = 'Failed to load result.json';
     console.error('Could not load result.json. If opening via file://, serve over HTTP instead (e.g. `python -m http.server`).', err);
