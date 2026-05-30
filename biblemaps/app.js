@@ -11,8 +11,9 @@ const BNUM = {"Gen":1,"Ex":2,"Lev":3,"Num":4,"Deut":5,"Josh":6,"Judg":7,"Ruth":8
 "Phlm":57,"Heb":58,"Jas":59,"1 Pet":60,"2 Pet":61,"1 John":62,"2 John":63,
 "3 John":64,"Jude":65,"Rev":66};
 
-/* ---- bible-api.com translations ---- */
-/* KJV is the default; in the dropdown KJV appears at the very top, then groups by language. */
+/* ---- bible-api.com translations ----
+   Acronyms are derived from each translation's identifier so they line up with
+   what bible-api.com returns. Names match the API's `name` field verbatim. */
 const TRANSLATIONS = [
   // English
   {id:'kjv',   acronym:'KJV',     name:'King James Version',                          lang:'English'},
@@ -27,12 +28,13 @@ const TRANSLATIONS = [
   {id:'webbe', acronym:'WEBBE',   name:'World English Bible, British Edition',        lang:'English (UK)'},
   {id:'oeb-us',acronym:'OEB-US',  name:'Open English Bible, US Edition',              lang:'English (US)'},
   // Others
-  {id:'cherokee',  acronym:'CHEROKEE', name:'Cherokee New Testament',                 lang:'Cherokee'},
-  {id:'cuv',       acronym:'CUV',      name:'Chinese Union Version',                  lang:'Chinese'},
-  {id:'bkr',       acronym:'BKR',      name:'Bible kralická',                         lang:'Czech'},
-  {id:'clementine',acronym:'VULGATE',  name:'Clementine Latin Vulgate',               lang:'Latin'},
-  {id:'almeida',   acronym:'ALMEIDA',  name:'João Ferreira de Almeida',               lang:'Portuguese'},
-  {id:'rccv',      acronym:'RCCV',     name:'Romanian Corrected Cornilescu Version',  lang:'Romanian'},
+  {id:'cherokee',  acronym:'CHEROKEE',   name:'Cherokee New Testament',                              lang:'Cherokee'},
+  {id:'cuv',       acronym:'CUV',        name:'Chinese Union Version',                               lang:'Chinese'},
+  {id:'bkr',       acronym:'BKR',        name:'Bible kralická',                                      lang:'Czech'},
+  {id:'clementine',acronym:'CLEMENTINE', name:'Clementine Latin Vulgate',                            lang:'Latin'},
+  {id:'almeida',   acronym:'ALMEIDA',    name:'João Ferreira de Almeida',                            lang:'Portuguese'},
+  {id:'rccv',      acronym:'RCCV',       name:'Protestant Romanian Corrected Cornilescu Version',    lang:'Romanian'},
+  {id:'synodal',   acronym:'SYNODAL',    name:'Russian Synodal Translation',                         lang:'Russian'},
 ];
 const TR_BY_ID = Object.fromEntries(TRANSLATIONS.map(t => [t.id, t]));
 function findTranslation(token){
@@ -102,6 +104,22 @@ swatch.onclick = () => {
 const cluster = L.markerClusterGroup({maxClusterRadius:45});
 map.addLayer(cluster);
 const starLayer = L.layerGroup().addTo(map); // unclustered, always-on
+const selectionLayer = L.layerGroup().addTo(map); // selection ring for current place
+
+function setSelectionMarker(r){
+  selectionLayer.clearLayers();
+  if (!r) return;
+  // A gold ring drawn on top of everything else, so the selection is visible
+  // whether the underlying pin is a clustered circle or a star icon.
+  L.circleMarker([r.lat, r.lng], {
+    radius: 14,
+    color: '#facc15',
+    weight: 3,
+    fillOpacity: 0,
+    interactive: false,
+    pane: 'markerPane',
+  }).addTo(selectionLayer);
+}
 
 const STAR_SVG = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5l2.9 5.9 6.5.95-4.7 4.58 1.1 6.47L12 17.9l-5.8 3.05 1.1-6.47-4.7-4.58 6.5-.95z"/></svg>';
 const starIcon = L.divIcon({
@@ -265,6 +283,7 @@ function openPanel(r){
   }
   document.getElementById('pBody').innerHTML = html;
   panel.classList.add('show');
+  setSelectionMarker(r);
   // Only push history if this is actually a new view.
   const cur = history.state;
   if (!cur || cur.loc !== r.name || cur.ref){
@@ -280,6 +299,7 @@ document.getElementById('pClose').onclick = () => {
     panel.classList.remove('show');
     panel.classList.remove('with-swatch');
     current = null;
+    setSelectionMarker(null);
     replaceState({});
   }
 };
@@ -289,6 +309,8 @@ document.getElementById('pStar').onclick = () => {
   saveStars();
   document.getElementById('pStar').classList.toggle('on', starred.has(current.key));
   refresh();
+  // refresh() rebuilds markers, so reassert the selection ring on top.
+  setSelectionMarker(current);
 };
 document.getElementById('pBody').addEventListener('click', e => {
   const a = e.target.closest('a.verse'); if (!a) return;
@@ -315,7 +337,7 @@ const USFM = {
   "2 Pet":"2PE","1 John":"1JN","2 John":"2JN","3 John":"3JN","Jude":"JUD","Rev":"REV"
 };
 
-const LOCALIZED_BOOKS = {"cuv":{"GEN":"\u5275\u4e16\u7d00","EXO":"\u51fa\u57c3\u53ca\u8a18","LEV":"\u5229\u672a\u8a18","NUM":"\u6c11\u6578\u8a18","DEU":"\u7533\u547d\u8a18","JOS":"\u7d04\u66f8\u4e9e\u8a18","JDG":"\u58eb\u5e2b\u8a18","RUT":"\u8def\u5f97\u8a18","1SA":"\u6492\u6bcd\u8033\u8a18\u4e0a","2SA":"\u6492\u6bcd\u8033\u8a18\u4e0b","1KI":"\u5217\u738b\u7d00\u4e0a","2KI":"\u5217\u738b\u7d00\u4e0b","1CH":"\u6b77\u4ee3\u5fd7\u4e0a","2CH":"\u6b77\u4ee3\u5fd7\u4e0b","EZR":"\u4ee5\u65af\u62c9\u8a18","NEH":"\u5c3c\u5e0c\u7c73\u8a18","EST":"\u4ee5\u65af\u5e16\u8a18","JOB":"\u7d04\u4f2f\u8a18","PSA":"\u8a69\u7bc7","PRO":"\u7bb4\u8a00","ECC":"\u50b3\u9053\u66f8","SNG":"\u96c5\u6b4c","ISA":"\u4ee5\u8cfd\u4e9e\u66f8","JER":"\u8036\u5229\u7c73\u66f8","LAM":"\u8036\u5229\u7c73\u54c0\u6b4c","EZK":"\u4ee5\u897f\u7d50\u66f8","DAN":"\u4f46\u4ee5\u7406\u66f8","HOS":"\u4f55\u897f\u963f\u66f8","JOL":"\u7d04\u73e5\u66f8","AMO":"\u963f\u6469\u53f8\u66f8","OBA":"\u4fc4\u5df4\u5e95\u4e9e\u66f8","JON":"\u7d04\u62ff\u66f8","MIC":"\u5f4c\u8fe6\u66f8","NAM":"\u90a3\u9d3b\u66f8","HAB":"\u54c8\u5df4\u8c37\u66f8","ZEP":"\u897f\u756a\u96c5\u66f8","HAG":"\u54c8\u8a72\u66f8","ZEC":"\u6492\u8fe6\u5229\u4e9e\u66f8","MAL":"\u746a\u62c9\u57fa\u66f8","MAT":"\u99ac\u592a\u798f\u97f3","MRK":"\u99ac\u53ef\u798f\u97f3","LUK":"\u8def\u52a0\u798f\u97f3","JHN":"\u7d04\u7ff0\u798f\u97f3","ACT":"\u4f7f\u5f92\u884c\u50b3","ROM":"\u7f85\u99ac\u66f8","1CO":"\u54e5\u6797\u591a\u524d\u66f8","2CO":"\u54e5\u6797\u591a\u5f8c\u66f8","GAL":"\u52a0\u62c9\u592a\u66f8","EPH":"\u4ee5\u5f17\u6240\u66f8","PHP":"\u8153\u5229\u6bd4\u66f8","COL":"\u6b4c\u7f85\u897f\u66f8","1TH":"\u5e16\u6492\u7f85\u5c3c\u8fe6\u524d\u66f8","2TH":"\u5e16\u6492\u7f85\u5c3c\u8fe6\u5f8c\u66f8","1TI":"\u63d0\u6469\u592a\u524d\u66f8","2TI":"\u63d0\u6469\u592a\u5f8c\u66f8","TIT":"\u63d0\u591a\u66f8","PHM":"\u8153\u5229\u9580\u66f8","HEB":"\u5e0c\u4f2f\u4f86\u66f8","JAS":"\u96c5\u5404\u66f8","1PE":"\u5f7c\u5f97\u524d\u66f8","2PE":"\u5f7c\u5f97\u5f8c\u66f8","1JN":"\u7d04\u7ff0\u58f9\u66f8","2JN":"\u7d04\u7ff0\u8cb3\u66f8","3JN":"\u7d04\u7ff0\u53c3\u66f8","JUD":"\u7336\u5927\u66f8","REV":"\u555f\u793a\u9304"},"bkr":{"GEN":"Genesis","EXO":"Exodus","LEV":"Leviticus","NUM":"Numeri","DEU":"Deuteronomium","JOS":"Jozue","JDG":"Soudc\u016f","RUT":"R\u00fat","1SA":"1. Samuel","2SA":"2. Samuel","1KI":"1. Kr\u00e1lovsk\u00e1","2KI":"2. Kr\u00e1lovsk\u00e1","1CH":"1. Paralipomenon","2CH":"2. Paralipomenon","EZR":"Ezdr\u00e1\u0161","NEH":"Nehemi\u00e1\u0161","EST":"Ester","JOB":"Job","PSA":"\u017dalmy","PRO":"P\u0159\u00edslov\u00ed","ECC":"Kazatel","SNG":"P\u00edse\u0148 p\u00edsn\u00ed","ISA":"Izai\u00e1\u0161","JER":"Jeremi\u00e1\u0161","LAM":"Pl\u00e1\u010d","EZK":"Ezechiel","DAN":"Daniel","HOS":"Oze\u00e1\u0161","JOL":"Joel","AMO":"Amos","OBA":"Abdi\u00e1\u0161","JON":"Jon\u00e1\u0161","MIC":"Miche\u00e1\u0161","NAM":"Nahum","HAB":"Abakuk","ZEP":"Sofoni\u00e1\u0161","HAG":"Ageus","ZEC":"Zachari\u00e1\u0161","MAL":"Malachi\u00e1\u0161","MAT":"Matou\u0161","MRK":"Marek","LUK":"Luk\u00e1\u0161","JHN":"Jan","ACT":"Skutky","ROM":"\u0158\u00edman\u016fm","1CO":"1. Korintsk\u00fdm","2CO":"2. Korintsk\u00fdm","GAL":"Galatsk\u00fdm","EPH":"Efesk\u00fdm","PHP":"Filipsk\u00fdm","COL":"Kolosk\u00fdm","1TH":"1. Tesalonick\u00fdm","2TH":"2. Tesalonick\u00fdm","1TI":"1. Timoteovi","2TI":"2. Timoteovi","TIT":"Titovi","PHM":"Filemonovi","HEB":"\u017did\u016fm","JAS":"Jakub","1PE":"1. Petr","2PE":"2. Petr","1JN":"1. Jan","2JN":"2. Jan","3JN":"3. Jan","JUD":"Juda","REV":"Zjeven\u00ed"},"clementine":{"GEN":"Genesis","EXO":"Exodus","LEV":"Leviticus","NUM":"Numeri","DEU":"Deuteronomium","JOS":"Josue","JDG":"Judicum","RUT":"Ruth","1SA":"Regum I","2SA":"Regum II","1KI":"Regum III","2KI":"Regum IV","1CH":"Paralipomenon I","2CH":"Paralipomenon II","EZR":"Esdr\u00e6","NEH":"Nehemi\u00e6","EST":"Tobi\u00e6","JOB":"Job","PSA":"Psalmi","PRO":"Proverbia","ECC":"Ecclesiastes","SNG":"Canticum Canticorum","ISA":"Isaias","JER":"Jeremias","LAM":"Lamentationes","EZK":"Ezechiel","DAN":"Daniel","HOS":"Osee","JOL":"Jo\u00ebl","AMO":"Amos","OBA":"Abdias","JON":"Jonas","MIC":"Mich\u00e6a","NAM":"Nahum","HAB":"Habacuc","ZEP":"Sophonias","HAG":"Agg\u00e6us","ZEC":"Zacharias","MAL":"Malachias","MAT":"Matth\u00e6us","MRK":"Marcus","LUK":"Lucas","JHN":"Joannes","ACT":"Actus Apostolorum","ROM":"ad Romanos","1CO":"ad Corinthios I","2CO":"ad Corinthios II","GAL":"ad Galatas","EPH":"ad Ephesios","PHP":"ad Philippenses","COL":"ad Colossenses","1TH":"ad Thessalonicenses I","2TH":"ad Thessalonicenses II","1TI":"ad Timotheum I","2TI":"ad Timotheum II","TIT":"ad Titum","PHM":"ad Philemonem","HEB":"ad Hebr\u00e6os","JAS":"Jacobi","1PE":"Petri I","2PE":"Petri II","1JN":"Joannis I","2JN":"Joannis II","3JN":"Joannis III","JUD":"Jud\u00e6","REV":"Apocalypsis"},"almeida":{"GEN":"G\u00eanesis","EXO":"\u00caxodo","LEV":"Lev\u00edtico","NUM":"N\u00fameros","DEU":"Deuteron\u00f4mio","JOS":"Josu\u00e9","JDG":"Ju\u00edzes","RUT":"Rute","1SA":"1 Samuel","2SA":"2 Samuel","1KI":"1 Reis","2KI":"2 Reis","1CH":"1 Cr\u00f4nicas","2CH":"2 Cr\u00f4nicas","EZR":"Esdras","NEH":"Neemias","EST":"Ester","JOB":"J\u00f3","PSA":"Salmos","PRO":"Prov\u00e9rbios","ECC":"Eclesiastes","SNG":"C\u00e2nticos","ISA":"Isa\u00edas","JER":"Jeremias","LAM":"Lamenta\u00e7\u00f5es","EZK":"Ezequiel","DAN":"Daniel","HOS":"Os\u00e9ias","JOL":"Joel","AMO":"Am\u00f3s","OBA":"Obadias","JON":"Jonas","MIC":"Miqu\u00e9ias","NAM":"Naum","HAB":"Habacuque","ZEP":"Sofonias","HAG":"Ageu","ZEC":"Zacarias","MAL":"Malaquias","MAT":"Mateus","MRK":"Marcos","LUK":"Lucas","JHN":"Jo\u00e3o","ACT":"Atos","ROM":"Romanos","1CO":"1 Cor\u00edntios","2CO":"2 Cor\u00edntios","GAL":"G\u00e1latas","EPH":"Ef\u00e9sios","PHP":"Filipenses","COL":"Colossenses","1TH":"1 Tessalonicenses","2TH":"2 Tessalonicenses","1TI":"1 Tim\u00f3teo","2TI":"2 Tim\u00f3teo","TIT":"Tito","PHM":"Filemom","HEB":"Hebreus","JAS":"Tiago","1PE":"1 Pedro","2PE":"2 Pedro","1JN":"1 Jo\u00e3o","2JN":"2 Jo\u00e3o","3JN":"3 Jo\u00e3o","JUD":"Judas","REV":"Apocalipse"},"rccv":{"GEN":"Geneza","EXO":"Exodul","LEV":"Leviticul","NUM":"Numeri","DEU":"Deuteronomul","JOS":"Iosua","JDG":"Judec\u0103tori","RUT":"Rut","1SA":"1 Samuel","2SA":"2 Samuel","1KI":"1 \u00cemp\u0103ra\u0163i","2KI":"2 \u00cemp\u0103ra\u0163i","1CH":"1 Cronici","2CH":"2 Cronici","EZR":"Ezra","NEH":"Neemia","EST":"Estera","JOB":"Iov","PSA":"Psalmii","PRO":"Proverbe","ECC":"Eclesiastul","SNG":"C\u00e2ntarea c\u00e2nt\u0103rilor","ISA":"Isaia","JER":"Ieremia","LAM":"Pl\u00e2ngerile lui Ieremia","EZK":"Ezechiel","DAN":"Daniel","HOS":"Osea","JOL":"Ioel","AMO":"Amos","OBA":"Obadia","JON":"Iona","MIC":"Mica","NAM":"Naum","HAB":"Habacuc","ZEP":"\u0162efania","HAG":"Hagai","ZEC":"Zaharia","MAL":"Maleahi","MAT":"Matei","MRK":"Marcu","LUK":"Luca","JHN":"Ioan","ACT":"Faptele apostolilor","ROM":"Romani","1CO":"1 Corinteni","2CO":"2 Corinteni","GAL":"Galateni","EPH":"Efeseni","PHP":"Filipeni","COL":"Coloseni","1TH":"1 Tesaloniceni","2TH":"2 Tesaloniceni","1TI":"1 Timotei","2TI":"2 Timotei","TIT":"Tit","PHM":"Filimon","HEB":"Evrei","JAS":"Iacov","1PE":"1 Petru","2PE":"2 Petru","1JN":"1 Ioan","2JN":"2 Ioan","3JN":"3 Ioan","JUD":"Iuda","REV":"Apocalipsa"},"cherokee":{"MAT":"\u13a3\u13cd\u13db \u13a7\u13c3\u13ae\u13db \u13b9\u13da \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","MRK":"\u13a3\u13cd\u13db \u13a7\u13c3\u13ae\u13db \u13b9\u13a6 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","LUK":"\u13a3\u13cd\u13db \u13a7\u13c3\u13ae\u13db \u13b7\u13a6 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","JHN":"\u13a3\u13cd\u13db \u13a7\u13c3\u13ae\u13db \u13e3\u13c2 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","ACT":"\u13a8\u13e5\u13c5\u13cf\u13db \u13c4\u13be\u13db\u13c1\u13b5\u13d9\u13b8\u13a2","ROM":"\u13c9\u13b3 \u13b6\u13bb \u13a0\u13c1\u13af \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","1CO":"\u13aa\u13b5\u13c2\u13d7\u13f1 \u13a0\u13c1\u13af \u13a2\u13ac\u13f1\u13f1 \u13a8\u13aa\u13ea\u13b3\u13c1\u13b8\u13af","2CO":"\u13aa\u13b5\u13c2\u13d7\u13f1 \u13a0\u13c1\u13af \u13d4\u13b5\u13c1 \u13a8\u13aa\u13ea\u13b3\u13c1\u13b8\u13af","GAL":"\u13c9\u13b3 \u13a8\u13b4\u13cf\u13f1 \u13a0\u13c1\u13af \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","EPH":"\u13c9\u13b3 \u13a1\u13c8\u13cc \u13a0\u13c1\u13af \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","PHP":"\u13c9\u13b3 \u13c8\u13b5\u13a9\u13f1 \u13a0\u13c1\u13af \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","COL":"\u13c9\u13b3 \u13aa\u13b6\u13cf \u13a0\u13c1\u13af \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","1TH":"\u13c9\u13b3 \u13d5\u13cf\u13b6\u13c2\u13a6 \u13a0\u13c1\u13af \u13a2\u13ac\u13f1\u13f1 \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","2TH":"\u13c9\u13b3 \u13d5\u13cf\u13b6\u13c2\u13a6 \u13a0\u13c1\u13af \u13d4\u13b5\u13c1 \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","1TI":"\u13c9\u13b3 \u13e7\u13ec\u13ea\u13b3\u13c5\u13af \u13a2\u13ac\u13f1\u13f1 \u13d7\u13b9\u13d7 \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","2TI":"\u13c9\u13b3 \u13e7\u13ec\u13ea\u13b3\u13c5\u13af \u13d4\u13b5\u13c1 \u13d7\u13b9\u13d7 \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","TIT":"\u13c9\u13b3 \u13d3\u13d3\u13cf \u13a4\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","PHM":"\u13c9\u13b3 \u13c6\u13b5\u13b9\u13c2 \u13a4\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","HEB":"\u13c9\u13b3 \u13a0\u13c2\u13c8\u13b7 \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","JAS":"\u13e5\u13bb \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","1PE":"\u13c8\u13d3 \u13a2\u13ac\u13f1\u13f1 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","2PE":"\u13c8\u13d3 \u13d4\u13b5\u13c1 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","1JN":"\u13e3\u13c2 \u13a2\u13ac\u13f1\u13f1 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","2JN":"\u13e3\u13c2 \u13d4\u13b5\u13c1 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","3JN":"\u13e3\u13c2 \u13e6\u13a2\u13c1 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","JUD":"\u13e7\u13d3\u13cf \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","REV":"\u13e3\u13c2 \u13c4\u13cd\u13db \u13a0\u13e5\u13be\u13c4\u13aa\u13eb\u13ce\u13b8\u13a2"}};
+const LOCALIZED_BOOKS = {"cuv":{"GEN":"\u5275\u4e16\u7d00","EXO":"\u51fa\u57c3\u53ca\u8a18","LEV":"\u5229\u672a\u8a18","NUM":"\u6c11\u6578\u8a18","DEU":"\u7533\u547d\u8a18","JOS":"\u7d04\u66f8\u4e9e\u8a18","JDG":"\u58eb\u5e2b\u8a18","RUT":"\u8def\u5f97\u8a18","1SA":"\u6492\u6bcd\u8033\u8a18\u4e0a","2SA":"\u6492\u6bcd\u8033\u8a18\u4e0b","1KI":"\u5217\u738b\u7d00\u4e0a","2KI":"\u5217\u738b\u7d00\u4e0b","1CH":"\u6b77\u4ee3\u5fd7\u4e0a","2CH":"\u6b77\u4ee3\u5fd7\u4e0b","EZR":"\u4ee5\u65af\u62c9\u8a18","NEH":"\u5c3c\u5e0c\u7c73\u8a18","EST":"\u4ee5\u65af\u5e16\u8a18","JOB":"\u7d04\u4f2f\u8a18","PSA":"\u8a69\u7bc7","PRO":"\u7bb4\u8a00","ECC":"\u50b3\u9053\u66f8","SNG":"\u96c5\u6b4c","ISA":"\u4ee5\u8cfd\u4e9e\u66f8","JER":"\u8036\u5229\u7c73\u66f8","LAM":"\u8036\u5229\u7c73\u54c0\u6b4c","EZK":"\u4ee5\u897f\u7d50\u66f8","DAN":"\u4f46\u4ee5\u7406\u66f8","HOS":"\u4f55\u897f\u963f\u66f8","JOL":"\u7d04\u73e5\u66f8","AMO":"\u963f\u6469\u53f8\u66f8","OBA":"\u4fc4\u5df4\u5e95\u4e9e\u66f8","JON":"\u7d04\u62ff\u66f8","MIC":"\u5f4c\u8fe6\u66f8","NAM":"\u90a3\u9d3b\u66f8","HAB":"\u54c8\u5df4\u8c37\u66f8","ZEP":"\u897f\u756a\u96c5\u66f8","HAG":"\u54c8\u8a72\u66f8","ZEC":"\u6492\u8fe6\u5229\u4e9e\u66f8","MAL":"\u746a\u62c9\u57fa\u66f8","MAT":"\u99ac\u592a\u798f\u97f3","MRK":"\u99ac\u53ef\u798f\u97f3","LUK":"\u8def\u52a0\u798f\u97f3","JHN":"\u7d04\u7ff0\u798f\u97f3","ACT":"\u4f7f\u5f92\u884c\u50b3","ROM":"\u7f85\u99ac\u66f8","1CO":"\u54e5\u6797\u591a\u524d\u66f8","2CO":"\u54e5\u6797\u591a\u5f8c\u66f8","GAL":"\u52a0\u62c9\u592a\u66f8","EPH":"\u4ee5\u5f17\u6240\u66f8","PHP":"\u8153\u5229\u6bd4\u66f8","COL":"\u6b4c\u7f85\u897f\u66f8","1TH":"\u5e16\u6492\u7f85\u5c3c\u8fe6\u524d\u66f8","2TH":"\u5e16\u6492\u7f85\u5c3c\u8fe6\u5f8c\u66f8","1TI":"\u63d0\u6469\u592a\u524d\u66f8","2TI":"\u63d0\u6469\u592a\u5f8c\u66f8","TIT":"\u63d0\u591a\u66f8","PHM":"\u8153\u5229\u9580\u66f8","HEB":"\u5e0c\u4f2f\u4f86\u66f8","JAS":"\u96c5\u5404\u66f8","1PE":"\u5f7c\u5f97\u524d\u66f8","2PE":"\u5f7c\u5f97\u5f8c\u66f8","1JN":"\u7d04\u7ff0\u58f9\u66f8","2JN":"\u7d04\u7ff0\u8cb3\u66f8","3JN":"\u7d04\u7ff0\u53c3\u66f8","JUD":"\u7336\u5927\u66f8","REV":"\u555f\u793a\u9304"},"bkr":{"GEN":"Genesis","EXO":"Exodus","LEV":"Leviticus","NUM":"Numeri","DEU":"Deuteronomium","JOS":"Jozue","JDG":"Soudc\u016f","RUT":"R\u00fat","1SA":"1. Samuel","2SA":"2. Samuel","1KI":"1. Kr\u00e1lovsk\u00e1","2KI":"2. Kr\u00e1lovsk\u00e1","1CH":"1. Paralipomenon","2CH":"2. Paralipomenon","EZR":"Ezdr\u00e1\u0161","NEH":"Nehemi\u00e1\u0161","EST":"Ester","JOB":"Job","PSA":"\u017dalmy","PRO":"P\u0159\u00edslov\u00ed","ECC":"Kazatel","SNG":"P\u00edse\u0148 p\u00edsn\u00ed","ISA":"Izai\u00e1\u0161","JER":"Jeremi\u00e1\u0161","LAM":"Pl\u00e1\u010d","EZK":"Ezechiel","DAN":"Daniel","HOS":"Oze\u00e1\u0161","JOL":"Joel","AMO":"Amos","OBA":"Abdi\u00e1\u0161","JON":"Jon\u00e1\u0161","MIC":"Miche\u00e1\u0161","NAM":"Nahum","HAB":"Abakuk","ZEP":"Sofoni\u00e1\u0161","HAG":"Ageus","ZEC":"Zachari\u00e1\u0161","MAL":"Malachi\u00e1\u0161","MAT":"Matou\u0161","MRK":"Marek","LUK":"Luk\u00e1\u0161","JHN":"Jan","ACT":"Skutky","ROM":"\u0158\u00edman\u016fm","1CO":"1. Korintsk\u00fdm","2CO":"2. Korintsk\u00fdm","GAL":"Galatsk\u00fdm","EPH":"Efesk\u00fdm","PHP":"Filipsk\u00fdm","COL":"Kolosk\u00fdm","1TH":"1. Tesalonick\u00fdm","2TH":"2. Tesalonick\u00fdm","1TI":"1. Timoteovi","2TI":"2. Timoteovi","TIT":"Titovi","PHM":"Filemonovi","HEB":"\u017did\u016fm","JAS":"Jakub","1PE":"1. Petr","2PE":"2. Petr","1JN":"1. Jan","2JN":"2. Jan","3JN":"3. Jan","JUD":"Juda","REV":"Zjeven\u00ed"},"clementine":{"GEN":"Genesis","EXO":"Exodus","LEV":"Leviticus","NUM":"Numeri","DEU":"Deuteronomium","JOS":"Josue","JDG":"Judicum","RUT":"Ruth","1SA":"Regum I","2SA":"Regum II","1KI":"Regum III","2KI":"Regum IV","1CH":"Paralipomenon I","2CH":"Paralipomenon II","EZR":"Esdr\u00e6","NEH":"Nehemi\u00e6","EST":"Tobi\u00e6","JOB":"Job","PSA":"Psalmi","PRO":"Proverbia","ECC":"Ecclesiastes","SNG":"Canticum Canticorum","ISA":"Isaias","JER":"Jeremias","LAM":"Lamentationes","EZK":"Ezechiel","DAN":"Daniel","HOS":"Osee","JOL":"Jo\u00ebl","AMO":"Amos","OBA":"Abdias","JON":"Jonas","MIC":"Mich\u00e6a","NAM":"Nahum","HAB":"Habacuc","ZEP":"Sophonias","HAG":"Agg\u00e6us","ZEC":"Zacharias","MAL":"Malachias","MAT":"Matth\u00e6us","MRK":"Marcus","LUK":"Lucas","JHN":"Joannes","ACT":"Actus Apostolorum","ROM":"ad Romanos","1CO":"ad Corinthios I","2CO":"ad Corinthios II","GAL":"ad Galatas","EPH":"ad Ephesios","PHP":"ad Philippenses","COL":"ad Colossenses","1TH":"ad Thessalonicenses I","2TH":"ad Thessalonicenses II","1TI":"ad Timotheum I","2TI":"ad Timotheum II","TIT":"ad Titum","PHM":"ad Philemonem","HEB":"ad Hebr\u00e6os","JAS":"Jacobi","1PE":"Petri I","2PE":"Petri II","1JN":"Joannis I","2JN":"Joannis II","3JN":"Joannis III","JUD":"Jud\u00e6","REV":"Apocalypsis"},"almeida":{"GEN":"G\u00eanesis","EXO":"\u00caxodo","LEV":"Lev\u00edtico","NUM":"N\u00fameros","DEU":"Deuteron\u00f4mio","JOS":"Josu\u00e9","JDG":"Ju\u00edzes","RUT":"Rute","1SA":"1 Samuel","2SA":"2 Samuel","1KI":"1 Reis","2KI":"2 Reis","1CH":"1 Cr\u00f4nicas","2CH":"2 Cr\u00f4nicas","EZR":"Esdras","NEH":"Neemias","EST":"Ester","JOB":"J\u00f3","PSA":"Salmos","PRO":"Prov\u00e9rbios","ECC":"Eclesiastes","SNG":"C\u00e2nticos","ISA":"Isa\u00edas","JER":"Jeremias","LAM":"Lamenta\u00e7\u00f5es","EZK":"Ezequiel","DAN":"Daniel","HOS":"Os\u00e9ias","JOL":"Joel","AMO":"Am\u00f3s","OBA":"Obadias","JON":"Jonas","MIC":"Miqu\u00e9ias","NAM":"Naum","HAB":"Habacuque","ZEP":"Sofonias","HAG":"Ageu","ZEC":"Zacarias","MAL":"Malaquias","MAT":"Mateus","MRK":"Marcos","LUK":"Lucas","JHN":"Jo\u00e3o","ACT":"Atos","ROM":"Romanos","1CO":"1 Cor\u00edntios","2CO":"2 Cor\u00edntios","GAL":"G\u00e1latas","EPH":"Ef\u00e9sios","PHP":"Filipenses","COL":"Colossenses","1TH":"1 Tessalonicenses","2TH":"2 Tessalonicenses","1TI":"1 Tim\u00f3teo","2TI":"2 Tim\u00f3teo","TIT":"Tito","PHM":"Filemom","HEB":"Hebreus","JAS":"Tiago","1PE":"1 Pedro","2PE":"2 Pedro","1JN":"1 Jo\u00e3o","2JN":"2 Jo\u00e3o","3JN":"3 Jo\u00e3o","JUD":"Judas","REV":"Apocalipse"},"rccv":{"GEN":"Geneza","EXO":"Exodul","LEV":"Leviticul","NUM":"Numeri","DEU":"Deuteronomul","JOS":"Iosua","JDG":"Judec\u0103tori","RUT":"Rut","1SA":"1 Samuel","2SA":"2 Samuel","1KI":"1 \u00cemp\u0103ra\u0163i","2KI":"2 \u00cemp\u0103ra\u0163i","1CH":"1 Cronici","2CH":"2 Cronici","EZR":"Ezra","NEH":"Neemia","EST":"Estera","JOB":"Iov","PSA":"Psalmii","PRO":"Proverbe","ECC":"Eclesiastul","SNG":"C\u00e2ntarea c\u00e2nt\u0103rilor","ISA":"Isaia","JER":"Ieremia","LAM":"Pl\u00e2ngerile lui Ieremia","EZK":"Ezechiel","DAN":"Daniel","HOS":"Osea","JOL":"Ioel","AMO":"Amos","OBA":"Obadia","JON":"Iona","MIC":"Mica","NAM":"Naum","HAB":"Habacuc","ZEP":"\u0162efania","HAG":"Hagai","ZEC":"Zaharia","MAL":"Maleahi","MAT":"Matei","MRK":"Marcu","LUK":"Luca","JHN":"Ioan","ACT":"Faptele apostolilor","ROM":"Romani","1CO":"1 Corinteni","2CO":"2 Corinteni","GAL":"Galateni","EPH":"Efeseni","PHP":"Filipeni","COL":"Coloseni","1TH":"1 Tesaloniceni","2TH":"2 Tesaloniceni","1TI":"1 Timotei","2TI":"2 Timotei","TIT":"Tit","PHM":"Filimon","HEB":"Evrei","JAS":"Iacov","1PE":"1 Petru","2PE":"2 Petru","1JN":"1 Ioan","2JN":"2 Ioan","3JN":"3 Ioan","JUD":"Iuda","REV":"Apocalipsa"},"cherokee":{"MAT":"\u13a3\u13cd\u13db \u13a7\u13c3\u13ae\u13db \u13b9\u13da \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","MRK":"\u13a3\u13cd\u13db \u13a7\u13c3\u13ae\u13db \u13b9\u13a6 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","LUK":"\u13a3\u13cd\u13db \u13a7\u13c3\u13ae\u13db \u13b7\u13a6 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","JHN":"\u13a3\u13cd\u13db \u13a7\u13c3\u13ae\u13db \u13e3\u13c2 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","ACT":"\u13a8\u13e5\u13c5\u13cf\u13db \u13c4\u13be\u13db\u13c1\u13b5\u13d9\u13b8\u13a2","ROM":"\u13c9\u13b3 \u13b6\u13bb \u13a0\u13c1\u13af \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","1CO":"\u13aa\u13b5\u13c2\u13d7\u13f1 \u13a0\u13c1\u13af \u13a2\u13ac\u13f1\u13f1 \u13a8\u13aa\u13ea\u13b3\u13c1\u13b8\u13af","2CO":"\u13aa\u13b5\u13c2\u13d7\u13f1 \u13a0\u13c1\u13af \u13d4\u13b5\u13c1 \u13a8\u13aa\u13ea\u13b3\u13c1\u13b8\u13af","GAL":"\u13c9\u13b3 \u13a8\u13b4\u13cf\u13f1 \u13a0\u13c1\u13af \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","EPH":"\u13c9\u13b3 \u13a1\u13c8\u13cc \u13a0\u13c1\u13af \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","PHP":"\u13c9\u13b3 \u13c8\u13b5\u13a9\u13f1 \u13a0\u13c1\u13af \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","COL":"\u13c9\u13b3 \u13aa\u13b6\u13cf \u13a0\u13c1\u13af \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","1TH":"\u13c9\u13b3 \u13d5\u13cf\u13b6\u13c2\u13a6 \u13a0\u13c1\u13af \u13a2\u13ac\u13f1\u13f1 \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","2TH":"\u13c9\u13b3 \u13d5\u13cf\u13b6\u13c2\u13a6 \u13a0\u13c1\u13af \u13d4\u13b5\u13c1 \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","1TI":"\u13c9\u13b3 \u13e7\u13ec\u13ea\u13b3\u13c5\u13af \u13a2\u13ac\u13f1\u13f1 \u13d7\u13b9\u13d7 \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","2TI":"\u13c9\u13b3 \u13e7\u13ec\u13ea\u13b3\u13c5\u13af \u13d4\u13b5\u13c1 \u13d7\u13b9\u13d7 \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","TIT":"\u13c9\u13b3 \u13d3\u13d3\u13cf \u13a4\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","PHM":"\u13c9\u13b3 \u13c6\u13b5\u13b9\u13c2 \u13a4\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","HEB":"\u13c9\u13b3 \u13a0\u13c2\u13c8\u13b7 \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","JAS":"\u13e5\u13bb \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","1PE":"\u13c8\u13d3 \u13a2\u13ac\u13f1\u13f1 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","2PE":"\u13c8\u13d3 \u13d4\u13b5\u13c1 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","1JN":"\u13e3\u13c2 \u13a2\u13ac\u13f1\u13f1 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","2JN":"\u13e3\u13c2 \u13d4\u13b5\u13c1 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","3JN":"\u13e3\u13c2 \u13e6\u13a2\u13c1 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","JUD":"\u13e7\u13d3\u13cf \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","REV":"\u13e3\u13c2 \u13c4\u13cd\u13db \u13a0\u13e5\u13be\u13c4\u13aa\u13eb\u13ce\u13b8\u13a2"},"synodal":{"GEN":"\u0411\u044b\u0442\u0438\u0435","EXO":"\u0418\u0441\u0445\u043e\u0434","LEV":"\u041b\u0435\u0432\u0438\u0442","NUM":"\u0427\u0438\u0441\u043b\u0430","DEU":"\u0412\u0442\u043e\u0440\u043e\u0437\u0430\u043a\u043e\u043d\u0438\u0435","JOS":"\u0418\u0438\u0441\u0443\u0441 \u041d\u0430\u0432\u0438\u043d","JDG":"\u0421\u0443\u0434\u044c\u0438","RUT":"\u0420\u0443\u0444\u044c","1SA":"1 \u0426\u0430\u0440\u0441\u0442\u0432","2SA":"2 \u0426\u0430\u0440\u0441\u0442\u0432","1KI":"3 \u0426\u0430\u0440\u0441\u0442\u0432","2KI":"4 \u0426\u0430\u0440\u0441\u0442\u0432","1CH":"1 \u041f\u0430\u0440\u0430\u043b\u0438\u043f\u043e\u043c\u0435\u043d\u043e\u043d","2CH":"2 \u041f\u0430\u0440\u0430\u043b\u0438\u043f\u043e\u043c\u0435\u043d\u043e\u043d","EZR":"\u0415\u0437\u0434\u0440\u0430","NEH":"\u041d\u0435\u0435\u043c\u0438\u044f","EST":"\u0415\u0441\u0444\u0438\u0440\u044c","JOB":"\u0418\u043e\u0432","PSA":"\u041f\u0441\u0430\u043b\u0442\u0438\u0440\u044c","PRO":"\u041f\u0440\u0438\u0442\u0447\u0438","ECC":"\u0415\u043a\u043a\u043b\u0435\u0437\u0438\u0430\u0441\u0442","SNG":"\u041f\u0435\u0441\u043d\u044c \u043f\u0435\u0441\u043d\u0435\u0439","ISA":"\u0418\u0441\u0430\u0438\u044f","JER":"\u0418\u0435\u0440\u0435\u043c\u0438\u044f","LAM":"\u041f\u043b\u0430\u0447 \u0418\u0435\u0440\u0435\u043c\u0438\u0438","EZK":"\u0418\u0435\u0437\u0435\u043a\u0438\u0438\u043b\u044c","DAN":"\u0414\u0430\u043d\u0438\u0438\u043b","HOS":"\u041e\u0441\u0438\u044f","JOL":"\u0418\u043e\u0438\u043b\u044c","AMO":"\u0410\u043c\u043e\u0441","OBA":"\u0410\u0432\u0434\u0438\u0439","JON":"\u0418\u043e\u043d\u0430","MIC":"\u041c\u0438\u0445\u0435\u0439","NAM":"\u041d\u0430\u0443\u043c","HAB":"\u0410\u0432\u0432\u0430\u043a\u0443\u043c","ZEP":"\u0421\u043e\u0444\u043e\u043d\u0438\u044f","HAG":"\u0410\u0433\u0433\u0435\u0439","ZEC":"\u0417\u0430\u0445\u0430\u0440\u0438\u044f","MAL":"\u041c\u0430\u043b\u0430\u0445\u0438\u044f","TOB":"\u0422\u043e\u0432\u0438\u0442","JDT":"\u0418\u0443\u0434\u0438\u0444\u044c","ESG":"\u0415\u0441\u0444\u0438\u0440\u044c (\u0413\u0440\u0435\u0447\u0435\u0441\u043a\u0430\u044f)","WIS":"\u041f\u0440\u0435\u043c\u0443\u0434\u0440\u043e\u0441\u0442\u044c \u0421\u043e\u043b\u043e\u043c\u043e\u043d\u0430","SIR":"\u0421\u0438\u0440\u0430\u0445","BAR":"\u0412\u0430\u0440\u0443\u0445","LJE":"\u041f\u043e\u0441\u043b\u0430\u043d\u0438\u0435 \u0418\u0435\u0440\u0435\u043c\u0438\u0438","S3Y":"\u041f\u0435\u0441\u043d\u044c \u0422\u0440\u0435\u0445 \u041e\u0442\u0440\u043e\u043a\u043e\u0432","SUS":"\u0421\u0443\u0441\u0430\u043d\u043d\u0430","BEL":"\u0411\u0435\u043b \u0438 \u0434\u0440\u0430\u043a\u043e\u043d","1MA":"1 \u041c\u0430\u043a\u043a\u0430\u0432\u0435\u0439\u0441\u043a\u0430\u044f","2MA":"2 \u041c\u0430\u043a\u043a\u0430\u0432\u0435\u0439\u0441\u043a\u0430\u044f","1ES":"1 \u0415\u0437\u0434\u0440\u044b","MAN":"\u041c\u043e\u043b\u0438\u0442\u0432\u0430 \u041c\u0430\u043d\u0430\u0441\u0441\u0438\u0438","PS2":"\u041f\u0441\u0430\u043b\u043e\u043c 151","3MA":"3 \u041c\u0430\u043a\u043a\u0430\u0432\u0435\u0439\u0441\u043a\u0430\u044f","2ES":"2 \u0415\u0437\u0434\u0440\u044b","4MA":"4 \u041c\u0430\u043a\u043a\u0430\u0432\u0435\u0439\u0441\u043a\u0430\u044f","MAT":"\u041c\u0430\u0442\u0444\u0435\u044f","MRK":"\u041c\u0430\u0440\u043a\u0430","LUK":"\u041b\u0443\u043a\u0438","JHN":"\u0418\u043e\u0430\u043d\u043d\u0430","ACT":"\u0414\u0435\u044f\u043d\u0438\u044f","ROM":"\u0420\u0438\u043c\u043b\u044f\u043d\u0430\u043c","1CO":"1 \u041a\u043e\u0440\u0438\u043d\u0444\u044f\u043d\u0430\u043c","2CO":"2 \u041a\u043e\u0440\u0438\u043d\u0444\u044f\u043d\u0430\u043c","GAL":"\u0413\u0430\u043b\u0430\u0442\u0430\u043c","EPH":"\u0415\u0444\u0435\u0441\u044f\u043d\u0430\u043c","PHP":"\u0424\u0438\u043b\u0438\u043f\u043f\u0438\u0439\u0446\u0430\u043c","COL":"\u041a\u043e\u043b\u043e\u0441\u0441\u044f\u043d\u0430\u043c","1TH":"1 \u0424\u0435\u0441\u0441\u0430\u043b\u043e\u043d\u0438\u043a\u0438\u0439\u0446\u0430\u043c","2TH":"2 \u0424\u0435\u0441\u0441\u0430\u043b\u043e\u043d\u0438\u043a\u0438\u0439\u0446\u0430\u043c","1TI":"1 \u0422\u0438\u043c\u043e\u0444\u0435\u044e","2TI":"2 \u0422\u0438\u043c\u043e\u0444\u0435\u044e","TIT":"\u0422\u0438\u0442\u0443","PHM":"\u0424\u0438\u043b\u0438\u043c\u043e\u043d\u0443","HEB":"\u0415\u0432\u0440\u0435\u044f\u043c","JAS":"\u0418\u0430\u043a\u043e\u0432\u0430","1PE":"1 \u041f\u0435\u0442\u0440\u0430","2PE":"2 \u041f\u0435\u0442\u0440\u0430","1JN":"1 \u0418\u043e\u0430\u043d\u043d\u0430","2JN":"2 \u0418\u043e\u0430\u043d\u043d\u0430","3JN":"3 \u0418\u043e\u0430\u043d\u043d\u0430","JUD":"\u0418\u0443\u0434\u044b","REV":"\u041e\u0442\u043a\u0440\u043e\u0432\u0435\u043d\u0438\u0435"}};
 
 const chapterCache = {};         // key = `${version}|${USFM}|${chapter}` -> {name, verses:Map}
 let activeRef = null;            // ref currently being shown (null if modal closed)
@@ -360,7 +382,9 @@ async function showVerse(ref, sourceName){
   activeRef = ref;
   activeSourceName = sourceName || (current ? current.name : null);
   const m = ref.match(/^(.*?)\s+(\d+):(\d+)$/);
-  document.getElementById('mVersion').value = currentVersion;
+  // sync the dropdown label to current version
+  const _vt = TR_BY_ID[currentVersion];
+  document.getElementById('mVersionLabel').textContent = _vt ? _vt.acronym : currentVersion;
   const body = document.getElementById('mBody');
   body.className = 'm-body'; body.textContent = 'Loading…';
   ov.classList.add('show');
@@ -432,6 +456,10 @@ async function showVerse(ref, sourceName){
   try {
     const url = `https://bible-api.com/data/${encodeURIComponent(requestVersion)}/${usfm}/${ch}`;
     const res = await fetch(url);
+    if (res.status === 404){
+      setError("This verse isn’t available in the selected translation.");
+      return;
+    }
     if (!res.ok) throw new Error('http ' + res.status);
     const data = await res.json();
     const verses = (data && data.verses) || (Array.isArray(data) ? data : []);
@@ -511,8 +539,10 @@ document.addEventListener('click', e => {
 
 /* ---- version dropdown ---- */
 function buildVersionDropdown(){
-  const sel = document.getElementById('mVersion');
-  let html = '';
+  const btn = document.getElementById('mVersionBtn');
+  const label = document.getElementById('mVersionLabel');
+  const menu = document.getElementById('mVersionMenu');
+
   // Group by language; English variants merge into one "English" group
   const byLang = {};
   TRANSLATIONS.forEach(t => {
@@ -524,32 +554,74 @@ function buildVersionDropdown(){
     if (b === 'English') return 1;
     return a.localeCompare(b);
   });
+
+  let html = '';
   langs.forEach(lang => {
-    html += `<optgroup label="${lang}">`;
+    html += `<li class="group">${lang}</li>`;
     byLang[lang]
       .sort((a,b) => {
-        // KJV always first within its group
         if (a.id === 'kjv') return -1;
         if (b.id === 'kjv') return 1;
         return a.acronym.localeCompare(b.acronym);
       })
-      .forEach(t => { html += `<option value="${t.id}">${t.acronym}</option>`; });
-    html += `</optgroup>`;
+      .forEach(t => {
+        html += `<li class="opt" role="option" data-id="${t.id}">` +
+                  `<span class="full">${t.name}</span>` +
+                  `<span class="acr">(${t.acronym})</span>` +
+                `</li>`;
+      });
   });
-  sel.innerHTML = html;
-  sel.value = currentVersion;
-  sel.addEventListener('change', e => {
-    currentVersion = e.target.value;
+  menu.innerHTML = html;
+
+  function syncLabel(){
+    const t = TR_BY_ID[currentVersion];
+    label.textContent = t ? t.acronym : 'KJV';
+    menu.querySelectorAll('.opt').forEach(li => {
+      li.setAttribute('aria-selected', li.dataset.id === currentVersion ? 'true' : 'false');
+    });
+  }
+  function openMenu(){
+    syncLabel();
+    menu.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+    // Scroll the selected item into view
+    const sel = menu.querySelector('.opt[aria-selected="true"]');
+    if (sel) sel.scrollIntoView({block:'nearest'});
+  }
+  function closeMenu(){
+    menu.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+  }
+  function toggleMenu(){
+    if (menu.hidden) openMenu(); else closeMenu();
+  }
+
+  btn.addEventListener('click', e => { e.stopPropagation(); toggleMenu(); });
+  menu.addEventListener('click', e => {
+    const li = e.target.closest('li.opt'); if (!li) return;
+    e.stopPropagation();
+    const id = li.dataset.id;
+    if (!TR_BY_ID[id]) return;
+    currentVersion = id;
     try { localStorage.setItem('bible_version', currentVersion); } catch(err){}
+    syncLabel();
+    closeMenu();
     replaceState(currentState());
     if (activeRef){
-      // Re-render same verse with new translation; this isn't a new view, so
-      // suppress the pushState inside showVerse.
       suppressHistory = true;
       try { showVerse(activeRef, activeSourceName); }
       finally { suppressHistory = false; }
     }
   });
+  document.addEventListener('click', e => {
+    if (menu.hidden) return;
+    if (!e.target.closest('#mVersion')) closeMenu();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !menu.hidden){ closeMenu(); e.stopPropagation(); }
+  });
+
+  syncLabel();
 }
 buildVersionDropdown();
 
@@ -608,6 +680,7 @@ function applyState(state){
     if (!state.loc && current){
       panel.classList.remove('show'); panel.classList.remove('with-swatch');
       current = null;
+      setSelectionMarker(null);
     }
     // 2) Open place if needed.
     if (state.loc && (!current || current.name !== state.loc)){
