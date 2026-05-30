@@ -117,12 +117,12 @@ function circleStyle(){
 
 const records = [];
 const recordByKey = new Map();
-const versesIndex = {}; // "Book Ch:Vs" -> [recordKey, ...]
+const versesIndex = {}; // "Book Ch:Vs" -> [{key, name}, ...]
 
-function indexVerses(str, key){
+function indexVerses(str, key, displayName){
   str.split(',').map(t => t.trim()).filter(Boolean).forEach(tok => {
     if (!/^.*?\s+\d+:\d+$/.test(tok)) return;
-    (versesIndex[tok] = versesIndex[tok] || []).push(key);
+    (versesIndex[tok] = versesIndex[tok] || []).push({key, name: displayName});
   });
 }
 
@@ -138,8 +138,8 @@ function buildRecords(data){
     const rec = {key, lat, lng, name, sub, verses, akas};
     records.push(rec);
     recordByKey.set(key, rec);
-    indexVerses(verses, key);
-    if (akas) akas.forEach(a => indexVerses(a[2], key));
+    indexVerses(verses, key, name);
+    if (akas) akas.forEach(a => indexVerses(a[2], key, a[0]));
   }
   if (firstLoad){
     const j = records.find(r => r.name === 'Jerusalem');
@@ -353,15 +353,17 @@ async function showVerse(ref){
   function renderAlsoMentioned(){
     const sourceKey = current ? current.key : null;
     const seen = new Set();
-    const others = (versesIndex[ref] || []).filter(k => {
-      if (k === sourceKey || seen.has(k)) return false;
-      seen.add(k); return true;
+    const others = (versesIndex[ref] || []).filter(entry => {
+      if (entry.key === sourceKey) return false;
+      const tag = entry.key + '\u0001' + entry.name;
+      if (seen.has(tag)) return false;
+      seen.add(tag);
+      return true;
     });
     if (!others.length) return '';
-    const links = others.map(k => {
-      const rr = recordByKey.get(k);
-      return `<a class="place-link" data-key="${k.replace(/"/g,'&quot;')}">${rr.name}</a>`;
-    }).join(', ');
+    const links = others.map(o =>
+      `<a class="place-link" data-key="${o.key.replace(/"/g,'&quot;')}">${o.name}</a>`
+    ).join(', ');
     return `<div class="also-mentioned">Also mentioned in this verse: ${links}</div>`;
   }
 
