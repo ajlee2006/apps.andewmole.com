@@ -11,6 +11,42 @@ const BNUM = {"Gen":1,"Ex":2,"Lev":3,"Num":4,"Deut":5,"Josh":6,"Judg":7,"Ruth":8
 "Phlm":57,"Heb":58,"Jas":59,"1 Pet":60,"2 Pet":61,"1 John":62,"2 John":63,
 "3 John":64,"Jude":65,"Rev":66};
 
+/* ---- bible-api.com translations ---- */
+/* KJV is the default; in the dropdown KJV appears at the very top, then groups by language. */
+const TRANSLATIONS = [
+  // English
+  {id:'kjv',   acronym:'KJV',     name:'King James Version',                          lang:'English'},
+  {id:'asv',   acronym:'ASV',     name:'American Standard Version (1901)',            lang:'English'},
+  {id:'bbe',   acronym:'BBE',     name:'Bible in Basic English',                      lang:'English'},
+  {id:'darby', acronym:'DARBY',   name:'Darby Bible',                                 lang:'English'},
+  {id:'dra',   acronym:'DRA',     name:'Douay-Rheims 1899 American Edition',          lang:'English'},
+  {id:'web',   acronym:'WEB',     name:'World English Bible',                         lang:'English'},
+  {id:'ylt',   acronym:'YLT',     name:"Young's Literal Translation (NT only)",       lang:'English'},
+  // English UK / US
+  {id:'oeb-cw',acronym:'OEB-CW',  name:'Open English Bible, Commonwealth Edition',    lang:'English (UK)'},
+  {id:'webbe', acronym:'WEBBE',   name:'World English Bible, British Edition',        lang:'English (UK)'},
+  {id:'oeb-us',acronym:'OEB-US',  name:'Open English Bible, US Edition',              lang:'English (US)'},
+  // Others
+  {id:'cherokee',  acronym:'CHEROKEE', name:'Cherokee New Testament',                 lang:'Cherokee'},
+  {id:'cuv',       acronym:'CUV',      name:'Chinese Union Version',                  lang:'Chinese'},
+  {id:'bkr',       acronym:'BKR',      name:'Bible kralická',                         lang:'Czech'},
+  {id:'clementine',acronym:'VULGATE',  name:'Clementine Latin Vulgate',               lang:'Latin'},
+  {id:'almeida',   acronym:'ALMEIDA',  name:'João Ferreira de Almeida',               lang:'Portuguese'},
+  {id:'rccv',      acronym:'RCCV',     name:'Romanian Corrected Cornilescu Version',  lang:'Romanian'},
+];
+const TR_BY_ID = Object.fromEntries(TRANSLATIONS.map(t => [t.id, t]));
+function findTranslation(token){
+  if (!token) return null;
+  const k = token.toLowerCase();
+  return TRANSLATIONS.find(t => t.id.toLowerCase() === k || t.acronym.toLowerCase() === k) || null;
+}
+
+let currentVersion = 'kjv';
+try {
+  const saved = localStorage.getItem('bible_version');
+  if (saved && TR_BY_ID[saved]) currentVersion = saved;
+} catch(e){}
+
 /* ---- star persistence ---- */
 let starred = new Set();
 let firstLoad = false;
@@ -80,15 +116,30 @@ function circleStyle(){
 }
 
 const records = [];
+const recordByKey = new Map();
+const versesIndex = {}; // "Book Ch:Vs" -> [{key, name}, ...]
+
+function indexVerses(str, key, displayName){
+  str.split(',').map(t => t.trim()).filter(Boolean).forEach(tok => {
+    if (!/^.*?\s+\d+:\d+$/.test(tok)) return;
+    (versesIndex[tok] = versesIndex[tok] || []).push({key, name: displayName});
+  });
+}
 
 function buildRecords(data){
   records.length = 0;
+  recordByKey.clear();
+  for (const k in versesIndex) delete versesIndex[k];
   for (const key in data){
     const m = key.replace(/[()]/g,'').split(',');
     const lat = parseFloat(m[0]), lng = parseFloat(m[1]);
     if (isNaN(lat) || isNaN(lng)) continue;
     const [name, sub, verses, akas] = data[key];
-    records.push({key, lat, lng, name, sub, verses, akas});
+    const rec = {key, lat, lng, name, sub, verses, akas};
+    records.push(rec);
+    recordByKey.set(key, rec);
+    indexVerses(verses, key, name);
+    if (akas) akas.forEach(a => indexVerses(a[2], key, a[0]));
   }
   if (firstLoad){
     const j = records.find(r => r.name === 'Jerusalem');
@@ -165,7 +216,8 @@ sg.addEventListener('click', e => {
 });
 
 /* ---- verse rendering + combining ---- */
-function renderVerses(str){
+function renderVerses(str, sourceName){
+  const srcAttr = sourceName ? ` data-src="${String(sourceName).replace(/"/g,'&quot;')}"` : '';
   const toks = str.split(',').map(t => t.trim()).filter(Boolean);
   let prev = null;
   return toks.map(tok => {
@@ -174,7 +226,7 @@ function renderVerses(str){
     const book = m[1], cv = m[2];
     const label = (book === prev) ? cv : tok;
     prev = book;
-    return `<a class="verse" data-ref="${tok.replace(/"/g,'')}">${label}</a>`;
+    return `<a class="verse" data-ref="${tok.replace(/"/g,'')}"${srcAttr}>${label}</a>`;
   }).join(', ');
 }
 
@@ -200,7 +252,7 @@ function openPanel(r){
   else { subEl.textContent = ''; subEl.style.display = 'none'; }
   panel.classList.add('with-swatch');
   document.getElementById('pStar').classList.toggle('on', starred.has(r.key));
-  let html = `<div class="verses">${renderVerses(r.verses)}</div>`;
+  let html = `<div class="verses">${renderVerses(r.verses, r.name)}</div>`;
   if (r.akas && r.akas.length){
     html += `<div class="aka-label">Also known as</div>`;
     r.akas.forEach(a => {
@@ -208,15 +260,28 @@ function openPanel(r){
       const cleaned = cleanAkaNote(note, r.name);
       html += `<div class="subbox"><div><span class="aka-name">${an}</span>` +
         (cleaned ? `<span class="aka-note">${cleaned}</span>` : '') + `</div>` +
-        `<div class="verses">${renderVerses(av)}</div></div>`;
+        `<div class="verses">${renderVerses(av, an)}</div></div>`;
     });
   }
   document.getElementById('pBody').innerHTML = html;
   panel.classList.add('show');
+  // Only push history if this is actually a new view.
+  const cur = history.state;
+  if (!cur || cur.loc !== r.name || cur.ref){
+    pushState({ loc: r.name });
+  }
 }
 document.getElementById('pClose').onclick = () => {
-  panel.classList.remove('show');
-  panel.classList.remove('with-swatch');
+  // Use back so a fresh load with ?loc=X doesn't leave us on a non-existent
+  // history entry. If there's nothing to go back to, just close in place.
+  if (history.state && (history.state.loc || history.state.ref)){
+    history.back();
+  } else {
+    panel.classList.remove('show');
+    panel.classList.remove('with-swatch');
+    current = null;
+    replaceState({});
+  }
 };
 document.getElementById('pStar').onclick = () => {
   if (!current) return;
@@ -227,118 +292,27 @@ document.getElementById('pStar').onclick = () => {
 };
 document.getElementById('pBody').addEventListener('click', e => {
   const a = e.target.closest('a.verse'); if (!a) return;
-  showVerse(a.dataset.ref);
+  showVerse(a.dataset.ref, a.dataset.src || null);
 });
 
-/* ---- verse modal (bolls.life KJV with italics + red-letter) ---- */
-const cache = {};
-const ov = document.getElementById('ov');
-
-/* Sanitise bolls.life HTML: keep <i> (translator-added italics) and convert
-   red-letter markup (<J>, common variants) to <span class="jesus">. Strip
-   everything else including Strong's <S>...</S> tags. */
-function sanitizeKJV(rawHtml){
-  const tpl = document.createElement('template');
-  tpl.innerHTML = rawHtml;
-  const out = [];
-  function escText(t){ return t.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
-  function walk(node){
-    node.childNodes.forEach(n => {
-      if (n.nodeType === 3){ out.push(escText(n.textContent)); return; }
-      if (n.nodeType !== 1) return;
-      const tag = n.tagName.toLowerCase();
-      const cls = (n.getAttribute && n.getAttribute('class')) || '';
-      const isJesus = tag === 'j' || /jesus|red|wj/i.test(cls)
-        || (tag === 'font' && /red/i.test(n.getAttribute('color') || ''));
-      if (tag === 'i' || tag === 'em'){
-        out.push('<i>'); walk(n); out.push('</i>');
-      } else if (isJesus){
-        out.push('<span class="jesus">'); walk(n); out.push('</span>');
-      } else if (tag === 's' || tag === 'sup' || /strong/i.test(cls)){
-        // skip Strong's numbers / superscripts
-      } else if (tag === 'br'){
-        out.push('<br>');
-      } else {
-        walk(n);
-      }
-    });
-  }
-  walk(tpl.content);
-  return out.join('').replace(/\s+/g, ' ').trim();
-}
-
-async function showVerse(ref){
-  const m = ref.match(/^(.*?)\s+(\d+):(\d+)$/);
-  const fullLabel = m ? (FULL[m[1]] || m[1]) + ' ' + m[2] + ':' + m[3] : ref;
-  document.getElementById('mRef').textContent = fullLabel;
-  const body = document.getElementById('mBody');
-  body.className = 'm-body'; body.textContent = 'Loading…';
-  ov.classList.add('show');
-  if (cache[ref]){ body.innerHTML = cache[ref]; return; }
-  if (!m){ body.className = 'm-body err'; body.textContent = 'Unrecognised reference.'; return; }
-  const bnum = BNUM[m[1]];
-  if (!bnum){ body.className = 'm-body err'; body.textContent = 'Unknown book.'; return; }
-  try {
-    const url = `https://bolls.life/get-text/KJV/${bnum}/${m[2]}/${m[3]}/`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error();
-    const j = await res.json();
-    const obj = Array.isArray(j) ? j[0] : j;
-    const raw = obj && obj.text;
-    if (!raw) throw new Error();
-    const html = sanitizeKJV(raw);
-    cache[ref] = html;
-    body.innerHTML = html;
-  } catch (err){
-    body.className = 'm-body err';
-    body.textContent = "Can’t load this verse — you appear to be offline.";
-  }
-}
-document.getElementById('mClose').onclick = () => ov.classList.remove('show');
-ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('show'); });
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape'){
-    ov.classList.remove('show');
-    document.getElementById('infoOv').classList.remove('show');
-  }
-});
-
-/* ---- info modal ---- */
-const infoOv = document.getElementById('infoOv');
-document.getElementById('infoBtn').onclick = () => infoOv.classList.add('show');
-document.getElementById('infoClose').onclick = () => infoOv.classList.remove('show');
-infoOv.addEventListener('click', e => { if (e.target === infoOv) infoOv.classList.remove('show'); });
-
-/* ---- search controls ---- */
-const searchEl = document.getElementById('search');
-const clearBtn = document.getElementById('searchClear');
-function setQuery(v){
-  query = v.trim().toLowerCase();
-  clearBtn.style.visibility = v ? 'visible' : 'hidden';
-  refresh();
-  buildSuggestions();
-}
-searchEl.addEventListener('input', e => setQuery(e.target.value));
-searchEl.addEventListener('focus', buildSuggestions);
-clearBtn.onclick = () => {
-  searchEl.value = '';
-  setQuery('');
-  searchEl.focus();
+/* ---- verse modal ---- */
+/* Use bible-api.com's parameterized API: /data/{trans}/{USFM}/{chapter}.
+   It accepts language-neutral USFM book codes, so non-English translations
+   work (e.g. CUV) where the user-input API would 404 on "2 Kings". We fetch
+   chapters and cache them so multiple verses from the same chapter cost one
+   network call. */
+const USFM = {
+  "Gen":"GEN","Ex":"EXO","Lev":"LEV","Num":"NUM","Deut":"DEU","Josh":"JOS",
+  "Judg":"JDG","Ruth":"RUT","1 Sam":"1SA","2 Sam":"2SA","1 Kgs":"1KI","2 Kgs":"2KI",
+  "1 Chr":"1CH","2 Chr":"2CH","Ezra":"EZR","Neh":"NEH","Est":"EST","Job":"JOB",
+  "Ps":"PSA","Prov":"PRO","Eccl":"ECC","Sng":"SNG","Isa":"ISA","Jer":"JER",
+  "Lam":"LAM","Ezek":"EZK","Dan":"DAN","Hos":"HOS","Joel":"JOL","Amos":"AMO",
+  "Obad":"OBA","Jonah":"JON","Mic":"MIC","Nahum":"NAM","Hab":"HAB","Zeph":"ZEP",
+  "Hag":"HAG","Zech":"ZEC","Mal":"MAL","Matt":"MAT","Mark":"MRK","Luke":"LUK",
+  "John":"JHN","Acts":"ACT","Rom":"ROM","1 Cor":"1CO","2 Cor":"2CO","Gal":"GAL",
+  "Eph":"EPH","Phil":"PHP","Col":"COL","1 Thes":"1TH","2 Thes":"2TH","1 Tim":"1TI",
+  "2 Tim":"2TI","Titus":"TIT","Phlm":"PHM","Heb":"HEB","Jas":"JAS","1 Pet":"1PE",
+  "2 Pet":"2PE","1 John":"1JN","2 John":"2JN","3 John":"3JN","Jude":"JUD","Rev":"REV"
 };
-setQuery(''); // sync clear-button visibility
 
-document.addEventListener('click', e => {
-  if (!e.target.closest('#bar')) document.getElementById('suggest').classList.remove('show');
-});
-
-/* ---- load data ---- */
-fetch('result.json')
-  .then(r => {
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.json();
-  })
-  .then(buildRecords)
-  .catch(err => {
-    document.getElementById('count').textContent = 'Failed to load result.json';
-    console.error('Could not load result.json. If opening via file://, serve over HTTP instead (e.g. `python -m http.server`).', err);
-  });
+const LOCALIZED_BOOKS = {"cuv":{"GEN":"創世紀","EXO":"出埃及記","LEV":"利未記","NUM":"民數記","DEU":"申命記","JOS":"約書亞記","JDG":"士師記","RUT":"路得記","1SA":"撒母耳記上","2SA":"撒母耳記下","1KI":"列王紀上","2KI":"列王紀下","1CH":"歷代志上","2CH":"歷代志下","EZR":"以斯拉記","NEH":"尼希米記","EST":"以斯帖記","JOB":"約伯記","PSA":"詩篇","PRO":"箴言","ECC":"傳道書","SNG":"雅歌","ISA":"以賽亞書","JER":"耶利米書","LAM":"耶利米哀歌","EZK":"以西結書","DAN":"但以理書","HOS":"何西阿書","JOL":"約珥書","AMO":"阿摩司書","OBA":"俄巴底亞書","JON":"約拿書","MIC":"彌迦書","NAM":"那鴻書","HAB":"哈巴谷書","ZEP":"西番雅書","HAG":"哈該書","ZEC":"撒迦利亞書","MAL":"瑪拉基書","MAT":"馬太福音","MRK":"馬可福音","LUK":"路加福音","JHN":"約翰福音","ACT":"使徒行傳","ROM":"羅馬書","1CO":"哥林多前書","2CO":"哥林多後書","GAL":"加拉太書","EPH":"以弗所書","PHP":"腓利比書","COL":"歌羅西書","1TH":"帖撒羅尼迦前書","2TH":"帖撒羅尼迦後書","1TI":"提摩太前書","2TI":"提摩太後書","TIT":"提多書","PHM":"腓利門書","HEB":"希伯來書","JAS":"雅各書","1PE":"彼得前書","2PE":"彼得後書","1JN":"約翰壹書","2JN":"約翰貳書","3JN":"約翰參書","JUD":"猶大書","REV":"啟示錄"},"bkr":{"GEN":"Genesis","EXO":"Exodus","LEV":"Leviticus","NUM":"Numeri","DEU":"Deuteronomium","JOS":"Jozue","JDG":"Soudců","RUT":"Rút","1SA":"1. Samuel","2SA":"2. Samuel","1KI":"1. Královská","2KI":"2. Královská","1CH":"1. Paralipomenon","2CH":"2. Paralipomenon","EZR":"Ezdráš","NEH":"Nehemiáš","EST":"Ester","JOB":"Job","PSA":"Žalmy","PRO":"Přísloví","ECC":"Kazatel","SNG":"Píseň písní","ISA":"Izaiáš","JER":"Jeremiáš","LAM":"Pláč","EZK":"Ezechiel","DAN":"Daniel","HOS":"Ozeáš","JOL":"Joel","AMO":"Amos","OBA":"Abdiáš","JON":"Jonáš","MIC":"Micheáš","NAM":"Nahum","HAB":"Abakuk","ZEP":"Sofoniáš","HAG":"Ageus","ZEC":"Zachariáš","MAL":"Malachiáš","MAT":"Matouš","MRK":"Marek","LUK":"Lukáš","JHN":"Jan","ACT":"Skutky","ROM":"Římanům","1CO":"1. Korintským","2CO":"2. Korintským","GAL":"Galatským","EPH":"Efeským","PHP":"Filipským","COL":"Koloským","1TH":"1. Tesalonickým","2TH":"2. Tesalonickým","1TI":"1. Timoteovi","2TI":"2. Timoteovi","TIT":"Titovi","PHM":"Filemonovi","HEB":"Židům","JAS":"Jakub","1PE":"1. Petr","2PE":"2. Petr","1JN":"1. Jan","2JN":"2. Jan","3JN":"3. Jan","JUD":"Juda","REV":"Zjevení"},"clementine":{"GEN":"Genesis","EXO":"Exodus","LEV":"Leviticus","NUM":"Numeri","DEU":"Deuteronomium","JOS":"Josue","JDG":"Judicum","RUT":"Ruth","1SA":"Regum I","2SA":"Regum II","1KI":"Regum III","2KI":"Regum IV","1CH":"Paralipomenon I","2CH":"Paralipomenon II","EZR":"Esdræ","NEH":"Nehemiæ","EST":"Tobiæ","JOB":"Job","PSA":"Psalmi","PRO":"Proverbia","ECC":"Ecclesiastes","SNG":"Canticum Canticorum","ISA":"Isaias","JER":"Jeremias","LAM":"Lamentationes","EZK":"Ezechiel","DAN":"Daniel","HOS":"Osee","JOL":"Joël","AMO":"Amos","OBA":"Abdias","JON":"Jonas","MIC":"Michæa","NAM":"Nahum","HAB":"Habacuc","ZEP":"Sophonias","HAG":"Aggæus","ZEC":"Zacharias","MAL":"Malachias","MAT":"Matthæus","MRK":"Marcus","LUK":"Lucas","JHN":"Joannes","ACT":"Actus Apostolorum","ROM":"ad Romanos","1CO":"ad Corinthios I","2CO":"ad Corinthios II","GAL":"ad Galatas","EPH":"ad Ephesios","PHP":"ad Philippenses","COL":"ad Colossenses","1TH":"ad Thessalonicenses I","2TH":"ad Thessalonicenses II","1TI":"ad Timotheum I","2TI":"ad Timotheum II","TIT":"ad Titum","PHM":"ad Philemonem","HEB":"ad Hebræos","JAS":"Jacobi","1PE":"Petri I","2PE":"Petri II","1JN":"Joannis I","2JN":"Joannis II","3JN":"Joannis III","JUD":"Judæ","REV":"Apocalypsis"},"almeida":{"GEN":"Gênesis","EXO":"Êxodo","LEV":"Levítico","NUM":"Números","DEU":"Deuteronômio","JOS":"Josué","JDG":"Juízes","RUT":"Rute","1SA":"1 Samuel","2SA":"2 Samuel","1KI":"1 Reis","2KI":"2 Reis","1CH":"1 Crônicas","2CH":"2 Crônicas","EZR":"Esdras","NEH":"Neemias","EST":"Ester","JOB":"Jó","PSA":"Salmos","PRO":"Provérbios","ECC":"Eclesiastes","SNG":"Cânticos","ISA":"Isaías","JER":"Jeremias","LAM":"Lamentações","EZK":"Ezequiel","DAN":"Daniel","HOS":"Oséias","JOL":"Joel","AMO":"Amós","OBA":"Obadias","JON":"Jonas","MIC":"Miquéias","NAM":"Naum","HAB":"Habacuque","ZEP":"Sofonias","HAG":"Ageu","ZEC":"Zacarias","MAL":"Malaquias","MAT":"Mateus","MRK":"Marcos","LUK":"Lucas","JHN":"João","ACT":"Atos","ROM":"Romanos","1CO":"1 Coríntios","2CO":"2 Coríntios","GAL":"Gálatas","EPH":"Efésios","PHP":"Filipenses","COL":"Colossenses","1TH":"1 Tessalonicenses","2TH":"2 Tessalonicenses","1TI":"1 Timóteo","2TI":"2 Timóteo","TIT":"Tito","PHM":"Filemom","HEB":"Hebreus","JAS":"Tiago","1PE":"1 Pedro","2PE":"2 Pedro","1JN":"1 João","2JN":"2 João","3JN":"3 João","JUD":"Judas","REV":"Apocalipse"},"rccv":{"GEN":"Geneza","EXO":"Exodul","LEV":"Leviticul","NUM":"Numeri","DEU":"Deuteronomul","JOS":"Iosua","JDG":"Judecători","RUT":"Rut","1SA":"1 Samuel","2SA":"2 Samuel","1KI":"1 Împăraţi","2KI":"2 Împăraţi","1CH":"1 Cronici","2CH":"2 Cronici","EZR":"Ezra","NEH":"Neemia","EST":"Estera","JOB":"Iov","PSA":"Psalmii","PRO":"Proverbe","ECC":"Eclesiastul","SNG":"Cântarea cântărilor","ISA":"Isaia","JER":"Ieremia","LAM":"Plângerile lui Ieremia","EZK":"Ezechiel","DAN":"Daniel","HOS":"Osea","JOL":"Ioel","AMO":"Amos","OBA":"Obadia","JON":"Iona","MIC":"Mica","NAM":"Naum","HAB":"Habacuc","ZEP":"Ţefania","HAG":"Hagai","ZEC":"Zaharia","MAL":"Maleahi","MAT":"Matei","MRK":"Marcu","LUK":"Luca","JHN":"Ioan","ACT":"Faptele apostolilor","ROM":"Romani","1CO":"1 Corinteni","2CO":"2 Corinteni","GAL":"Galateni","EPH":"Efeseni","PHP":"Filipeni","COL":"Coloseni","1TH":"1 Tesaloniceni","2TH":"2 Tesaloniceni","1TI":"1 Timotei","2TI":"2 Timotei","TIT":"Tit","PHM":"Filimon","HEB":"Evrei","JAS":"Iacov","1PE":"1 Petru","2PE":"2 Petru","1JN":"1 Ioan","2JN":"2 Ioan","3JN":"3 Ioan","JUD":"Iuda","REV":"Apocalipsa"},"cherokee":{"MAT":"ᎣᏍᏛ ᎧᏃᎮᏛ ᎹᏚ ᎤᏬᏪᎳᏅᎯ","MRK":"ᎣᏍᏛ ᎧᏃᎮᏛ ᎹᎦ ᎤᏬᏪᎳᏅᎯ","LUK":"ᎣᏍᏛ ᎧᏃᎮᏛ ᎷᎦ ᎤᏬᏪᎳᏅᎯ","JHN":"ᎣᏍᏛ ᎧᏃᎮᏛ ᏣᏂ ᎤᏬᏪᎳᏅᎯ","ACT":"ᎨᏥᏅᏏᏛ ᏄᎾᏛᏁᎵᏙᎸᎢ","ROM":"ᏉᎳ ᎶᎻ ᎠᏁᎯ ᏧᏬᏪᎳᏁᎸᎯ","1CO":"ᎪᎵᏂᏗᏱ ᎠᏁᎯ ᎢᎬᏱᏱ ᎨᎪᏪᎳ
