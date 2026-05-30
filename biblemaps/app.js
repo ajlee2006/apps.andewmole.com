@@ -629,12 +629,14 @@ function buildVersionDropdown(){
     // the modal's overflow:hidden clipping).
     const r = btn.getBoundingClientRect();
     menu.hidden = false;
-    // Make right-anchored so the menu won't run off the right side of the screen
     menu.style.top = (r.bottom + 4) + 'px';
     menu.style.right = (window.innerWidth - r.right) + 'px';
     menu.style.left = 'auto';
+    // Cap height to the space left below the button so the menu never runs
+    // past the viewport. 12px gives a little breathing room at the bottom.
+    const available = window.innerHeight - r.bottom - 4 - 12;
+    menu.style.maxHeight = Math.max(120, available) + 'px';
     btn.setAttribute('aria-expanded', 'true');
-    // Scroll the selected item into view
     const sel = menu.querySelector('.opt[aria-selected="true"]');
     if (sel) sel.scrollIntoView({block:'nearest'});
   }
