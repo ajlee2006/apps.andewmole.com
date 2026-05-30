@@ -334,17 +334,13 @@ function openPanel(r){
   }
 }
 document.getElementById('pClose').onclick = () => {
-  // Use back so a fresh load with ?loc=X doesn't leave us on a non-existent
-  // history entry. If there's nothing to go back to, just close in place.
-  if (history.state && (history.state.loc || history.state.ref)){
-    history.back();
-  } else {
-    panel.classList.remove('show');
-    panel.classList.remove('with-swatch');
-    current = null;
-    setSelected(null);
-    replaceState({});
-  }
+  // Close in place — different from the browser back button, which would
+  // return to whatever was open before. The × is a "dismiss" action.
+  panel.classList.remove('show');
+  panel.classList.remove('with-swatch');
+  current = null;
+  setSelected(null);
+  replaceState({});
 };
 document.getElementById('pStar').onclick = () => {
   if (!current) return;
@@ -531,16 +527,11 @@ document.getElementById('mBody').addEventListener('click', e => {
   openPanel(r);
 });
 function closeVerseModal(){
-  // The verse modal sits on top of any place panel. If history contains the
-  // entry that opened it, walking back gets us to the previous view (place or
-  // map). Otherwise just close in place.
-  if (history.state && history.state.ref){
-    history.back();
-  } else {
-    ov.classList.remove('show');
-    activeRef = null; activeSourceName = null;
-    replaceState(currentState());
-  }
+  // Close in place — distinct from the back button. The × dismisses the verse
+  // modal and returns to whatever place panel is open beneath (if any).
+  ov.classList.remove('show');
+  activeRef = null; activeSourceName = null;
+  replaceState(currentState());
 }
 document.getElementById('mClose').onclick = closeVerseModal;
 ov.addEventListener('click', e => { if (e.target === ov) closeVerseModal(); });
