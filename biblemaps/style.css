@@ -11,6 +11,8 @@ html,body{margin:0;height:100%;font-family:system-ui,-apple-system,Segoe UI,Robo
 .star-marker{display:flex;align-items:center;justify-content:center}
 .star-marker svg{width:22px;height:22px;fill:#facc15;stroke:#a16207;stroke-width:1.2;
   filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.5))}
+.star-marker.selected svg{stroke:#a16207;stroke-width:1.6;
+  filter:drop-shadow(0 0 0 #facc15) drop-shadow(0 0 4px #facc15) drop-shadow(0 1px 1.5px rgba(0,0,0,.5))}
 
 /* Stop accidental text selection on zoom +/- when double-clicking */
 .leaflet-control-zoom a,
