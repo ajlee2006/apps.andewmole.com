@@ -285,7 +285,26 @@ document.getElementById('pBody').addEventListener('click', e => {
 });
 
 /* ---- verse modal ---- */
-const cache = {};               // key = `${id}|${ref}`
+/* Use bible-api.com's parameterized API: /data/{trans}/{USFM}/{chapter}.
+   It accepts language-neutral USFM book codes, so non-English translations
+   work (e.g. CUV) where the user-input API would 404 on "2 Kings". We fetch
+   chapters and cache them so multiple verses from the same chapter cost one
+   network call. */
+const USFM = {
+  "Gen":"GEN","Ex":"EXO","Lev":"LEV","Num":"NUM","Deut":"DEU","Josh":"JOS",
+  "Judg":"JDG","Ruth":"RUT","1 Sam":"1SA","2 Sam":"2SA","1 Kgs":"1KI","2 Kgs":"2KI",
+  "1 Chr":"1CH","2 Chr":"2CH","Ezra":"EZR","Neh":"NEH","Est":"EST","Job":"JOB",
+  "Ps":"PSA","Prov":"PRO","Eccl":"ECC","Sng":"SNG","Isa":"ISA","Jer":"JER",
+  "Lam":"LAM","Ezek":"EZK","Dan":"DAN","Hos":"HOS","Joel":"JOL","Amos":"AMO",
+  "Obad":"OBA","Jonah":"JON","Mic":"MIC","Nahum":"NAM","Hab":"HAB","Zeph":"ZEP",
+  "Hag":"HAG","Zech":"ZEC","Mal":"MAL","Matt":"MAT","Mark":"MRK","Luke":"LUK",
+  "John":"JHN","Acts":"ACT","Rom":"ROM","1 Cor":"1CO","2 Cor":"2CO","Gal":"GAL",
+  "Eph":"EPH","Phil":"PHP","Col":"COL","1 Thes":"1TH","2 Thes":"2TH","1 Tim":"1TI",
+  "2 Tim":"2TI","Titus":"TIT","Phlm":"PHM","Heb":"HEB","Jas":"JAS","1 Pet":"1PE",
+  "2 Pet":"2PE","1 John":"1JN","2 John":"2JN","3 John":"3JN","Jude":"JUD","Rev":"REV"
+};
+
+const chapterCache = {};         // key = `${version}|${USFM}|${chapter}` -> Map<verseNum, text>
 let activeRef = null;            // ref currently being shown (null if modal closed)
 const ov = document.getElementById('ov');
 
@@ -348,31 +367,50 @@ async function showVerse(ref){
     return `<div class="also-mentioned">Also mentioned in this verse: ${links}</div>`;
   }
 
-  const cacheKey = currentVersion + '|' + ref;
-  if (cache[cacheKey]){
-    body.innerHTML = `<div class="verse-text">${cache[cacheKey]}</div>` + renderAlsoMentioned();
+  function setVerseHtml(html){
+    if (activeRef !== ref || currentVersion !== requestVersion) return;
+    body.className = 'm-body';
+    body.innerHTML = `<div class="verse-text">${html}</div>` + renderAlsoMentioned();
+  }
+  function setError(msg){
+    if (activeRef !== ref || currentVersion !== requestVersion) return;
+    body.className = 'm-body err';
+    body.textContent = msg;
+  }
+
+  if (!m){ body.className = 'm-body err'; body.textContent = 'Unrecognised reference.'; return; }
+  const bookAbbr = m[1], ch = parseInt(m[2], 10), vs = parseInt(m[3], 10);
+  const usfm = USFM[bookAbbr];
+  if (!usfm){ body.className = 'm-body err'; body.textContent = 'Unknown book.'; return; }
+
+  const requestVersion = currentVersion;
+  const cKey = requestVersion + '|' + usfm + '|' + ch;
+
+  function pickAndRender(map){
+    const text = map.get(vs);
+    if (text == null){
+      setError("This verse isn’t available in the selected translation.");
+      return;
+    }
+    setVerseHtml(sanitizeKJV(text.trim()));
+  }
+
+  if (chapterCache[cKey]){
+    pickAndRender(chapterCache[cKey]);
     return;
   }
-  if (!m){ body.className = 'm-body err'; body.textContent = 'Unrecognised reference.'; return; }
-  const full = (FULL[m[1]] || m[1]) + ' ' + m[2] + ':' + m[3];
-  const requestVersion = currentVersion;
   try {
-    const res = await fetch('https://bible-api.com/' + encodeURIComponent(full) + '?translation=' + encodeURIComponent(requestVersion));
-    if (!res.ok) throw new Error();
-    const j = await res.json();
-    const t = (j.text || '').trim();
-    if (!t) throw new Error();
-    const html = sanitizeKJV(t);
-    cache[requestVersion + '|' + ref] = html;
-    // Only render if user hasn't switched away in the meantime
-    if (activeRef === ref && currentVersion === requestVersion){
-      body.innerHTML = `<div class="verse-text">${html}</div>` + renderAlsoMentioned();
-    }
+    const url = `https://bible-api.com/data/${encodeURIComponent(requestVersion)}/${usfm}/${ch}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('http ' + res.status);
+    const data = await res.json();
+    const verses = (data && data.verses) || (Array.isArray(data) ? data : []);
+    const map = new Map();
+    verses.forEach(v => { if (v && v.verse != null) map.set(Number(v.verse), v.text || ''); });
+    chapterCache[cKey] = map;
+    pickAndRender(map);
   } catch (err){
-    if (activeRef === ref && currentVersion === requestVersion){
-      body.className = 'm-body err';
-      body.textContent = "Can’t load this verse — you appear to be offline.";
-    }
+    setError("Can’t load this verse — you appear to be offline.");
   }
 }
 document.getElementById('mBody').addEventListener('click', e => {
@@ -426,13 +464,9 @@ document.addEventListener('click', e => {
 function buildVersionDropdown(){
   const sel = document.getElementById('mVersion');
   let html = '';
-  // KJV at the top (ungrouped)
-  const kjv = TR_BY_ID['kjv'];
-  html += `<option value="kjv">${kjv.acronym}</option>`;
-  // Group the rest by language; English variants merge into one "English" group
+  // Group by language; English variants merge into one "English" group
   const byLang = {};
   TRANSLATIONS.forEach(t => {
-    if (t.id === 'kjv') return;
     const lang = t.lang.startsWith('English') ? 'English' : t.lang;
     (byLang[lang] = byLang[lang] || []).push(t);
   });
@@ -443,7 +477,13 @@ function buildVersionDropdown(){
   });
   langs.forEach(lang => {
     html += `<optgroup label="${lang}">`;
-    byLang[lang].sort((a,b) => a.acronym.localeCompare(b.acronym))
+    byLang[lang]
+      .sort((a,b) => {
+        // KJV always first within its group
+        if (a.id === 'kjv') return -1;
+        if (b.id === 'kjv') return 1;
+        return a.acronym.localeCompare(b.acronym);
+      })
       .forEach(t => { html += `<option value="${t.id}">${t.acronym}</option>`; });
     html += `</optgroup>`;
   });
