@@ -140,14 +140,44 @@ function circleStyle(selected){
     : {radius:6, color:'#7d1f16', weight:1.5, fillColor:'#c0392b', fillOpacity:.9};
 }
 
+/* Places mentioned in scripture whose location isn't known. Shown in the
+   "Also mentioned" lists with a tooltip rather than a link, and in the
+   search suggestions below all located places (greyed and unclickable). */
+const UNLOCATED_PLACES = [
+  {name: 'Azazel',              verses: 'Lev 16:8, Lev 16:10, Lev 16:26'},
+  {name: 'Eden',                verses: 'Gen 2:8, Gen 2:10, Gen 2:15, Gen 3:23, Gen 3:24, Gen 4:16, 2 Kgs 19:12, Isa 37:12, Isa 51:3, Ezek 27:23, Ezek 28:13, Ezek 31:9, Ezek 31:16, Ezek 31:18, Ezek 36:35, Joel 2:3'},
+  {name: 'Abel-mizraim',        verses: 'Gen 50:11'},
+  {name: 'Addon',               verses: 'Neh 7:61'},
+  {name: 'Atad',                verses: 'Gen 50:10, Gen 50:11'},
+  {name: 'Athach',              verses: '1 Sam 30:30'},
+  {name: 'Beth-ashbea',         verses: '1 Chr 4:21'},
+  {name: 'Eglath-shelishiyah',  verses: 'Isa 15:5, Jer 48:34'},
+  {name: 'Elkosh',              verses: 'Nahum 1:1'},
+  {name: 'Gihon 1',             verses: 'Gen 2:13'},
+  {name: 'Goiim',               verses: 'Gen 14:1, Gen 14:9, Josh 12:23'},
+  {name: 'Gomer',               verses: 'Ezek 38:6'},
+  {name: 'Havilah 1',           verses: 'Gen 2:11'},
+  {name: 'Hazor 5',             verses: 'Jer 49:28, Jer 49:30, Jer 49:33'},
+  {name: 'Holy Place 1',        verses: 'Ex 26:33, Ex 28:29, Ex 28:35, Ex 28:43, Ex 29:30, Ex 31:11, Ex 35:19, Ex 39:1, Ex 39:41, Lev 6:30, Lev 16:2, Lev 16:3, Lev 16:16, Lev 16:17, Lev 16:20, Lev 16:23, Lev 16:27, Num 28:7'},
+  {name: 'Most Holy',           verses: 'Ex 26:33'},
+  {name: 'Most Holy Place 1',   verses: 'Ex 26:34'},
+  {name: 'Nehelam',             verses: 'Jer 29:24, Jer 29:31, Jer 29:32'},
+  {name: 'Nod',                 verses: 'Gen 4:16'},
+  {name: 'Parvaim',             verses: '2 Chr 3:6'},
+  {name: 'Pishon',              verses: 'Gen 2:11'},
+  {name: 'South',               verses: 'Zech 7:7, Matt 12:42, Luke 11:31'},
+];
+
 const records = [];
 const recordByKey = new Map();
-const versesIndex = {}; // "Book Ch:Vs" -> [{key, name}, ...]
+const versesIndex = {}; // "Book Ch:Vs" -> [{key, name, unlocated?}, ...]
 
-function indexVerses(str, key, displayName){
+function indexVerses(str, key, displayName, unlocated){
   str.split(',').map(t => t.trim()).filter(Boolean).forEach(tok => {
     if (!/^.*?\s+\d+:\d+$/.test(tok)) return;
-    (versesIndex[tok] = versesIndex[tok] || []).push({key, name: displayName});
+    (versesIndex[tok] = versesIndex[tok] || []).push({
+      key, name: displayName, unlocated: !!unlocated
+    });
   });
 }
 
@@ -163,9 +193,14 @@ function buildRecords(data){
     const rec = {key, lat, lng, name, sub, verses, akas};
     records.push(rec);
     recordByKey.set(key, rec);
-    indexVerses(verses, key, name);
-    if (akas) akas.forEach(a => indexVerses(a[2], key, a[0]));
+    indexVerses(verses, key, name, false);
+    if (akas) akas.forEach(a => indexVerses(a[2], key, a[0], false));
   }
+  // Index unlocated places last so they appear after located places in the
+  // "also mentioned" list (which preserves insertion order).
+  UNLOCATED_PLACES.forEach(p => {
+    indexVerses(p.verses, 'unloc:' + p.name, p.name, true);
+  });
   if (firstLoad){
     const j = records.find(r => r.name === 'Jerusalem');
     if (j){ starred.add(j.key); saveStars(); }
@@ -258,19 +293,34 @@ function buildSuggestions(){
     }
     if (hits.length >= 12) break;
   }
+  // Append unlocated matches at the end. They're greyed and unclickable.
+  for (const p of UNLOCATED_PLACES){
+    if (hits.length >= 16) break;
+    if (p.name.toLowerCase().includes(query)){
+      hits.push({unlocated:true, label:p.name, verses:p.verses});
+    }
+  }
   if (!hits.length){ sg.classList.remove('show'); sg.innerHTML=''; return; }
-  sg.innerHTML = hits.map((h, i) =>
-    `<div class="sg-item" data-i="${i}">
+  sg.innerHTML = hits.map((h, i) => {
+    if (h.unlocated){
+      return `<div class="sg-item unloc" data-i="${i}">
+        <div><span class="sg-name">${h.label}</span><span class="sg-aka">Location unknown</span></div>
+        <div class="sg-verses">${h.verses}</div>
+      </div>`;
+    }
+    return `<div class="sg-item" data-i="${i}">
        <div><span class="sg-name">${h.label}</span>` +
        (h.via ? `<span class="sg-aka">→ ${h.via}</span>` : '') +
        `</div><div class="sg-verses">${h.verses}</div>
-     </div>`).join('');
+     </div>`;
+  }).join('');
   sg.classList.add('show');
   sg._hits = hits;
 }
 sg.addEventListener('click', e => {
   const it = e.target.closest('.sg-item'); if (!it) return;
   const h = sg._hits[+it.dataset.i];
+  if (!h || h.unlocated) return; // unlocated items can't be opened
   map.setView([h.r.lat, h.r.lng], Math.max(map.getZoom(), 10), {animate:true});
   openPanel(h.r);
   sg.classList.remove('show');
@@ -445,9 +495,12 @@ async function showVerse(ref, sourceName){
       return true;
     });
     if (!others.length) return '';
-    const links = others.map(o =>
-      `<a class="place-link" data-key="${o.key.replace(/"/g,'&quot;')}">${o.name}</a>`
-    ).join(', ');
+    const links = others.map(o => {
+      if (o.unlocated){
+        return `<span class="place-unloc" title="Location unknown">${o.name}</span>`;
+      }
+      return `<a class="place-link" data-key="${o.key.replace(/"/g,'&quot;')}">${o.name}</a>`;
+    }).join(', ');
     return `<div class="also-mentioned">Also mentioned in this verse: ${links}</div>`;
   }
 
