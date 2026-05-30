@@ -195,9 +195,33 @@ function makeMarker(r){
   } else {
     m = L.circleMarker([r.lat, r.lng], circleStyle(isSelected));
   }
-  m.bindTooltip(r.name, {direction:'top', offset:[0, isStar ? -10 : -6], sticky:false});
+  const offsetY = isStar ? -10 : -6;
+  m.bindTooltip(r.name, {
+    direction:'top',
+    offset:[0, offsetY],
+    sticky:false,
+    permanent: isSelected,
+    className: isSelected ? 'persistent-tip' : ''
+  });
   m.on('click', () => openPanel(r));
+  // When the user hovers any non-selected marker, hide the selected marker's
+  // permanent tooltip so the two don't overlap; restore on mouseout.
+  if (!isSelected){
+    m.on('mouseover', hideSelectedTooltip);
+    m.on('mouseout', showSelectedTooltip);
+  }
   return m;
+}
+
+function hideSelectedTooltip(){
+  if (!selectedRecord) return;
+  const sm = recordMarkers.get(selectedRecord.key);
+  if (sm && sm.getTooltip()) sm.closeTooltip();
+}
+function showSelectedTooltip(){
+  if (!selectedRecord) return;
+  const sm = recordMarkers.get(selectedRecord.key);
+  if (sm && sm.getTooltip()) sm.openTooltip();
 }
 
 function refresh(){
