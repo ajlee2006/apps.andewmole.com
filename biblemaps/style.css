@@ -100,6 +100,11 @@ a.verse:hover{border-bottom-style:solid}
 .m-body i, .m-body em{font-style:italic}
 .m-body .jesus{color:var(--red)}
 .m-body.err{color:#7a3b34;font-size:14px}
+.also-mentioned{margin-top:14px;padding-top:10px;border-top:1px solid var(--line);
+  font-size:12.5px;color:var(--muted);line-height:1.6;font-style:normal}
+.also-mentioned a.place-link{color:var(--link);cursor:pointer;text-decoration:none;
+  border-bottom:1px dotted #1f5e8c66}
+.also-mentioned a.place-link:hover{border-bottom-style:solid}
 .x{font-size:18px;width:30px;height:30px;border-radius:8px;border:none;background:transparent;cursor:pointer}
 .x:hover{background:#00000010}
 .info-body{font-style:normal;color:var(--ink)}
