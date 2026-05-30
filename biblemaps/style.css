@@ -113,11 +113,11 @@ a.verse:hover{border-bottom-style:solid}
   background-repeat:no-repeat;background-position:right 6px center;background-size:10px}
 .m-version-btn:hover{background-color:#f7f1e0}
 .m-version-btn:focus{outline:none;border-color:var(--gold)}
-.m-version-menu{position:absolute;top:calc(100% + 4px);right:0;
+.m-version-menu{position:fixed;
   margin:0;padding:4px 0;list-style:none;
   background:var(--paper);border:1px solid var(--line);border-radius:10px;
   box-shadow:0 8px 24px rgba(0,0,0,.18);
-  min-width:240px;max-height:60vh;overflow-y:auto;z-index:10;
+  min-width:240px;max-height:60vh;overflow-y:auto;z-index:3000;
   scrollbar-width:thin;
   scrollbar-color:#bcb3a3 transparent}
 .m-version-menu::-webkit-scrollbar{width:8px}
