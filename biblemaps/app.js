@@ -344,8 +344,6 @@ function sanitizeKJV(rawHtml){
 async function showVerse(ref){
   activeRef = ref;
   const m = ref.match(/^(.*?)\s+(\d+):(\d+)$/);
-  const fullLabel = m ? (FULL[m[1]] || m[1]) + ' ' + m[2] + ':' + m[3] : ref;
-  document.getElementById('mRef').textContent = fullLabel;
   document.getElementById('mVersion').value = currentVersion;
   const body = document.getElementById('mBody');
   body.className = 'm-body'; body.textContent = 'Loading…';
@@ -386,8 +384,16 @@ async function showVerse(ref){
   const requestVersion = currentVersion;
   const cKey = requestVersion + '|' + usfm + '|' + ch;
 
-  function pickAndRender(map){
-    const text = map.get(vs);
+  function setRefLabel(localizedName){
+    const name = localizedName || FULL[bookAbbr] || bookAbbr;
+    document.getElementById('mRef').textContent = `${name} ${ch}:${vs}`;
+  }
+  // initial header (English fallback) until chapter data arrives
+  setRefLabel(null);
+
+  function pickAndRender(entry){
+    setRefLabel(entry.name);
+    const text = entry.verses.get(vs);
     if (text == null){
       setError("This verse isn’t available in the selected translation.");
       return;
@@ -406,9 +412,15 @@ async function showVerse(ref){
     const data = await res.json();
     const verses = (data && data.verses) || (Array.isArray(data) ? data : []);
     const map = new Map();
-    verses.forEach(v => { if (v && v.verse != null) map.set(Number(v.verse), v.text || ''); });
-    chapterCache[cKey] = map;
-    pickAndRender(map);
+    let localizedName = null;
+    verses.forEach(v => {
+      if (!v) return;
+      if (v.verse != null) map.set(Number(v.verse), v.text || '');
+      if (!localizedName && v.book_name) localizedName = v.book_name;
+    });
+    const entry = { name: localizedName, verses: map };
+    chapterCache[cKey] = entry;
+    pickAndRender(entry);
   } catch (err){
     setError("Can’t load this verse — you appear to be offline.");
   }
