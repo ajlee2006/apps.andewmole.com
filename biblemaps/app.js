@@ -104,33 +104,40 @@ swatch.onclick = () => {
 const cluster = L.markerClusterGroup({maxClusterRadius:45});
 map.addLayer(cluster);
 const starLayer = L.layerGroup().addTo(map); // unclustered, always-on
-const selectionLayer = L.layerGroup().addTo(map); // selection ring for current place
+let selectedRecord = null; // place whose marker should be drawn selected
 
-function setSelectionMarker(r){
-  selectionLayer.clearLayers();
-  if (!r) return;
-  // A gold ring drawn on top of everything else, so the selection is visible
-  // whether the underlying pin is a clustered circle or a star icon.
-  L.circleMarker([r.lat, r.lng], {
-    radius: 14,
-    color: '#facc15',
-    weight: 3,
-    fillOpacity: 0,
-    interactive: false,
-    pane: 'markerPane',
-  }).addTo(selectionLayer);
+function setSelected(r){
+  const prev = selectedRecord;
+  selectedRecord = r;
+  // Just rebuild the affected markers. Cheap, and avoids tracking individual
+  // marker references across cluster/star layers.
+  if (prev && prev !== r) rebuildMarker(prev);
+  if (r) rebuildMarker(r);
+}
+
+const recordMarkers = new Map(); // key -> current Leaflet marker
+function rebuildMarker(r){
+  const old = recordMarkers.get(r.key);
+  if (old){
+    starLayer.removeLayer(old);
+    cluster.removeLayer(old);
+  }
+  if (matches(r, query)){
+    const m = makeMarker(r);
+    if (starred.has(r.key)) starLayer.addLayer(m);
+    else cluster.addLayer(m);
+    recordMarkers.set(r.key, m);
+  } else {
+    recordMarkers.delete(r.key);
+  }
 }
 
 const STAR_SVG = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.5l2.9 5.9 6.5.95-4.7 4.58 1.1 6.47L12 17.9l-5.8 3.05 1.1-6.47-4.7-4.58 6.5-.95z"/></svg>';
-const starIcon = L.divIcon({
-  className: 'star-marker',
-  html: STAR_SVG,
-  iconSize: [22, 22],
-  iconAnchor: [11, 11]
-});
 
-function circleStyle(){
-  return {radius:6, color:'#7d1f16', weight:1.5, fillColor:'#c0392b', fillOpacity:.9};
+function circleStyle(selected){
+  return selected
+    ? {radius:7, color:'#facc15', weight:3, fillColor:'#c0392b', fillOpacity:.95}
+    : {radius:6, color:'#7d1f16', weight:1.5, fillColor:'#c0392b', fillOpacity:.9};
 }
 
 const records = [];
@@ -175,9 +182,19 @@ function matches(r, q){
 
 function makeMarker(r){
   const isStar = starred.has(r.key);
-  const m = isStar
-    ? L.marker([r.lat, r.lng], {icon: starIcon})
-    : L.circleMarker([r.lat, r.lng], circleStyle());
+  const isSelected = selectedRecord && selectedRecord.key === r.key;
+  let m;
+  if (isStar){
+    const icon = L.divIcon({
+      className: 'star-marker' + (isSelected ? ' selected' : ''),
+      html: STAR_SVG,
+      iconSize: [22, 22],
+      iconAnchor: [11, 11]
+    });
+    m = L.marker([r.lat, r.lng], {icon});
+  } else {
+    m = L.circleMarker([r.lat, r.lng], circleStyle(isSelected));
+  }
   m.bindTooltip(r.name, {direction:'top', offset:[0, isStar ? -10 : -6], sticky:false});
   m.on('click', () => openPanel(r));
   return m;
@@ -186,12 +203,14 @@ function makeMarker(r){
 function refresh(){
   cluster.clearLayers();
   starLayer.clearLayers();
+  recordMarkers.clear();
   let n = 0;
   records.forEach(r => {
     if (!matches(r, query)) return;
     const m = makeMarker(r);
     if (starred.has(r.key)) starLayer.addLayer(m);
     else cluster.addLayer(m);
+    recordMarkers.set(r.key, m);
     n++;
   });
   document.getElementById('count').textContent = n + ' / ' + records.length;
@@ -283,7 +302,7 @@ function openPanel(r){
   }
   document.getElementById('pBody').innerHTML = html;
   panel.classList.add('show');
-  setSelectionMarker(r);
+  setSelected(r);
   // Only push history if this is actually a new view.
   const cur = history.state;
   if (!cur || cur.loc !== r.name || cur.ref){
@@ -299,7 +318,7 @@ document.getElementById('pClose').onclick = () => {
     panel.classList.remove('show');
     panel.classList.remove('with-swatch');
     current = null;
-    setSelectionMarker(null);
+    setSelected(null);
     replaceState({});
   }
 };
@@ -310,7 +329,7 @@ document.getElementById('pStar').onclick = () => {
   document.getElementById('pStar').classList.toggle('on', starred.has(current.key));
   refresh();
   // refresh() rebuilds markers, so reassert the selection ring on top.
-  setSelectionMarker(current);
+  setSelected(current);
 };
 document.getElementById('pBody').addEventListener('click', e => {
   const a = e.target.closest('a.verse'); if (!a) return;
@@ -680,7 +699,7 @@ function applyState(state){
     if (!state.loc && current){
       panel.classList.remove('show'); panel.classList.remove('with-swatch');
       current = null;
-      setSelectionMarker(null);
+      setSelected(null);
     }
     // 2) Open place if needed.
     if (state.loc && (!current || current.name !== state.loc)){
