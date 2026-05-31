@@ -107,7 +107,7 @@ a.verse:hover{border-bottom-style:solid}
 .m-ref{font-family:'Spectral',Georgia,serif;font-weight:600;font-size:18px;flex:1;min-width:0}
 .m-ref-btn{border:none;background:transparent;text-align:left;cursor:pointer;
   padding:0;color:var(--ink);
-  font:inherit}
+  font-family:'Spectral',Georgia,serif;font-weight:600;font-size:18px}
 .m-ref-btn span{border-bottom:1px dotted var(--muted)}
 .m-ref-btn:hover span{border-bottom-color:var(--link);color:var(--link)}
 
