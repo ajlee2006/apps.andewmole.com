@@ -929,8 +929,8 @@ function buildFilterMenu(){
     const ariaChecked = state === 'on' ? 'true' : state === 'partial' ? 'mixed' : 'false';
     const countHtml = `<span class="fm-count">${placeCountLabel(count)}</span>`;
     return `<div class="fm-row fm-group-row" role="checkbox" tabindex="0" aria-checked="${ariaChecked}" data-state="${state}" data-action="${action}">
-      <span class="fm-check"></span><span class="fm-label"><strong>${label}</strong></span>${countHtml}
       <button class="fm-arrow${collapsed ? ' collapsed' : ''}" data-toggle="${group}" aria-label="${collapsed ? 'Expand' : 'Collapse'}" tabindex="-1">▾</button>
+      <span class="fm-check"></span><span class="fm-label"><strong>${label}</strong></span>${countHtml}
     </div>`;
   }
   function groupState(predicate){
