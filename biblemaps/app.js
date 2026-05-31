@@ -628,6 +628,7 @@ async function showVerse(ref, sourceName){
   const body = document.getElementById('mBody');
   body.className = 'm-body'; body.textContent = 'Loading…';
   ov.classList.add('show');
+  updatePrevNextButtons();
   if (isNewView){
     pushState({ loc: current ? current.name : null, ref: ref, src: activeSourceName });
   }
@@ -889,6 +890,78 @@ function buildVersionDropdown(){
   syncLabel();
 }
 buildVersionDropdown();
+
+/* ---- Prev/next verse navigation ----
+   Walks book → chapter → verse within the standard 66-book canon, using
+   VERSE_COUNTS for chapter lengths. Returns the adjacent ref as a string
+   in our internal abbreviation form (e.g. "Gen 1:2"), or null if there is
+   no such verse (already at Gen 1:1 or Rev 22:21). */
+function adjacentRef(ref, dir){
+  const m = ref && ref.match(/^(.*?)\s+(\d+):(\d+)$/);
+  if (!m) return null;
+  let usfm = USFM[m[1]];
+  let ch = parseInt(m[2], 10);
+  let vs = parseInt(m[3], 10);
+  if (!usfm || !VERSE_COUNTS[usfm]) return null;
+
+  if (dir > 0){
+    // Next verse
+    vs += 1;
+    if (vs > (VERSE_COUNTS[usfm][ch - 1] || 0)){
+      vs = 1;
+      ch += 1;
+      if (ch > VERSE_COUNTS[usfm].length){
+        ch = 1;
+        const i = CANON_ORDER.indexOf(usfm);
+        if (i === -1 || i + 1 >= CANON_ORDER.length) return null;
+        usfm = CANON_ORDER[i + 1];
+      }
+    }
+  } else {
+    // Previous verse
+    vs -= 1;
+    if (vs < 1){
+      ch -= 1;
+      if (ch < 1){
+        const i = CANON_ORDER.indexOf(usfm);
+        if (i <= 0) return null;
+        usfm = CANON_ORDER[i - 1];
+        ch = VERSE_COUNTS[usfm].length;
+      }
+      vs = VERSE_COUNTS[usfm][ch - 1] || 1;
+    }
+  }
+
+  const abbr = USFM_TO_ABBR[usfm];
+  if (!abbr) return null;
+  return `${abbr} ${ch}:${vs}`;
+}
+
+function updatePrevNextButtons(){
+  document.getElementById('mPrev').disabled = !adjacentRef(activeRef, -1);
+  document.getElementById('mNext').disabled = !adjacentRef(activeRef, +1);
+}
+
+document.getElementById('mPrev').addEventListener('click', () => {
+  const r = adjacentRef(activeRef, -1);
+  if (r) showVerse(r, activeSourceName);
+});
+document.getElementById('mNext').addEventListener('click', () => {
+  const r = adjacentRef(activeRef, +1);
+  if (r) showVerse(r, activeSourceName);
+});
+document.addEventListener('keydown', e => {
+  if (!ov.classList.contains('show')) return;
+  // Ignore when typing in an input/select inside any modal
+  if (e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+  if (e.key === 'ArrowLeft'){
+    const r = adjacentRef(activeRef, -1);
+    if (r){ e.preventDefault(); showVerse(r, activeSourceName); }
+  } else if (e.key === 'ArrowRight'){
+    const r = adjacentRef(activeRef, +1);
+    if (r){ e.preventDefault(); showVerse(r, activeSourceName); }
+  }
+});
 
 /* ---- Verse navigator ----
    Header in the verse modal is a button; clicking it opens this picker over
