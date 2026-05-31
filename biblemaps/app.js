@@ -454,8 +454,9 @@ function openPanel(r){
 }
 
 /* Pan only if the place panel currently covers (lat,lng). When it does, the
-   marker would otherwise be hidden behind the panel; we shift it just enough
-   to clear the panel's edge. */
+   marker would be hidden behind the panel; pan to bring it to the centre of
+   the screen — or, if the screen centre is itself behind the panel, to the
+   centre of the area that isn't covered. */
 function panIfMarkerCovered(lat, lng){
   const panelEl = document.getElementById('panel');
   if (!panelEl || !panelEl.classList.contains('show')) return;
@@ -468,33 +469,55 @@ function panIfMarkerCovered(lat, lng){
   // Absolute (viewport) coordinates of the marker
   const x = target.x + mapRect.left;
   const y = target.y + mapRect.top;
-  const margin = 16;
 
-  const inside =
-    x >= pr.left  - 0.5 && x <= pr.right  + 0.5 &&
-    y >= pr.top   - 0.5 && y <= pr.bottom + 0.5;
-  if (!inside) return;
+  const insidePanel = (px, py) =>
+    px >= pr.left  - 0.5 && px <= pr.right  + 0.5 &&
+    py >= pr.top   - 0.5 && py <= pr.bottom + 0.5;
 
-  // Pan so the marker ends up just clear of the panel's nearest edge.
-  // Mobile: panel sits at bottom → push the marker up. Desktop: panel sits
-  // on the left → push the marker right. Pick whichever edge needs the
-  // smaller move.
-  const moves = [
-    {dx: 0, dy: -(y - pr.top + margin)},      // push up above panel
-    {dx: 0, dy:  (pr.bottom - y + margin)},   // push down below panel
-    {dx: -(x - pr.left + margin), dy: 0},     // push left
-    {dx:  (pr.right - x + margin), dy: 0},    // push right
-  ];
-  // Only consider moves that actually clear into visible map area.
-  const valid = moves.filter(m => {
-    const nx = x + m.dx, ny = y + m.dy;
-    return nx >= mapRect.left + margin && nx <= mapRect.right - margin
-        && ny >= mapRect.top  + margin && ny <= mapRect.bottom - margin;
-  });
-  if (!valid.length) return;
-  valid.sort((a, b) => (Math.abs(a.dx)+Math.abs(a.dy)) - (Math.abs(b.dx)+Math.abs(b.dy)));
-  const best = valid[0];
-  map.panBy([-best.dx, -best.dy], {animate:true});
+  // Bail if the marker isn't actually covered.
+  if (!insidePanel(x, y)) return;
+
+  // Prefer the geometric centre of the map area; fall back to the centre of
+  // the part of the map that isn't covered by the panel if that's blocked too.
+  const screenCx = (mapRect.left + mapRect.right)  / 2;
+  const screenCy = (mapRect.top  + mapRect.bottom) / 2;
+  let destX, destY;
+  if (!insidePanel(screenCx, screenCy)){
+    destX = screenCx;
+    destY = screenCy;
+  } else {
+    // Visible rectangle = map rect with the panel's nearest side clipped off.
+    let top    = mapRect.top;
+    let bottom = mapRect.bottom;
+    let left   = mapRect.left;
+    let right  = mapRect.right;
+    // Decide which side the panel sits against based on its shape.
+    const horizontalSpan = pr.right - pr.left;
+    const verticalSpan   = pr.bottom - pr.top;
+    if (verticalSpan / mapRect.height > horizontalSpan / mapRect.width){
+      // Tall overlay — clips horizontally (side panel).
+      if (pr.left - mapRect.left < mapRect.right - pr.right){
+        left = Math.max(left, pr.right);
+      } else {
+        right = Math.min(right, pr.left);
+      }
+    } else {
+      // Wide overlay — clips vertically (top/bottom band).
+      if (pr.top - mapRect.top < mapRect.bottom - pr.bottom){
+        top = Math.max(top, pr.bottom);
+      } else {
+        bottom = Math.min(bottom, pr.top);
+      }
+    }
+    destX = (left + right)  / 2;
+    destY = (top  + bottom) / 2;
+  }
+
+  const dx = destX - x; // marker should move by this much
+  const dy = destY - y;
+  if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+  // panBy moves the view; marker shifts the opposite direction.
+  map.panBy([-dx, -dy], {animate:true});
 }
 document.getElementById('pClose').onclick = () => {
   // Close in place — different from the browser back button, which would
