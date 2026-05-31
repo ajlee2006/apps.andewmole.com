@@ -106,9 +106,10 @@ a.verse:hover{border-bottom-style:solid}
 .m-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
 .m-ref{font-family:'Spectral',Georgia,serif;font-weight:600;font-size:18px;flex:1;min-width:0}
 .m-ref-btn{border:none;background:transparent;text-align:left;cursor:pointer;
-  padding:0;color:var(--link);border-bottom:1px dotted #1f5e8c66;
+  padding:0;color:var(--ink);
   font:inherit}
-.m-ref-btn:hover{border-bottom-style:solid}
+.m-ref-btn span{border-bottom:1px dotted var(--muted)}
+.m-ref-btn:hover span{border-bottom-color:var(--link);color:var(--link)}
 
 /* Verse navigator modal */
 #navOv{position:fixed;inset:0;z-index:2500;background:#0006;display:none;
@@ -148,10 +149,28 @@ a.verse:hover{border-bottom-style:solid}
   border:2px solid var(--paper);background-clip:padding-box}
 #filterMenu .fm-group{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
   color:var(--muted);padding:6px 12px 2px;font-weight:600}
-#filterMenu label.fm-row{display:flex;align-items:center;gap:8px;
-  padding:5px 12px;cursor:pointer;user-select:none}
-#filterMenu label.fm-row:hover{background:#f1ead8}
-#filterMenu input[type=checkbox]{accent-color:var(--gold);cursor:pointer}
+#filterMenu .fm-row{display:flex;align-items:center;gap:10px;
+  padding:6px 12px;cursor:pointer;user-select:none;outline:none}
+#filterMenu .fm-row:hover{background:#f1ead8}
+#filterMenu .fm-row:focus-visible{background:#f1ead8;box-shadow:inset 0 0 0 2px var(--gold)}
+#filterMenu .fm-check{
+  width:16px;height:16px;border-radius:4px;border:1.5px solid #bbb1a0;
+  background:#fff;flex-shrink:0;position:relative;transition:background .1s,border-color .1s
+}
+#filterMenu .fm-row[data-state="on"] .fm-check{
+  background:var(--gold);border-color:var(--gold)
+}
+#filterMenu .fm-row[data-state="on"] .fm-check::after{
+  content:'';position:absolute;left:4px;top:1px;width:5px;height:9px;
+  border:solid #3a2a00;border-width:0 2px 2px 0;transform:rotate(45deg)
+}
+#filterMenu .fm-row[data-state="partial"] .fm-check{
+  background:var(--gold);border-color:var(--gold)
+}
+#filterMenu .fm-row[data-state="partial"] .fm-check::after{
+  content:'';position:absolute;left:3px;top:6px;width:8px;height:2px;background:#3a2a00
+}
+#filterMenu .fm-label{flex:1;min-width:0}
 #filterMenu .fm-divider{height:1px;background:var(--line);margin:4px 0}
 .m-version{position:relative;font-family:inherit}
 .m-version-btn{border:1px solid var(--line);background:#fff;color:var(--ink);
