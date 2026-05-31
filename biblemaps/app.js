@@ -437,13 +437,14 @@ function openPanel(r){
   document.getElementById('pBody').innerHTML = html;
   panel.classList.add('show');
   setSelected(r);
-  // Centre the marker in the area not covered by the panel/modal. Run after
-  // layout settles, and again once the image loads (because the panel grows).
-  requestAnimationFrame(() => centerOnVisibleArea(r.lat, r.lng));
+  // If the panel covers the marker, pan to bring it into the visible area.
+  // Run after layout settles, and again once the image loads (the panel
+  // may grow, newly covering the marker that was visible a moment ago).
+  requestAnimationFrame(() => panIfMarkerCovered(r.lat, r.lng));
   const img = document.querySelector('#pBody .p-img');
   if (img && !img.complete){
-    img.addEventListener('load',  () => centerOnVisibleArea(r.lat, r.lng), {once:true});
-    img.addEventListener('error', () => centerOnVisibleArea(r.lat, r.lng), {once:true});
+    img.addEventListener('load',  () => panIfMarkerCovered(r.lat, r.lng), {once:true});
+    img.addEventListener('error', () => panIfMarkerCovered(r.lat, r.lng), {once:true});
   }
   // Only push history if this is actually a new view.
   const cur = history.state;
@@ -452,65 +453,48 @@ function openPanel(r){
   }
 }
 
-/* Pan so (lat,lng) sits in the centre of the part of the map that isn't
-   covered by the place panel, the verse modal, or the search bar. Uses the
-   actual on-screen rectangles, so it Just Works whether the panel is on the
-   side (desktop) or the bottom (mobile), and whether the modal is open. */
-function centerOnVisibleArea(lat, lng){
+/* Pan only if the place panel currently covers (lat,lng). When it does, the
+   marker would otherwise be hidden behind the panel; we shift it just enough
+   to clear the panel's edge. */
+function panIfMarkerCovered(lat, lng){
+  const panelEl = document.getElementById('panel');
+  if (!panelEl || !panelEl.classList.contains('show')) return;
+  const pr = panelEl.getBoundingClientRect();
+  if (pr.width === 0 || pr.height === 0) return;
+
   const mapEl = document.getElementById('map');
   const mapRect = mapEl.getBoundingClientRect();
-  // Visible window starts as the full map and shrinks as overlays clip it.
-  let top    = mapRect.top;
-  let bottom = mapRect.bottom;
-  let left   = mapRect.left;
-  let right  = mapRect.right;
-
-  function clip(el){
-    if (!el) return;
-    // Only clip if the element is actually shown.
-    const s = getComputedStyle(el);
-    if (s.display === 'none' || s.visibility === 'hidden') return;
-    const r = el.getBoundingClientRect();
-    if (r.width === 0 || r.height === 0) return;
-    // Choose the axis along which this overlay clips the map. We treat each
-    // overlay as occupying its full horizontal or vertical band on the side
-    // closest to the map edge it sits against.
-    const verticalSpan   = (r.bottom - r.top);
-    const horizontalSpan = (r.right - r.left);
-    if (verticalSpan / mapRect.height > horizontalSpan / mapRect.width){
-      // Tall overlay — clip horizontally.
-      if (r.left - mapRect.left < mapRect.right - r.right){
-        left = Math.max(left, r.right);
-      } else {
-        right = Math.min(right, r.left);
-      }
-    } else {
-      // Wide overlay — clip vertically.
-      if (r.top - mapRect.top < mapRect.bottom - r.bottom){
-        top = Math.max(top, r.bottom);
-      } else {
-        bottom = Math.min(bottom, r.top);
-      }
-    }
-  }
-
-  const panelEl = document.getElementById('panel');
-  if (panelEl && panelEl.classList.contains('show')) clip(panelEl);
-  const modal = document.querySelector('#ov.show .modal');
-  if (modal) clip(modal);
-  const bar = document.getElementById('bar');
-  if (bar) clip(bar);
-
-  // Centre of the remaining (visible) rectangle, in map-container coords.
-  const cx = (left + right) / 2 - mapRect.left;
-  const cy = (top + bottom) / 2 - mapRect.top;
-
-  // Pixel position of the target point relative to the map container.
   const target = map.latLngToContainerPoint([lat, lng]);
-  const dx = target.x - cx;
-  const dy = target.y - cy;
-  if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return; // already close enough
-  map.panBy([dx, dy], {animate:true});
+  // Absolute (viewport) coordinates of the marker
+  const x = target.x + mapRect.left;
+  const y = target.y + mapRect.top;
+  const margin = 16;
+
+  const inside =
+    x >= pr.left  - 0.5 && x <= pr.right  + 0.5 &&
+    y >= pr.top   - 0.5 && y <= pr.bottom + 0.5;
+  if (!inside) return;
+
+  // Pan so the marker ends up just clear of the panel's nearest edge.
+  // Mobile: panel sits at bottom → push the marker up. Desktop: panel sits
+  // on the left → push the marker right. Pick whichever edge needs the
+  // smaller move.
+  const moves = [
+    {dx: 0, dy: -(y - pr.top + margin)},      // push up above panel
+    {dx: 0, dy:  (pr.bottom - y + margin)},   // push down below panel
+    {dx: -(x - pr.left + margin), dy: 0},     // push left
+    {dx:  (pr.right - x + margin), dy: 0},    // push right
+  ];
+  // Only consider moves that actually clear into visible map area.
+  const valid = moves.filter(m => {
+    const nx = x + m.dx, ny = y + m.dy;
+    return nx >= mapRect.left + margin && nx <= mapRect.right - margin
+        && ny >= mapRect.top  + margin && ny <= mapRect.bottom - margin;
+  });
+  if (!valid.length) return;
+  valid.sort((a, b) => (Math.abs(a.dx)+Math.abs(a.dy)) - (Math.abs(b.dx)+Math.abs(b.dy)));
+  const best = valid[0];
+  map.panBy([-best.dx, -best.dy], {animate:true});
 }
 document.getElementById('pClose').onclick = () => {
   // Close in place — different from the browser back button, which would
@@ -623,11 +607,6 @@ async function showVerse(ref, sourceName){
   ov.classList.add('show');
   if (isNewView){
     pushState({ loc: current ? current.name : null, ref: ref, src: activeSourceName });
-  }
-  // The modal occludes part of the map. If a place is selected, keep it in
-  // the visible area.
-  if (current){
-    requestAnimationFrame(() => centerOnVisibleArea(current.lat, current.lng));
   }
 
   function renderAlsoMentioned(){
