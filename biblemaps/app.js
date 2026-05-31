@@ -524,23 +524,26 @@ async function showVerse(ref, sourceName){
   }
 
   function renderAlsoMentioned(){
-    const seen = new Set();
-    const dropKey = current ? current.key : null;
+    const all = versesIndex[ref] || [];
+    // Determine if the current place is actually mentioned in this verse.
+    const currentMentioned = current && all.some(e => e.key === current.key);
+    const dropKey = currentMentioned ? current.key : null;
     const dropName = activeSourceName;
-    const others = (versesIndex[ref] || []).filter(entry => {
-      // Drop the exact name the user clicked from. Other names on the same place
-      // (and entries on other places) all stay visible.
+    const seen = new Set();
+    const others = all.filter(entry => {
+      // If the current place is referenced here, drop only the (key, name) the
+      // user came from so its sibling AKAs still appear in "Also mentioned".
       if (dropKey && entry.key === dropKey && entry.name === dropName) return false;
       const tag = entry.key + '\u0001' + entry.name;
       if (seen.has(tag)) return false;
       seen.add(tag);
       return true;
     });
-    const fromNavigator = !current; // opened via navigator, no source place
+    const label = currentMentioned ? 'Also mentioned in this verse' : 'Mentioned in this verse';
     if (!others.length){
-      return fromNavigator
-        ? `<div class="also-mentioned">No places mentioned in this verse.</div>`
-        : '';
+      return currentMentioned
+        ? '' // "Also mentioned" with nothing to list — show nothing
+        : `<div class="also-mentioned">No places mentioned in this verse.</div>`;
     }
     const links = others.map(o => {
       if (o.unlocated){
@@ -548,7 +551,6 @@ async function showVerse(ref, sourceName){
       }
       return `<a class="place-link" data-key="${o.key.replace(/"/g,'&quot;')}">${o.name}</a>`;
     }).join(', ');
-    const label = fromNavigator ? 'Mentioned in this verse' : 'Also mentioned in this verse';
     return `<div class="also-mentioned">${label}: ${links}</div>`;
   }
 
@@ -574,7 +576,8 @@ async function showVerse(ref, sourceName){
   function setRefLabel(apiName){
     const fromTable = (LOCALIZED_BOOKS[requestVersion] || {})[usfm];
     const name = fromTable || apiName || FULL[bookAbbr] || bookAbbr;
-    document.getElementById('mRef').textContent = `${name} ${ch}:${vs}`;
+    const el = document.getElementById('mRef');
+    el.innerHTML = `<span>${name} ${ch}:${vs}</span>`;
   }
   // initial header — uses localized table immediately if available
   setRefLabel(null);
@@ -877,41 +880,47 @@ document.getElementById('mRef').addEventListener('click', () => {
 const filterBtn = document.getElementById('filterBtn');
 const filterMenu = document.getElementById('filterMenu');
 
-function buildFilterMenu(){
-  // Track selection set: a Set of USFM codes that are checked.
-  // null bookFilter == everything checked.
-  const checked = bookFilter ? new Set(bookFilter) : new Set(CANON_ORDER);
+// The single source of truth for what's checked. Persists across menu rebuilds.
+const filterChecked = new Set(CANON_ORDER);
 
-  function row(label, checkedFlag, attrs){
-    return `<label class="fm-row" ${attrs}><input type="checkbox" ${checkedFlag ? 'checked' : ''}>${label}</label>`;
+function buildFilterMenu(){
+  function row(label, state, attrs){
+    // state: 'on' | 'off' | 'partial'
+    const ariaChecked = state === 'on' ? 'true' : state === 'partial' ? 'mixed' : 'false';
+    return `<div class="fm-row" role="checkbox" tabindex="0" aria-checked="${ariaChecked}" data-state="${state}" ${attrs}>
+      <span class="fm-check"></span><span class="fm-label">${label}</span>
+    </div>`;
   }
-  const allOn = checked.size === CANON_ORDER.length;
-  const otCount = CANON_ORDER.filter(b => OT_USFM.has(b)).length;
-  const otOn = CANON_ORDER.filter(b => OT_USFM.has(b) && checked.has(b)).length === otCount;
-  const ntCount = CANON_ORDER.length - otCount;
-  const ntOn = CANON_ORDER.filter(b => !OT_USFM.has(b) && checked.has(b)).length === ntCount;
+  function groupState(predicate){
+    let on = 0, total = 0;
+    CANON_ORDER.forEach(b => { if (predicate(b)){ total++; if (filterChecked.has(b)) on++; } });
+    if (on === 0) return 'off';
+    if (on === total) return 'on';
+    return 'partial';
+  }
+  const allState = groupState(() => true);
+  const otState = groupState(b => OT_USFM.has(b));
+  const ntState = groupState(b => !OT_USFM.has(b));
 
   let html = '';
-  html += row('<strong>Select all</strong>', allOn, 'data-action="all"');
+  html += row('<strong>Select all</strong>', allState, 'data-action="all"');
   html += '<div class="fm-divider"></div>';
-  html += row('<strong>Old Testament</strong>', otOn, 'data-action="ot"');
+  html += row('<strong>Old Testament</strong>', otState, 'data-action="ot"');
   CANON_ORDER.forEach(usfm => {
     if (!OT_USFM.has(usfm)) return;
-    html += row(localizedBook(usfm), checked.has(usfm), `data-book="${usfm}"`);
+    html += row(localizedBook(usfm), filterChecked.has(usfm) ? 'on' : 'off', `data-book="${usfm}"`);
   });
   html += '<div class="fm-divider"></div>';
-  html += row('<strong>New Testament</strong>', ntOn, 'data-action="nt"');
+  html += row('<strong>New Testament</strong>', ntState, 'data-action="nt"');
   CANON_ORDER.forEach(usfm => {
     if (OT_USFM.has(usfm)) return;
-    html += row(localizedBook(usfm), checked.has(usfm), `data-book="${usfm}"`);
+    html += row(localizedBook(usfm), filterChecked.has(usfm) ? 'on' : 'off', `data-book="${usfm}"`);
   });
   filterMenu.innerHTML = html;
-  filterMenu._checked = checked;
 }
 
 function applyBookFilterFromUI(){
-  const c = filterMenu._checked;
-  bookFilter = (c.size === CANON_ORDER.length) ? null : new Set(c);
+  bookFilter = (filterChecked.size === CANON_ORDER.length) ? null : new Set(filterChecked);
   filterBtn.classList.toggle('on', !!bookFilter);
   refresh();
   buildSuggestions();
@@ -921,33 +930,52 @@ filterBtn.onclick = (e) => {
   e.stopPropagation();
   if (!filterMenu.hidden){ filterMenu.hidden = true; return; }
   document.getElementById('suggest').classList.remove('show');
+  // Sync filterChecked from current bookFilter so reopening reflects current state
+  filterChecked.clear();
+  (bookFilter || CANON_ORDER).forEach(b => filterChecked.add(b));
   buildFilterMenu();
   filterMenu.hidden = false;
 };
 
-filterMenu.addEventListener('change', e => {
-  const cb = e.target;
-  if (cb.type !== 'checkbox') return;
-  const row = cb.closest('label.fm-row');
-  const checked = filterMenu._checked;
-  const action = row && row.dataset.action;
+function toggleRow(row){
+  if (!row) return;
+  const action = row.dataset.action;
+  const state = row.dataset.state;
+  // "partial" rows toggle to "on" (select all in group). Otherwise flip.
+  const turnOn = (state !== 'on');
   if (action === 'all'){
-    if (cb.checked) CANON_ORDER.forEach(b => checked.add(b));
-    else checked.clear();
+    if (turnOn) CANON_ORDER.forEach(b => filterChecked.add(b));
+    else filterChecked.clear();
   } else if (action === 'ot'){
-    if (cb.checked) CANON_ORDER.forEach(b => { if (OT_USFM.has(b)) checked.add(b); });
-    else CANON_ORDER.forEach(b => { if (OT_USFM.has(b)) checked.delete(b); });
+    CANON_ORDER.forEach(b => {
+      if (!OT_USFM.has(b)) return;
+      if (turnOn) filterChecked.add(b); else filterChecked.delete(b);
+    });
   } else if (action === 'nt'){
-    if (cb.checked) CANON_ORDER.forEach(b => { if (!OT_USFM.has(b)) checked.add(b); });
-    else CANON_ORDER.forEach(b => { if (!OT_USFM.has(b)) checked.delete(b); });
+    CANON_ORDER.forEach(b => {
+      if (OT_USFM.has(b)) return;
+      if (turnOn) filterChecked.add(b); else filterChecked.delete(b);
+    });
   } else {
-    const b = row && row.dataset.book;
-    if (b){
-      if (cb.checked) checked.add(b); else checked.delete(b);
-    }
+    const b = row.dataset.book;
+    if (!b) return;
+    if (turnOn) filterChecked.add(b); else filterChecked.delete(b);
   }
-  buildFilterMenu(); // rebuild to sync the parent checkboxes
+  buildFilterMenu();
   applyBookFilterFromUI();
+}
+
+filterMenu.addEventListener('click', e => {
+  const row = e.target.closest('.fm-row');
+  if (!row) return;
+  toggleRow(row);
+});
+filterMenu.addEventListener('keydown', e => {
+  if (e.key !== ' ' && e.key !== 'Enter') return;
+  const row = e.target.closest('.fm-row');
+  if (!row) return;
+  e.preventDefault();
+  toggleRow(row);
 });
 
 document.addEventListener('click', e => {
