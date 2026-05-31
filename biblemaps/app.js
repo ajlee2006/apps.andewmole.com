@@ -966,6 +966,7 @@ function toggleRow(row){
 }
 
 filterMenu.addEventListener('click', e => {
+  e.stopPropagation();
   const row = e.target.closest('.fm-row');
   if (!row) return;
   toggleRow(row);
