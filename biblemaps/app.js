@@ -216,6 +216,7 @@ function buildRecords(data){
     const j = records.find(r => r.name === 'Jerusalem');
     if (j){ starred.add(j.key); saveStars(); }
   }
+  recomputePlaceCounts();
   refresh();
 }
 
@@ -886,19 +887,49 @@ const filterChecked = new Set(CANON_ORDER);
 // Whether each testament group is expanded in the filter menu
 const fmCollapsed = { ot: false, nt: false };
 
+// Per-book and per-group place counts (recomputed when records load).
+const placeCountByBook = new Map(); // USFM -> count
+let placeCountOT = 0, placeCountNT = 0, placeCountAll = 0;
+function recomputePlaceCounts(){
+  placeCountByBook.clear();
+  CANON_ORDER.forEach(b => placeCountByBook.set(b, 0));
+  let ot = 0, nt = 0, total = 0;
+  records.forEach(r => {
+    const books = recordBooks.get(r.key);
+    if (!books || !books.size) return;
+    total++;
+    let inOT = false, inNT = false;
+    books.forEach(b => {
+      placeCountByBook.set(b, (placeCountByBook.get(b) || 0) + 1);
+      if (OT_USFM.has(b)) inOT = true; else inNT = true;
+    });
+    if (inOT) ot++;
+    if (inNT) nt++;
+  });
+  placeCountOT = ot; placeCountNT = nt; placeCountAll = total;
+}
+
+function placeCountLabel(n){
+  if (!n) return 'No places';
+  if (n === 1) return '1 place';
+  return n + ' places';
+}
+
 function buildFilterMenu(){
-  function row(label, state, attrs){
+  function row(label, state, attrs, count){
     // state: 'on' | 'off' | 'partial'
     const ariaChecked = state === 'on' ? 'true' : state === 'partial' ? 'mixed' : 'false';
+    const countHtml = (count != null) ? `<span class="fm-count">${placeCountLabel(count)}</span>` : '';
     return `<div class="fm-row" role="checkbox" tabindex="0" aria-checked="${ariaChecked}" data-state="${state}" ${attrs}>
-      <span class="fm-check"></span><span class="fm-label">${label}</span>
+      <span class="fm-check"></span><span class="fm-label">${label}</span>${countHtml}
     </div>`;
   }
-  function groupRow(label, state, action, group){
+  function groupRow(label, state, action, group, count){
     const collapsed = fmCollapsed[group];
     const ariaChecked = state === 'on' ? 'true' : state === 'partial' ? 'mixed' : 'false';
+    const countHtml = `<span class="fm-count">${placeCountLabel(count)}</span>`;
     return `<div class="fm-row fm-group-row" role="checkbox" tabindex="0" aria-checked="${ariaChecked}" data-state="${state}" data-action="${action}">
-      <span class="fm-check"></span><span class="fm-label"><strong>${label}</strong></span>
+      <span class="fm-check"></span><span class="fm-label"><strong>${label}</strong></span>${countHtml}
       <button class="fm-arrow${collapsed ? ' collapsed' : ''}" data-toggle="${group}" aria-label="${collapsed ? 'Expand' : 'Collapse'}" tabindex="-1">▾</button>
     </div>`;
   }
@@ -914,21 +945,21 @@ function buildFilterMenu(){
   const ntState = groupState(b => !OT_USFM.has(b));
 
   let html = '';
-  html += row('<strong>Select all</strong>', allState, 'data-action="all"');
+  html += row('<strong>Select all</strong>', allState, 'data-action="all"', placeCountAll);
   html += '<div class="fm-divider"></div>';
-  html += groupRow('Old Testament', otState, 'ot', 'ot');
+  html += groupRow('Old Testament', otState, 'ot', 'ot', placeCountOT);
   if (!fmCollapsed.ot){
     CANON_ORDER.forEach(usfm => {
       if (!OT_USFM.has(usfm)) return;
-      html += row(localizedBook(usfm), filterChecked.has(usfm) ? 'on' : 'off', `data-book="${usfm}"`);
+      html += row(localizedBook(usfm), filterChecked.has(usfm) ? 'on' : 'off', `data-book="${usfm}"`, placeCountByBook.get(usfm) || 0);
     });
   }
   html += '<div class="fm-divider"></div>';
-  html += groupRow('New Testament', ntState, 'nt', 'nt');
+  html += groupRow('New Testament', ntState, 'nt', 'nt', placeCountNT);
   if (!fmCollapsed.nt){
     CANON_ORDER.forEach(usfm => {
       if (OT_USFM.has(usfm)) return;
-      html += row(localizedBook(usfm), filterChecked.has(usfm) ? 'on' : 'off', `data-book="${usfm}"`);
+      html += row(localizedBook(usfm), filterChecked.has(usfm) ? 'on' : 'off', `data-book="${usfm}"`, placeCountByBook.get(usfm) || 0);
     });
   }
   filterMenu.innerHTML = html;
