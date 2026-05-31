@@ -171,19 +171,30 @@ const UNLOCATED_PLACES = [
 const records = [];
 const recordByKey = new Map();
 const versesIndex = {}; // "Book Ch:Vs" -> [{key, name, unlocated?}, ...]
+const recordBooks = new Map(); // key -> Set<USFM book codes>
 
 function indexVerses(str, key, displayName, unlocated){
   str.split(',').map(t => t.trim()).filter(Boolean).forEach(tok => {
-    if (!/^.*?\s+\d+:\d+$/.test(tok)) return;
+    const m = tok.match(/^(.*?)\s+\d+:\d+$/);
+    if (!m) return;
     (versesIndex[tok] = versesIndex[tok] || []).push({
       key, name: displayName, unlocated: !!unlocated
     });
+    if (!unlocated){
+      const usfm = USFM[m[1]];
+      if (usfm){
+        let s = recordBooks.get(key);
+        if (!s){ s = new Set(); recordBooks.set(key, s); }
+        s.add(usfm);
+      }
+    }
   });
 }
 
 function buildRecords(data){
   records.length = 0;
   recordByKey.clear();
+  recordBooks.clear();
   for (const k in versesIndex) delete versesIndex[k];
   for (const key in data){
     const m = key.replace(/[()]/g,'').split(',');
@@ -209,7 +220,17 @@ function buildRecords(data){
 }
 
 let query = '';
+let bookFilter = null; // null = no filter; otherwise Set<USFM>. starred always pass
 function matches(r, q){
+  // Book filter (starred always shown regardless of filter).
+  if (bookFilter && !starred.has(r.key)){
+    const books = recordBooks.get(r.key);
+    let any = false;
+    if (books){
+      for (const b of books){ if (bookFilter.has(b)){ any = true; break; } }
+    }
+    if (!any) return false;
+  }
   if (!q) return true;
   if (r.name.toLowerCase().includes(q)) return true;
   return r.akas && r.akas.some(a => a[0].toLowerCase().includes(q));
@@ -442,6 +463,11 @@ const USFM = {
   "2 Pet":"2PE","1 John":"1JN","2 John":"2JN","3 John":"3JN","Jude":"JUD","Rev":"REV"
 };
 
+const USFM_TO_ABBR = Object.fromEntries(Object.entries(USFM).map(([k,v]) => [v,k]));
+const CANON_ORDER = ['GEN','EXO','LEV','NUM','DEU','JOS','JDG','RUT','1SA','2SA','1KI','2KI','1CH','2CH','EZR','NEH','EST','JOB','PSA','PRO','ECC','SNG','ISA','JER','LAM','EZK','DAN','HOS','JOL','AMO','OBA','JON','MIC','NAM','HAB','ZEP','HAG','ZEC','MAL','MAT','MRK','LUK','JHN','ACT','ROM','1CO','2CO','GAL','EPH','PHP','COL','1TH','2TH','1TI','2TI','TIT','PHM','HEB','JAS','1PE','2PE','1JN','2JN','3JN','JUD','REV'];
+const OT_USFM = new Set(CANON_ORDER.slice(0, 39));
+const VERSE_COUNTS = {"GEN":[31,25,24,26,32,22,24,22,29,32,32,20,18,24,21,16,27,33,38,18,34,24,20,67,34,35,46,22,35,43,55,32,20,31,29,43,36,30,23,23,57,38,34,34,28,34,31,22,33,26],"EXO":[22,25,22,31,23,30,25,32,35,29,10,51,22,31,27,36,16,27,25,26,36,31,33,18,40,37,21,43,46,38,18,35,23,35,35,38,29,31,43,38],"LEV":[17,16,17,35,19,30,38,36,24,20,47,8,59,57,33,34,16,30,37,27,24,33,44,23,55,46,34],"NUM":[54,34,51,49,31,27,89,26,23,36,35,16,33,45,41,50,13,32,22,29,35,41,30,25,18,65,23,31,40,16,54,42,56,29,34,13],"DEU":[46,37,29,49,33,25,26,20,29,22,32,32,18,29,23,22,20,22,21,20,23,30,25,22,19,19,26,68,29,20,30,52,29,12],"JOS":[18,24,17,24,15,27,26,35,27,43,23,24,33,15,63,10,18,28,51,9,45,34,16,33],"JDG":[36,23,31,24,31,40,25,35,57,18,40,15,25,20,20,31,13,31,30,48,25],"RUT":[22,23,18,22],"1SA":[28,36,21,22,12,21,17,22,27,27,15,25,23,52,35,23,58,30,24,43,15,23,29,22,44,25,12,25,11,31,13],"2SA":[27,32,39,12,25,23,29,18,13,19,27,31,39,33,37,23,29,33,43,26,22,51,39,25],"1KI":[53,46,28,34,18,38,51,66,28,29,43,33,34,31,34,34,24,46,21,43,29,54],"2KI":[18,25,27,44,27,33,20,29,37,36,21,21,25,29,38,20,41,37,37,21,26,20,37,20,30],"1CH":[54,55,24,43,26,81,40,40,44,14,47,40,14,17,29,43,27,17,19,8,30,19,32,31,31,32,34,21,30],"2CH":[17,18,17,22,14,42,22,18,31,19,23,16,22,15,19,14,19,34,11,37,20,12,21,27,28,23,9,27,36,27,21,33,25,33,27,23],"EZR":[11,70,13,24,17,22,28,36,15,44],"NEH":[11,20,32,23,19,19,73,18,38,39,36,47,31],"EST":[22,23,15,17,14,14,10,17,32,3],"JOB":[22,13,26,21,27,30,21,22,35,22,20,25,28,22,35,22,16,21,29,29,34,30,17,25,6,14,23,28,25,31,40,22,33,37,16,33,24,41,30,24,34,17],"PSA":[6,12,8,8,12,10,17,9,20,18,7,8,6,7,5,11,15,50,14,9,13,31,6,10,22,12,14,9,11,12,24,11,22,22,28,12,40,22,13,17,13,11,5,26,17,11,9,14,20,23,19,9,6,7,23,13,11,11,17,12,8,12,11,10,13,20,7,35,36,5,24,20,28,23,10,12,20,72,13,19,16,8,18,12,13,17,7,18,52,17,16,15,5,23,11,13,12,9,9,5,8,28,22,35,45,48,43,13,31,7,10,10,9,8,18,19,2,29,176,7,8,9,4,8,5,6,5,6,8,8,3,18,3,3,21,26,9,8,24,13,10,7,12,15,21,10,20,14,9,6],"PRO":[33,22,35,27,23,35,27,36,18,32,31,28,25,35,33,33,28,24,29,30,31,29,35,34,28,28,27,28,27,33,31],"ECC":[18,26,22,16,20,12,29,17,18,20,10,14],"SNG":[17,17,11,16,16,13,13,14],"ISA":[31,22,26,6,30,13,25,22,21,34,16,6,22,32,9,14,14,7,25,6,17,25,18,23,12,21,13,29,24,33,9,20,24,17,10,22,38,22,8,31,29,25,28,28,25,13,15,22,26,11,23,15,12,17,13,12,21,14,21,22,11,12,19,12,25,24],"JER":[19,37,25,31,31,30,34,22,26,25,23,17,27,22,21,21,27,23,15,18,14,30,40,10,38,24,22,17,32,24,40,44,26,22,19,32,21,28,18,16,18,22,13,30,5,28,7,47,39,46,64,34],"LAM":[22,22,66,22,22],"EZK":[28,10,27,17,17,14,27,18,11,22,25,28,23,23,8,63,24,32,14,49,32,31,49,27,17,21,36,26,21,26,18,32,33,31,15,38,28,23,29,49,26,20,27,31,25,24,23,35],"DAN":[21,49,30,37,31,28,28,27,27,21,45,13],"HOS":[11,23,5,19,15,11,16,14,17,15,12,14,16,9],"JOL":[20,32,21],"AMO":[15,16,15,13,27,14,17,14,15],"OBA":[21],"JON":[17,10,10,11],"MIC":[16,13,12,13,15,16,20],"NAM":[15,13,19],"HAB":[17,20,19],"ZEP":[18,15,20],"HAG":[15,23],"ZEC":[21,13,10,14,11,15,14,23,17,12,17,14,9,21],"MAL":[14,17,18,6],"MAT":[25,22,17,25,48,34,29,34,38,42,30,50,58,36,39,28,27,35,30,34,46,45,39,51,46,74,66,20],"MRK":[45,28,35,40,43,56,36,37,50,52,33,44,37,72,47,20],"LUK":[80,52,38,44,39,49,50,56,62,42,54,59,35,35,32,31,37,43,48,47,38,71,56,53],"JHN":[51,25,36,54,47,71,53,59,41,42,57,50,38,31,27,33,26,40,42,31,25],"ACT":[26,47,26,37,42,15,60,40,43,48,30,25,52,28,41,40,34,28,41,38,40,30,35,27,27,32,44,31],"ROM":[32,29,31,25,21,23,25,39,33,21,36,21,14,23,33,27],"1CO":[31,16,23,21,13,20,40,13,27,33,34,31,13,40,58,24],"2CO":[24,17,18,18,21,18,16,24,15,18,33,21,14],"GAL":[24,21,29,31,26,18],"EPH":[23,22,21,32,33,24],"PHP":[30,30,21,23],"COL":[29,23,25,18],"1TH":[10,20,13,18,28],"2TH":[12,17,18],"1TI":[20,15,16,16,25,21],"2TI":[18,26,17,22],"TIT":[16,15,15],"PHM":[25],"HEB":[14,18,19,16,14,20,28,13,28,39,40,29,25],"JAS":[27,26,18,17,20],"1PE":[25,25,22,19,14],"2PE":[21,22,18],"1JN":[10,29,24,21,21],"2JN":[13],"3JN":[15],"JUD":[25],"REV":[20,29,22,11,14,17,17,13,21,11,19,18,18,20,8,21,18,24,21,15,27,21]};
+
 const LOCALIZED_BOOKS = {"cuv":{"GEN":"\u5275\u4e16\u7d00","EXO":"\u51fa\u57c3\u53ca\u8a18","LEV":"\u5229\u672a\u8a18","NUM":"\u6c11\u6578\u8a18","DEU":"\u7533\u547d\u8a18","JOS":"\u7d04\u66f8\u4e9e\u8a18","JDG":"\u58eb\u5e2b\u8a18","RUT":"\u8def\u5f97\u8a18","1SA":"\u6492\u6bcd\u8033\u8a18\u4e0a","2SA":"\u6492\u6bcd\u8033\u8a18\u4e0b","1KI":"\u5217\u738b\u7d00\u4e0a","2KI":"\u5217\u738b\u7d00\u4e0b","1CH":"\u6b77\u4ee3\u5fd7\u4e0a","2CH":"\u6b77\u4ee3\u5fd7\u4e0b","EZR":"\u4ee5\u65af\u62c9\u8a18","NEH":"\u5c3c\u5e0c\u7c73\u8a18","EST":"\u4ee5\u65af\u5e16\u8a18","JOB":"\u7d04\u4f2f\u8a18","PSA":"\u8a69\u7bc7","PRO":"\u7bb4\u8a00","ECC":"\u50b3\u9053\u66f8","SNG":"\u96c5\u6b4c","ISA":"\u4ee5\u8cfd\u4e9e\u66f8","JER":"\u8036\u5229\u7c73\u66f8","LAM":"\u8036\u5229\u7c73\u54c0\u6b4c","EZK":"\u4ee5\u897f\u7d50\u66f8","DAN":"\u4f46\u4ee5\u7406\u66f8","HOS":"\u4f55\u897f\u963f\u66f8","JOL":"\u7d04\u73e5\u66f8","AMO":"\u963f\u6469\u53f8\u66f8","OBA":"\u4fc4\u5df4\u5e95\u4e9e\u66f8","JON":"\u7d04\u62ff\u66f8","MIC":"\u5f4c\u8fe6\u66f8","NAM":"\u90a3\u9d3b\u66f8","HAB":"\u54c8\u5df4\u8c37\u66f8","ZEP":"\u897f\u756a\u96c5\u66f8","HAG":"\u54c8\u8a72\u66f8","ZEC":"\u6492\u8fe6\u5229\u4e9e\u66f8","MAL":"\u746a\u62c9\u57fa\u66f8","MAT":"\u99ac\u592a\u798f\u97f3","MRK":"\u99ac\u53ef\u798f\u97f3","LUK":"\u8def\u52a0\u798f\u97f3","JHN":"\u7d04\u7ff0\u798f\u97f3","ACT":"\u4f7f\u5f92\u884c\u50b3","ROM":"\u7f85\u99ac\u66f8","1CO":"\u54e5\u6797\u591a\u524d\u66f8","2CO":"\u54e5\u6797\u591a\u5f8c\u66f8","GAL":"\u52a0\u62c9\u592a\u66f8","EPH":"\u4ee5\u5f17\u6240\u66f8","PHP":"\u8153\u5229\u6bd4\u66f8","COL":"\u6b4c\u7f85\u897f\u66f8","1TH":"\u5e16\u6492\u7f85\u5c3c\u8fe6\u524d\u66f8","2TH":"\u5e16\u6492\u7f85\u5c3c\u8fe6\u5f8c\u66f8","1TI":"\u63d0\u6469\u592a\u524d\u66f8","2TI":"\u63d0\u6469\u592a\u5f8c\u66f8","TIT":"\u63d0\u591a\u66f8","PHM":"\u8153\u5229\u9580\u66f8","HEB":"\u5e0c\u4f2f\u4f86\u66f8","JAS":"\u96c5\u5404\u66f8","1PE":"\u5f7c\u5f97\u524d\u66f8","2PE":"\u5f7c\u5f97\u5f8c\u66f8","1JN":"\u7d04\u7ff0\u58f9\u66f8","2JN":"\u7d04\u7ff0\u8cb3\u66f8","3JN":"\u7d04\u7ff0\u53c3\u66f8","JUD":"\u7336\u5927\u66f8","REV":"\u555f\u793a\u9304"},"bkr":{"GEN":"Genesis","EXO":"Exodus","LEV":"Leviticus","NUM":"Numeri","DEU":"Deuteronomium","JOS":"Jozue","JDG":"Soudc\u016f","RUT":"R\u00fat","1SA":"1. Samuel","2SA":"2. Samuel","1KI":"1. Kr\u00e1lovsk\u00e1","2KI":"2. Kr\u00e1lovsk\u00e1","1CH":"1. Paralipomenon","2CH":"2. Paralipomenon","EZR":"Ezdr\u00e1\u0161","NEH":"Nehemi\u00e1\u0161","EST":"Ester","JOB":"Job","PSA":"\u017dalmy","PRO":"P\u0159\u00edslov\u00ed","ECC":"Kazatel","SNG":"P\u00edse\u0148 p\u00edsn\u00ed","ISA":"Izai\u00e1\u0161","JER":"Jeremi\u00e1\u0161","LAM":"Pl\u00e1\u010d","EZK":"Ezechiel","DAN":"Daniel","HOS":"Oze\u00e1\u0161","JOL":"Joel","AMO":"Amos","OBA":"Abdi\u00e1\u0161","JON":"Jon\u00e1\u0161","MIC":"Miche\u00e1\u0161","NAM":"Nahum","HAB":"Abakuk","ZEP":"Sofoni\u00e1\u0161","HAG":"Ageus","ZEC":"Zachari\u00e1\u0161","MAL":"Malachi\u00e1\u0161","MAT":"Matou\u0161","MRK":"Marek","LUK":"Luk\u00e1\u0161","JHN":"Jan","ACT":"Skutky","ROM":"\u0158\u00edman\u016fm","1CO":"1. Korintsk\u00fdm","2CO":"2. Korintsk\u00fdm","GAL":"Galatsk\u00fdm","EPH":"Efesk\u00fdm","PHP":"Filipsk\u00fdm","COL":"Kolosk\u00fdm","1TH":"1. Tesalonick\u00fdm","2TH":"2. Tesalonick\u00fdm","1TI":"1. Timoteovi","2TI":"2. Timoteovi","TIT":"Titovi","PHM":"Filemonovi","HEB":"\u017did\u016fm","JAS":"Jakub","1PE":"1. Petr","2PE":"2. Petr","1JN":"1. Jan","2JN":"2. Jan","3JN":"3. Jan","JUD":"Juda","REV":"Zjeven\u00ed"},"clementine":{"GEN":"Genesis","EXO":"Exodus","LEV":"Leviticus","NUM":"Numeri","DEU":"Deuteronomium","JOS":"Josue","JDG":"Judicum","RUT":"Ruth","1SA":"Regum I","2SA":"Regum II","1KI":"Regum III","2KI":"Regum IV","1CH":"Paralipomenon I","2CH":"Paralipomenon II","EZR":"Esdr\u00e6","NEH":"Nehemi\u00e6","EST":"Tobi\u00e6","JOB":"Job","PSA":"Psalmi","PRO":"Proverbia","ECC":"Ecclesiastes","SNG":"Canticum Canticorum","ISA":"Isaias","JER":"Jeremias","LAM":"Lamentationes","EZK":"Ezechiel","DAN":"Daniel","HOS":"Osee","JOL":"Jo\u00ebl","AMO":"Amos","OBA":"Abdias","JON":"Jonas","MIC":"Mich\u00e6a","NAM":"Nahum","HAB":"Habacuc","ZEP":"Sophonias","HAG":"Agg\u00e6us","ZEC":"Zacharias","MAL":"Malachias","MAT":"Matth\u00e6us","MRK":"Marcus","LUK":"Lucas","JHN":"Joannes","ACT":"Actus Apostolorum","ROM":"ad Romanos","1CO":"ad Corinthios I","2CO":"ad Corinthios II","GAL":"ad Galatas","EPH":"ad Ephesios","PHP":"ad Philippenses","COL":"ad Colossenses","1TH":"ad Thessalonicenses I","2TH":"ad Thessalonicenses II","1TI":"ad Timotheum I","2TI":"ad Timotheum II","TIT":"ad Titum","PHM":"ad Philemonem","HEB":"ad Hebr\u00e6os","JAS":"Jacobi","1PE":"Petri I","2PE":"Petri II","1JN":"Joannis I","2JN":"Joannis II","3JN":"Joannis III","JUD":"Jud\u00e6","REV":"Apocalypsis"},"almeida":{"GEN":"G\u00eanesis","EXO":"\u00caxodo","LEV":"Lev\u00edtico","NUM":"N\u00fameros","DEU":"Deuteron\u00f4mio","JOS":"Josu\u00e9","JDG":"Ju\u00edzes","RUT":"Rute","1SA":"1 Samuel","2SA":"2 Samuel","1KI":"1 Reis","2KI":"2 Reis","1CH":"1 Cr\u00f4nicas","2CH":"2 Cr\u00f4nicas","EZR":"Esdras","NEH":"Neemias","EST":"Ester","JOB":"J\u00f3","PSA":"Salmos","PRO":"Prov\u00e9rbios","ECC":"Eclesiastes","SNG":"C\u00e2nticos","ISA":"Isa\u00edas","JER":"Jeremias","LAM":"Lamenta\u00e7\u00f5es","EZK":"Ezequiel","DAN":"Daniel","HOS":"Os\u00e9ias","JOL":"Joel","AMO":"Am\u00f3s","OBA":"Obadias","JON":"Jonas","MIC":"Miqu\u00e9ias","NAM":"Naum","HAB":"Habacuque","ZEP":"Sofonias","HAG":"Ageu","ZEC":"Zacarias","MAL":"Malaquias","MAT":"Mateus","MRK":"Marcos","LUK":"Lucas","JHN":"Jo\u00e3o","ACT":"Atos","ROM":"Romanos","1CO":"1 Cor\u00edntios","2CO":"2 Cor\u00edntios","GAL":"G\u00e1latas","EPH":"Ef\u00e9sios","PHP":"Filipenses","COL":"Colossenses","1TH":"1 Tessalonicenses","2TH":"2 Tessalonicenses","1TI":"1 Tim\u00f3teo","2TI":"2 Tim\u00f3teo","TIT":"Tito","PHM":"Filemom","HEB":"Hebreus","JAS":"Tiago","1PE":"1 Pedro","2PE":"2 Pedro","1JN":"1 Jo\u00e3o","2JN":"2 Jo\u00e3o","3JN":"3 Jo\u00e3o","JUD":"Judas","REV":"Apocalipse"},"rccv":{"GEN":"Geneza","EXO":"Exodul","LEV":"Leviticul","NUM":"Numeri","DEU":"Deuteronomul","JOS":"Iosua","JDG":"Judec\u0103tori","RUT":"Rut","1SA":"1 Samuel","2SA":"2 Samuel","1KI":"1 \u00cemp\u0103ra\u0163i","2KI":"2 \u00cemp\u0103ra\u0163i","1CH":"1 Cronici","2CH":"2 Cronici","EZR":"Ezra","NEH":"Neemia","EST":"Estera","JOB":"Iov","PSA":"Psalmii","PRO":"Proverbe","ECC":"Eclesiastul","SNG":"C\u00e2ntarea c\u00e2nt\u0103rilor","ISA":"Isaia","JER":"Ieremia","LAM":"Pl\u00e2ngerile lui Ieremia","EZK":"Ezechiel","DAN":"Daniel","HOS":"Osea","JOL":"Ioel","AMO":"Amos","OBA":"Obadia","JON":"Iona","MIC":"Mica","NAM":"Naum","HAB":"Habacuc","ZEP":"\u0162efania","HAG":"Hagai","ZEC":"Zaharia","MAL":"Maleahi","MAT":"Matei","MRK":"Marcu","LUK":"Luca","JHN":"Ioan","ACT":"Faptele apostolilor","ROM":"Romani","1CO":"1 Corinteni","2CO":"2 Corinteni","GAL":"Galateni","EPH":"Efeseni","PHP":"Filipeni","COL":"Coloseni","1TH":"1 Tesaloniceni","2TH":"2 Tesaloniceni","1TI":"1 Timotei","2TI":"2 Timotei","TIT":"Tit","PHM":"Filimon","HEB":"Evrei","JAS":"Iacov","1PE":"1 Petru","2PE":"2 Petru","1JN":"1 Ioan","2JN":"2 Ioan","3JN":"3 Ioan","JUD":"Iuda","REV":"Apocalipsa"},"cherokee":{"MAT":"\u13a3\u13cd\u13db \u13a7\u13c3\u13ae\u13db \u13b9\u13da \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","MRK":"\u13a3\u13cd\u13db \u13a7\u13c3\u13ae\u13db \u13b9\u13a6 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","LUK":"\u13a3\u13cd\u13db \u13a7\u13c3\u13ae\u13db \u13b7\u13a6 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","JHN":"\u13a3\u13cd\u13db \u13a7\u13c3\u13ae\u13db \u13e3\u13c2 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","ACT":"\u13a8\u13e5\u13c5\u13cf\u13db \u13c4\u13be\u13db\u13c1\u13b5\u13d9\u13b8\u13a2","ROM":"\u13c9\u13b3 \u13b6\u13bb \u13a0\u13c1\u13af \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","1CO":"\u13aa\u13b5\u13c2\u13d7\u13f1 \u13a0\u13c1\u13af \u13a2\u13ac\u13f1\u13f1 \u13a8\u13aa\u13ea\u13b3\u13c1\u13b8\u13af","2CO":"\u13aa\u13b5\u13c2\u13d7\u13f1 \u13a0\u13c1\u13af \u13d4\u13b5\u13c1 \u13a8\u13aa\u13ea\u13b3\u13c1\u13b8\u13af","GAL":"\u13c9\u13b3 \u13a8\u13b4\u13cf\u13f1 \u13a0\u13c1\u13af \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","EPH":"\u13c9\u13b3 \u13a1\u13c8\u13cc \u13a0\u13c1\u13af \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","PHP":"\u13c9\u13b3 \u13c8\u13b5\u13a9\u13f1 \u13a0\u13c1\u13af \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","COL":"\u13c9\u13b3 \u13aa\u13b6\u13cf \u13a0\u13c1\u13af \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","1TH":"\u13c9\u13b3 \u13d5\u13cf\u13b6\u13c2\u13a6 \u13a0\u13c1\u13af \u13a2\u13ac\u13f1\u13f1 \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","2TH":"\u13c9\u13b3 \u13d5\u13cf\u13b6\u13c2\u13a6 \u13a0\u13c1\u13af \u13d4\u13b5\u13c1 \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","1TI":"\u13c9\u13b3 \u13e7\u13ec\u13ea\u13b3\u13c5\u13af \u13a2\u13ac\u13f1\u13f1 \u13d7\u13b9\u13d7 \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","2TI":"\u13c9\u13b3 \u13e7\u13ec\u13ea\u13b3\u13c5\u13af \u13d4\u13b5\u13c1 \u13d7\u13b9\u13d7 \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","TIT":"\u13c9\u13b3 \u13d3\u13d3\u13cf \u13a4\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","PHM":"\u13c9\u13b3 \u13c6\u13b5\u13b9\u13c2 \u13a4\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","HEB":"\u13c9\u13b3 \u13a0\u13c2\u13c8\u13b7 \u13e7\u13ec\u13ea\u13b3\u13c1\u13b8\u13af","JAS":"\u13e5\u13bb \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","1PE":"\u13c8\u13d3 \u13a2\u13ac\u13f1\u13f1 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","2PE":"\u13c8\u13d3 \u13d4\u13b5\u13c1 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","1JN":"\u13e3\u13c2 \u13a2\u13ac\u13f1\u13f1 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","2JN":"\u13e3\u13c2 \u13d4\u13b5\u13c1 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","3JN":"\u13e3\u13c2 \u13e6\u13a2\u13c1 \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","JUD":"\u13e7\u13d3\u13cf \u13a4\u13ec\u13ea\u13b3\u13c5\u13af","REV":"\u13e3\u13c2 \u13c4\u13cd\u13db \u13a0\u13e5\u13be\u13c4\u13aa\u13eb\u13ce\u13b8\u13a2"},"synodal":{"GEN":"\u0411\u044b\u0442\u0438\u0435","EXO":"\u0418\u0441\u0445\u043e\u0434","LEV":"\u041b\u0435\u0432\u0438\u0442","NUM":"\u0427\u0438\u0441\u043b\u0430","DEU":"\u0412\u0442\u043e\u0440\u043e\u0437\u0430\u043a\u043e\u043d\u0438\u0435","JOS":"\u0418\u0438\u0441\u0443\u0441 \u041d\u0430\u0432\u0438\u043d","JDG":"\u0421\u0443\u0434\u044c\u0438","RUT":"\u0420\u0443\u0444\u044c","1SA":"1 \u0426\u0430\u0440\u0441\u0442\u0432","2SA":"2 \u0426\u0430\u0440\u0441\u0442\u0432","1KI":"3 \u0426\u0430\u0440\u0441\u0442\u0432","2KI":"4 \u0426\u0430\u0440\u0441\u0442\u0432","1CH":"1 \u041f\u0430\u0440\u0430\u043b\u0438\u043f\u043e\u043c\u0435\u043d\u043e\u043d","2CH":"2 \u041f\u0430\u0440\u0430\u043b\u0438\u043f\u043e\u043c\u0435\u043d\u043e\u043d","EZR":"\u0415\u0437\u0434\u0440\u0430","NEH":"\u041d\u0435\u0435\u043c\u0438\u044f","EST":"\u0415\u0441\u0444\u0438\u0440\u044c","JOB":"\u0418\u043e\u0432","PSA":"\u041f\u0441\u0430\u043b\u0442\u0438\u0440\u044c","PRO":"\u041f\u0440\u0438\u0442\u0447\u0438","ECC":"\u0415\u043a\u043a\u043b\u0435\u0437\u0438\u0430\u0441\u0442","SNG":"\u041f\u0435\u0441\u043d\u044c \u043f\u0435\u0441\u043d\u0435\u0439","ISA":"\u0418\u0441\u0430\u0438\u044f","JER":"\u0418\u0435\u0440\u0435\u043c\u0438\u044f","LAM":"\u041f\u043b\u0430\u0447 \u0418\u0435\u0440\u0435\u043c\u0438\u0438","EZK":"\u0418\u0435\u0437\u0435\u043a\u0438\u0438\u043b\u044c","DAN":"\u0414\u0430\u043d\u0438\u0438\u043b","HOS":"\u041e\u0441\u0438\u044f","JOL":"\u0418\u043e\u0438\u043b\u044c","AMO":"\u0410\u043c\u043e\u0441","OBA":"\u0410\u0432\u0434\u0438\u0439","JON":"\u0418\u043e\u043d\u0430","MIC":"\u041c\u0438\u0445\u0435\u0439","NAM":"\u041d\u0430\u0443\u043c","HAB":"\u0410\u0432\u0432\u0430\u043a\u0443\u043c","ZEP":"\u0421\u043e\u0444\u043e\u043d\u0438\u044f","HAG":"\u0410\u0433\u0433\u0435\u0439","ZEC":"\u0417\u0430\u0445\u0430\u0440\u0438\u044f","MAL":"\u041c\u0430\u043b\u0430\u0445\u0438\u044f","TOB":"\u0422\u043e\u0432\u0438\u0442","JDT":"\u0418\u0443\u0434\u0438\u0444\u044c","ESG":"\u0415\u0441\u0444\u0438\u0440\u044c (\u0413\u0440\u0435\u0447\u0435\u0441\u043a\u0430\u044f)","WIS":"\u041f\u0440\u0435\u043c\u0443\u0434\u0440\u043e\u0441\u0442\u044c \u0421\u043e\u043b\u043e\u043c\u043e\u043d\u0430","SIR":"\u0421\u0438\u0440\u0430\u0445","BAR":"\u0412\u0430\u0440\u0443\u0445","LJE":"\u041f\u043e\u0441\u043b\u0430\u043d\u0438\u0435 \u0418\u0435\u0440\u0435\u043c\u0438\u0438","S3Y":"\u041f\u0435\u0441\u043d\u044c \u0422\u0440\u0435\u0445 \u041e\u0442\u0440\u043e\u043a\u043e\u0432","SUS":"\u0421\u0443\u0441\u0430\u043d\u043d\u0430","BEL":"\u0411\u0435\u043b \u0438 \u0434\u0440\u0430\u043a\u043e\u043d","1MA":"1 \u041c\u0430\u043a\u043a\u0430\u0432\u0435\u0439\u0441\u043a\u0430\u044f","2MA":"2 \u041c\u0430\u043a\u043a\u0430\u0432\u0435\u0439\u0441\u043a\u0430\u044f","1ES":"1 \u0415\u0437\u0434\u0440\u044b","MAN":"\u041c\u043e\u043b\u0438\u0442\u0432\u0430 \u041c\u0430\u043d\u0430\u0441\u0441\u0438\u0438","PS2":"\u041f\u0441\u0430\u043b\u043e\u043c 151","3MA":"3 \u041c\u0430\u043a\u043a\u0430\u0432\u0435\u0439\u0441\u043a\u0430\u044f","2ES":"2 \u0415\u0437\u0434\u0440\u044b","4MA":"4 \u041c\u0430\u043a\u043a\u0430\u0432\u0435\u0439\u0441\u043a\u0430\u044f","MAT":"\u041c\u0430\u0442\u0444\u0435\u044f","MRK":"\u041c\u0430\u0440\u043a\u0430","LUK":"\u041b\u0443\u043a\u0438","JHN":"\u0418\u043e\u0430\u043d\u043d\u0430","ACT":"\u0414\u0435\u044f\u043d\u0438\u044f","ROM":"\u0420\u0438\u043c\u043b\u044f\u043d\u0430\u043c","1CO":"1 \u041a\u043e\u0440\u0438\u043d\u0444\u044f\u043d\u0430\u043c","2CO":"2 \u041a\u043e\u0440\u0438\u043d\u0444\u044f\u043d\u0430\u043c","GAL":"\u0413\u0430\u043b\u0430\u0442\u0430\u043c","EPH":"\u0415\u0444\u0435\u0441\u044f\u043d\u0430\u043c","PHP":"\u0424\u0438\u043b\u0438\u043f\u043f\u0438\u0439\u0446\u0430\u043c","COL":"\u041a\u043e\u043b\u043e\u0441\u0441\u044f\u043d\u0430\u043c","1TH":"1 \u0424\u0435\u0441\u0441\u0430\u043b\u043e\u043d\u0438\u043a\u0438\u0439\u0446\u0430\u043c","2TH":"2 \u0424\u0435\u0441\u0441\u0430\u043b\u043e\u043d\u0438\u043a\u0438\u0439\u0446\u0430\u043c","1TI":"1 \u0422\u0438\u043c\u043e\u0444\u0435\u044e","2TI":"2 \u0422\u0438\u043c\u043e\u0444\u0435\u044e","TIT":"\u0422\u0438\u0442\u0443","PHM":"\u0424\u0438\u043b\u0438\u043c\u043e\u043d\u0443","HEB":"\u0415\u0432\u0440\u0435\u044f\u043c","JAS":"\u0418\u0430\u043a\u043e\u0432\u0430","1PE":"1 \u041f\u0435\u0442\u0440\u0430","2PE":"2 \u041f\u0435\u0442\u0440\u0430","1JN":"1 \u0418\u043e\u0430\u043d\u043d\u0430","2JN":"2 \u0418\u043e\u0430\u043d\u043d\u0430","3JN":"3 \u0418\u043e\u0430\u043d\u043d\u0430","JUD":"\u0418\u0443\u0434\u044b","REV":"\u041e\u0442\u043a\u0440\u043e\u0432\u0435\u043d\u0438\u0435"}};
 
 const chapterCache = {};         // key = `${version}|${USFM}|${chapter}` -> {name, verses:Map}
@@ -510,14 +536,20 @@ async function showVerse(ref, sourceName){
       seen.add(tag);
       return true;
     });
-    if (!others.length) return '';
+    const fromNavigator = !current; // opened via navigator, no source place
+    if (!others.length){
+      return fromNavigator
+        ? `<div class="also-mentioned">No places mentioned in this verse.</div>`
+        : '';
+    }
     const links = others.map(o => {
       if (o.unlocated){
         return `<span class="place-unloc" title="Location unknown">${o.name}</span>`;
       }
       return `<a class="place-link" data-key="${o.key.replace(/"/g,'&quot;')}">${o.name}</a>`;
     }).join(', ');
-    return `<div class="also-mentioned">Also mentioned in this verse: ${links}</div>`;
+    const label = fromNavigator ? 'Mentioned in this verse' : 'Also mentioned in this verse';
+    return `<div class="also-mentioned">${label}: ${links}</div>`;
   }
 
   function setVerseHtml(html){
@@ -606,6 +638,8 @@ document.getElementById('mClose').onclick = closeVerseModal;
 ov.addEventListener('click', e => { if (e.target === ov) closeVerseModal(); });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape'){
+    const navEl = document.getElementById('navOv');
+    if (navEl && navEl.classList.contains('show')){ navEl.classList.remove('show'); return; }
     if (ov.classList.contains('show')) closeVerseModal();
     else if (document.getElementById('infoOv').classList.contains('show'))
       document.getElementById('infoOv').classList.remove('show');
@@ -627,8 +661,14 @@ function setQuery(v){
   refresh();
   buildSuggestions();
 }
-searchEl.addEventListener('input', e => setQuery(e.target.value));
-searchEl.addEventListener('focus', buildSuggestions);
+searchEl.addEventListener('input', e => {
+  document.getElementById('filterMenu').hidden = true;
+  setQuery(e.target.value);
+});
+searchEl.addEventListener('focus', () => {
+  document.getElementById('filterMenu').hidden = true;
+  buildSuggestions();
+});
 clearBtn.onclick = () => {
   searchEl.value = '';
   setQuery('');
@@ -737,6 +777,184 @@ function buildVersionDropdown(){
   syncLabel();
 }
 buildVersionDropdown();
+
+/* ---- Verse navigator ----
+   Header in the verse modal is a button; clicking it opens this picker over
+   the verse modal. Book names are localized to the current translation when a
+   table exists; otherwise English. Changing book clamps chapter and verse to
+   in-range (set to 1 if out). Clicking Go calls showVerse(); the renderer
+   handles the "Mentioned in this verse" footer when there's no source place. */
+const navOv = document.getElementById('navOv');
+const navBookSel = document.getElementById('navBook');
+const navChSel = document.getElementById('navChapter');
+const navVsSel = document.getElementById('navVerse');
+
+function localizedBook(usfm){
+  const t = (LOCALIZED_BOOKS[currentVersion] || {})[usfm];
+  if (t) return t;
+  const abbr = USFM_TO_ABBR[usfm];
+  return FULL[abbr] || abbr || usfm;
+}
+
+function buildNavBookOptions(){
+  let html = '';
+  html += '<optgroup label="Old Testament">';
+  CANON_ORDER.forEach(usfm => {
+    if (!OT_USFM.has(usfm)) return;
+    if (!VERSE_COUNTS[usfm]) return;
+    html += `<option value="${usfm}">${localizedBook(usfm)}</option>`;
+  });
+  html += '</optgroup><optgroup label="New Testament">';
+  CANON_ORDER.forEach(usfm => {
+    if (OT_USFM.has(usfm)) return;
+    if (!VERSE_COUNTS[usfm]) return;
+    html += `<option value="${usfm}">${localizedBook(usfm)}</option>`;
+  });
+  html += '</optgroup>';
+  navBookSel.innerHTML = html;
+}
+
+function fillRange(sel, n, value){
+  let html = '';
+  for (let i = 1; i <= n; i++) html += `<option value="${i}">${i}</option>`;
+  sel.innerHTML = html;
+  sel.value = String(Math.max(1, Math.min(n, value)));
+}
+
+function syncChapterAndVerse(prevCh, prevVs){
+  const usfm = navBookSel.value;
+  const chapters = VERSE_COUNTS[usfm] || [];
+  const newCh = (prevCh && prevCh <= chapters.length) ? prevCh : 1;
+  fillRange(navChSel, chapters.length, newCh);
+  const verses = chapters[parseInt(navChSel.value, 10) - 1] || 1;
+  const newVs = (prevVs && prevVs <= verses) ? prevVs : 1;
+  fillRange(navVsSel, verses, newVs);
+}
+
+function openNavigator(){
+  buildNavBookOptions();
+  // Seed from the currently-shown ref, or default to Genesis 1:1.
+  let usfm = 'GEN', ch = 1, vs = 1;
+  if (activeRef){
+    const m = activeRef.match(/^(.*?)\s+(\d+):(\d+)$/);
+    if (m){ usfm = USFM[m[1]] || 'GEN'; ch = +m[2]; vs = +m[3]; }
+  }
+  navBookSel.value = usfm;
+  if (!navBookSel.value) navBookSel.value = 'GEN';
+  syncChapterAndVerse(ch, vs);
+  navOv.classList.add('show');
+}
+
+navBookSel.addEventListener('change', () => syncChapterAndVerse(
+  parseInt(navChSel.value, 10), parseInt(navVsSel.value, 10)
+));
+navChSel.addEventListener('change', () => {
+  const usfm = navBookSel.value;
+  const verses = (VERSE_COUNTS[usfm] || [])[parseInt(navChSel.value, 10) - 1] || 1;
+  const prev = parseInt(navVsSel.value, 10);
+  fillRange(navVsSel, verses, prev);
+});
+
+document.getElementById('navGo').onclick = () => {
+  const usfm = navBookSel.value;
+  const ch = parseInt(navChSel.value, 10);
+  const vs = parseInt(navVsSel.value, 10);
+  const abbr = USFM_TO_ABBR[usfm];
+  if (!abbr) return;
+  navOv.classList.remove('show');
+  // sourceName = null so the renderer will compute the "Mentioned in this verse"
+  // footer instead of an "also mentioned" footer.
+  showVerse(`${abbr} ${ch}:${vs}`, null);
+};
+document.getElementById('navClose').onclick = () => navOv.classList.remove('show');
+navOv.addEventListener('click', e => { if (e.target === navOv) navOv.classList.remove('show'); });
+
+document.getElementById('mRef').addEventListener('click', () => {
+  if (ov.classList.contains('show')) openNavigator();
+});
+
+/* ---- Book filter (in search bar) ---- */
+const filterBtn = document.getElementById('filterBtn');
+const filterMenu = document.getElementById('filterMenu');
+
+function buildFilterMenu(){
+  // Track selection set: a Set of USFM codes that are checked.
+  // null bookFilter == everything checked.
+  const checked = bookFilter ? new Set(bookFilter) : new Set(CANON_ORDER);
+
+  function row(label, checkedFlag, attrs){
+    return `<label class="fm-row" ${attrs}><input type="checkbox" ${checkedFlag ? 'checked' : ''}>${label}</label>`;
+  }
+  const allOn = checked.size === CANON_ORDER.length;
+  const otCount = CANON_ORDER.filter(b => OT_USFM.has(b)).length;
+  const otOn = CANON_ORDER.filter(b => OT_USFM.has(b) && checked.has(b)).length === otCount;
+  const ntCount = CANON_ORDER.length - otCount;
+  const ntOn = CANON_ORDER.filter(b => !OT_USFM.has(b) && checked.has(b)).length === ntCount;
+
+  let html = '';
+  html += row('<strong>Select all</strong>', allOn, 'data-action="all"');
+  html += '<div class="fm-divider"></div>';
+  html += row('<strong>Old Testament</strong>', otOn, 'data-action="ot"');
+  CANON_ORDER.forEach(usfm => {
+    if (!OT_USFM.has(usfm)) return;
+    html += row(localizedBook(usfm), checked.has(usfm), `data-book="${usfm}"`);
+  });
+  html += '<div class="fm-divider"></div>';
+  html += row('<strong>New Testament</strong>', ntOn, 'data-action="nt"');
+  CANON_ORDER.forEach(usfm => {
+    if (OT_USFM.has(usfm)) return;
+    html += row(localizedBook(usfm), checked.has(usfm), `data-book="${usfm}"`);
+  });
+  filterMenu.innerHTML = html;
+  filterMenu._checked = checked;
+}
+
+function applyBookFilterFromUI(){
+  const c = filterMenu._checked;
+  bookFilter = (c.size === CANON_ORDER.length) ? null : new Set(c);
+  filterBtn.classList.toggle('on', !!bookFilter);
+  refresh();
+  buildSuggestions();
+}
+
+filterBtn.onclick = (e) => {
+  e.stopPropagation();
+  if (!filterMenu.hidden){ filterMenu.hidden = true; return; }
+  document.getElementById('suggest').classList.remove('show');
+  buildFilterMenu();
+  filterMenu.hidden = false;
+};
+
+filterMenu.addEventListener('change', e => {
+  const cb = e.target;
+  if (cb.type !== 'checkbox') return;
+  const row = cb.closest('label.fm-row');
+  const checked = filterMenu._checked;
+  const action = row && row.dataset.action;
+  if (action === 'all'){
+    if (cb.checked) CANON_ORDER.forEach(b => checked.add(b));
+    else checked.clear();
+  } else if (action === 'ot'){
+    if (cb.checked) CANON_ORDER.forEach(b => { if (OT_USFM.has(b)) checked.add(b); });
+    else CANON_ORDER.forEach(b => { if (OT_USFM.has(b)) checked.delete(b); });
+  } else if (action === 'nt'){
+    if (cb.checked) CANON_ORDER.forEach(b => { if (!OT_USFM.has(b)) checked.add(b); });
+    else CANON_ORDER.forEach(b => { if (!OT_USFM.has(b)) checked.delete(b); });
+  } else {
+    const b = row && row.dataset.book;
+    if (b){
+      if (cb.checked) checked.add(b); else checked.delete(b);
+    }
+  }
+  buildFilterMenu(); // rebuild to sync the parent checkboxes
+  applyBookFilterFromUI();
+});
+
+document.addEventListener('click', e => {
+  if (!filterMenu.hidden && !e.target.closest('#filterMenu') && !e.target.closest('#filterBtn')){
+    filterMenu.hidden = true;
+  }
+});
 
 /* ---- URL state + browser history ----
    Each navigable view (closed / place open / verse open) is a history entry.
