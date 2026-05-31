@@ -737,8 +737,18 @@ document.getElementById('mBody').addEventListener('click', e => {
   if (!r) return;
   ov.classList.remove('show');
   activeRef = null; activeSourceName = null;
-  map.setView([r.lat, r.lng], Math.max(map.getZoom(), 10), {animate:true});
-  openPanel(r);
+  // Centre on the marker first, then open the panel. The setView animation
+  // is asynchronous, so listen for moveend before letting openPanel run its
+  // covered-check — otherwise the marker's screen position would be read
+  // mid-flight and the check would misfire.
+  const targetZoom = Math.max(map.getZoom(), 10);
+  if (map.getZoom() === targetZoom &&
+      map.getCenter().distanceTo([r.lat, r.lng]) < 1){
+    openPanel(r);
+  } else {
+    map.once('moveend', () => openPanel(r));
+    map.setView([r.lat, r.lng], targetZoom, {animate:true});
+  }
 });
 function closeVerseModal(){
   // Close in place — distinct from the back button. The × dismisses the verse
