@@ -125,7 +125,12 @@ a.verse:hover{border-bottom-style:solid}
 #ov.show,#infoOv.show{display:flex}
 .modal{background:var(--paper);border-radius:14px;max-width:520px;width:100%;max-height:80vh;
   display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4);overflow:hidden}
-.m-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.m-head{display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.m-nav{border:none;background:transparent;cursor:pointer;color:var(--muted);
+  font-size:22px;line-height:1;padding:0 4px;font-family:inherit;flex-shrink:0;
+  border-radius:6px}
+.m-nav:hover{background:#0000000d;color:var(--ink)}
+.m-nav:disabled{opacity:.35;cursor:default;background:transparent;color:var(--muted)}
 .m-ref{font-family:'Spectral',Georgia,serif;font-weight:600;font-size:18px;flex:1;min-width:0}
 .m-ref-btn{border:none;background:transparent;text-align:left;cursor:pointer;
   padding:0;color:var(--ink);
