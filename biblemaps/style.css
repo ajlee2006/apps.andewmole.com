@@ -172,6 +172,15 @@ a.verse:hover{border-bottom-style:solid}
 }
 #filterMenu .fm-label{flex:1;min-width:0}
 #filterMenu .fm-divider{height:1px;background:var(--line);margin:4px 0}
+#filterMenu .fm-arrow{
+  border:none;background:transparent;cursor:pointer;padding:0;
+  width:16px;height:16px;display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:11px;line-height:1;border-radius:4px;
+  transition:transform .12s ease;flex-shrink:0;margin-left:auto
+}
+#filterMenu .fm-arrow:hover{background:#0000000d;color:var(--ink)}
+#filterMenu .fm-arrow.collapsed{transform:rotate(-90deg)}
+#filterMenu .fm-group-row{gap:6px}
 .m-version{position:relative;font-family:inherit}
 .m-version-btn{border:1px solid var(--line);background:#fff;color:var(--ink);
   border-radius:8px;padding:4px 22px 4px 8px;font-size:12px;cursor:pointer;
