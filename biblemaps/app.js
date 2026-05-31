@@ -401,7 +401,25 @@ function openPanel(r){
   else { subEl.textContent = ''; subEl.style.display = 'none'; }
   panel.classList.add('with-swatch');
   document.getElementById('pStar').classList.toggle('on', starred.has(r.key));
-  let html = `<div class="verses">${renderVerses(r.verses, r.name)}</div>`;
+  // Image (from openbible.info). Try the canonical name first, then any AKA.
+  let imgEntry = placeImages[r.name];
+  if (!imgEntry && r.akas){
+    for (const a of r.akas){
+      if (placeImages[a[0]]){ imgEntry = placeImages[a[0]]; break; }
+    }
+  }
+  let html = '';
+  if (imgEntry){
+    const atlas = imgEntry.atlas
+      ? `<a class="p-img-link" href="${imgEntry.atlas}" target="_blank" rel="noopener" title="View on OpenBible.info">↗</a>`
+      : '';
+    html += `<div class="p-img-wrap${imagesHidden ? ' hidden' : ''}">
+      <img class="p-img" src="${imgEntry.img}" alt="" loading="lazy">
+      <button class="p-img-toggle" type="button" title="${imagesHidden ? 'Show image' : 'Hide image'}">${imagesHidden ? 'Show image' : 'Hide image'}</button>
+      ${atlas}
+    </div>`;
+  }
+  html += `<div class="verses">${renderVerses(r.verses, r.name)}</div>`;
   if (r.akas && r.akas.length){
     html += `<div class="aka-label">Also known as</div>`;
     r.akas.forEach(a => {
@@ -440,6 +458,16 @@ document.getElementById('pStar').onclick = () => {
   setSelected(current);
 };
 document.getElementById('pBody').addEventListener('click', e => {
+  const tog = e.target.closest('.p-img-toggle');
+  if (tog){
+    imagesHidden = !imagesHidden;
+    try { localStorage.setItem('bible_images_hidden', imagesHidden ? '1' : '0'); } catch(_){}
+    const wrap = tog.closest('.p-img-wrap');
+    wrap.classList.toggle('hidden', imagesHidden);
+    tog.textContent = imagesHidden ? 'Show image' : 'Hide image';
+    tog.title = tog.textContent;
+    return;
+  }
   const a = e.target.closest('a.verse'); if (!a) return;
   showVerse(a.dataset.ref, a.dataset.src || null);
 });
@@ -1164,6 +1192,20 @@ function dispatchPendingState(){
   pendingState = null;
 }
 
+
+const placeImages = {}; // name -> {img, atlas}
+let imagesHidden = false;
+try { imagesHidden = localStorage.getItem('bible_images_hidden') === '1'; } catch(e){}
+
+fetch('place_images.json')
+  .then(r => r.ok ? r.json() : null)
+  .then(data => {
+    if (!data) return;
+    Object.assign(placeImages, data);
+    // If a panel is already open, re-render so the image appears.
+    if (current) openPanel(current);
+  })
+  .catch(() => { /* optional file; ignore */ });
 
 fetch('result.json')
   .then(r => {
