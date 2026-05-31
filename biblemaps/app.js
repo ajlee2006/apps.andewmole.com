@@ -883,12 +883,23 @@ const filterMenu = document.getElementById('filterMenu');
 // The single source of truth for what's checked. Persists across menu rebuilds.
 const filterChecked = new Set(CANON_ORDER);
 
+// Whether each testament group is expanded in the filter menu
+const fmCollapsed = { ot: false, nt: false };
+
 function buildFilterMenu(){
   function row(label, state, attrs){
     // state: 'on' | 'off' | 'partial'
     const ariaChecked = state === 'on' ? 'true' : state === 'partial' ? 'mixed' : 'false';
     return `<div class="fm-row" role="checkbox" tabindex="0" aria-checked="${ariaChecked}" data-state="${state}" ${attrs}>
       <span class="fm-check"></span><span class="fm-label">${label}</span>
+    </div>`;
+  }
+  function groupRow(label, state, action, group){
+    const collapsed = fmCollapsed[group];
+    const ariaChecked = state === 'on' ? 'true' : state === 'partial' ? 'mixed' : 'false';
+    return `<div class="fm-row fm-group-row" role="checkbox" tabindex="0" aria-checked="${ariaChecked}" data-state="${state}" data-action="${action}">
+      <span class="fm-check"></span><span class="fm-label"><strong>${label}</strong></span>
+      <button class="fm-arrow${collapsed ? ' collapsed' : ''}" data-toggle="${group}" aria-label="${collapsed ? 'Expand' : 'Collapse'}" tabindex="-1">▾</button>
     </div>`;
   }
   function groupState(predicate){
@@ -905,17 +916,21 @@ function buildFilterMenu(){
   let html = '';
   html += row('<strong>Select all</strong>', allState, 'data-action="all"');
   html += '<div class="fm-divider"></div>';
-  html += row('<strong>Old Testament</strong>', otState, 'data-action="ot"');
-  CANON_ORDER.forEach(usfm => {
-    if (!OT_USFM.has(usfm)) return;
-    html += row(localizedBook(usfm), filterChecked.has(usfm) ? 'on' : 'off', `data-book="${usfm}"`);
-  });
+  html += groupRow('Old Testament', otState, 'ot', 'ot');
+  if (!fmCollapsed.ot){
+    CANON_ORDER.forEach(usfm => {
+      if (!OT_USFM.has(usfm)) return;
+      html += row(localizedBook(usfm), filterChecked.has(usfm) ? 'on' : 'off', `data-book="${usfm}"`);
+    });
+  }
   html += '<div class="fm-divider"></div>';
-  html += row('<strong>New Testament</strong>', ntState, 'data-action="nt"');
-  CANON_ORDER.forEach(usfm => {
-    if (OT_USFM.has(usfm)) return;
-    html += row(localizedBook(usfm), filterChecked.has(usfm) ? 'on' : 'off', `data-book="${usfm}"`);
-  });
+  html += groupRow('New Testament', ntState, 'nt', 'nt');
+  if (!fmCollapsed.nt){
+    CANON_ORDER.forEach(usfm => {
+      if (OT_USFM.has(usfm)) return;
+      html += row(localizedBook(usfm), filterChecked.has(usfm) ? 'on' : 'off', `data-book="${usfm}"`);
+    });
+  }
   filterMenu.innerHTML = html;
 }
 
@@ -967,6 +982,13 @@ function toggleRow(row){
 
 filterMenu.addEventListener('click', e => {
   e.stopPropagation();
+  const arrow = e.target.closest('.fm-arrow');
+  if (arrow){
+    const g = arrow.dataset.toggle;
+    fmCollapsed[g] = !fmCollapsed[g];
+    buildFilterMenu();
+    return;
+  }
   const row = e.target.closest('.fm-row');
   if (!row) return;
   toggleRow(row);
