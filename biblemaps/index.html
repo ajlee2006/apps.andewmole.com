@@ -18,10 +18,14 @@
 <div id="bar">
   <div class="barRow">
     <input id="search" placeholder="Search places…" autocomplete="off">
-    <button class="pill" id="searchClear" title="Clear search" aria-label="Clear search">✕</button>
+    <button class="pill iconpill" id="searchClear" title="Clear search" aria-label="Clear search">✕</button>
+    <button class="pill iconpill" id="filterBtn" title="Filter by book" aria-label="Filter by book">
+      <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M2 3h12l-4.5 5.5V14l-3-1.5V8.5z"/></svg>
+    </button>
   </div>
   <div id="count"></div>
   <div id="suggest"></div>
+  <div id="filterMenu" hidden></div>
 </div>
 
 <div id="layerSwatch" title="Switch basemap"><div class="lbl" id="layerLbl">Map</div></div>
@@ -45,7 +49,7 @@
 <div id="ov">
   <div class="modal">
     <div class="m-head">
-      <div class="m-ref" id="mRef"></div>
+      <button type="button" id="mRef" class="m-ref m-ref-btn" title="Jump to verse"></button>
       <div class="m-version" id="mVersion" title="Translation">
         <button type="button" id="mVersionBtn" class="m-version-btn" aria-haspopup="listbox" aria-expanded="false">
           <span id="mVersionLabel">KJV</span>
@@ -55,6 +59,24 @@
       <button class="x" id="mClose">✕</button>
     </div>
     <div class="m-body" id="mBody"></div>
+  </div>
+</div>
+
+<div id="navOv">
+  <div class="modal nav-modal">
+    <div class="m-head">
+      <div class="m-ref">Go to verse</div>
+      <button class="x" id="navClose">✕</button>
+    </div>
+    <div class="nav-body">
+      <div class="nav-row">
+        <select id="navBook" class="nav-select"></select>
+        <select id="navChapter" class="nav-select short"></select>
+        <span class="nav-sep">:</span>
+        <select id="navVerse" class="nav-select short"></select>
+      </div>
+      <button id="navGo" class="nav-go">Go</button>
+    </div>
   </div>
 </div>
 
