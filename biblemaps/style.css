@@ -150,7 +150,8 @@ a.verse:hover{border-bottom-style:solid}
 #filterMenu .fm-group{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
   color:var(--muted);padding:6px 12px 2px;font-weight:600}
 #filterMenu .fm-row{display:flex;align-items:center;gap:10px;
-  padding:6px 12px;cursor:pointer;user-select:none;outline:none}
+  padding:6px 12px 6px 42px;cursor:pointer;user-select:none;outline:none}
+#filterMenu .fm-group-row{padding-left:12px;gap:6px}
 #filterMenu .fm-row:hover{background:#f1ead8}
 #filterMenu .fm-row:focus-visible{background:#f1ead8;box-shadow:inset 0 0 0 2px var(--gold)}
 #filterMenu .fm-check{
@@ -178,7 +179,7 @@ a.verse:hover{border-bottom-style:solid}
   border:none;background:transparent;cursor:pointer;padding:0;
   width:24px;height:24px;display:flex;align-items:center;justify-content:center;
   color:var(--muted);font-size:18px;line-height:1;border-radius:4px;
-  transition:transform .12s ease;flex-shrink:0;margin-left:auto
+  transition:transform .12s ease;flex-shrink:0
 }
 #filterMenu .fm-arrow:hover{background:#0000000d;color:var(--ink)}
 #filterMenu .fm-arrow.collapsed{transform:rotate(-90deg)}
