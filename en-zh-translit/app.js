@@ -711,9 +711,9 @@ function renderTable(showPinyin) {
       if (alt) alts.push(alt);
       if (fu)  alts.push(fu);
       if (alts.length) {
-        cell += '<span class="alt">(';
+        cell += '<span class="alt">';
         for (const a of alts) cell += renderHanziWithPinyin(a, showPinyin);
-        cell += ')</span>';
+        cell += '</span>';
       }
       html += `<td>${cell}</td>`;
     }
