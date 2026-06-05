@@ -7,6 +7,7 @@
   --border-strong: #d1d5db;
   --accent: #2563eb;
   --accent-soft: #eff6ff;
+  --accent-soft-2: #e0ebff;
 }
 * { box-sizing: border-box; }
 html, body {
@@ -32,9 +33,7 @@ html, body {
 }
 .back-link:hover { color: var(--accent); }
 
-.page-header {
-  margin-bottom: 24px;
-}
+.page-header { margin-bottom: 24px; }
 .page-header h1 {
   font-size: 24px;
   font-weight: 600;
@@ -64,14 +63,8 @@ html, body {
   transition: background 0.12s, border-color 0.12s;
 }
 .btn:hover { background: #f3f4f6; border-color: #9ca3af; }
-.btn:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-.btn-secondary span[aria-hidden] {
-  color: var(--accent);
-  font-size: 14px;
-}
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn-secondary span[aria-hidden] { color: var(--accent); font-size: 14px; }
 
 .panel {
   background: var(--panel);
@@ -157,11 +150,10 @@ textarea:focus {
 }
 .output-box.with-pinyin { line-height: 2.6; padding-top: 24px; }
 
-/* Each transliterated word stays together — no mid-word line breaks */
-.word {
-  display: inline-block;
-  white-space: nowrap;
-}
+/* Each transliterated word stays together — no mid-word line breaks.
+   NOTE: inline (NOT inline-block) so that border-bottom (g2p dashed
+   underline) hugs the text baseline rather than the line-box bottom. */
+.word { white-space: nowrap; }
 .g2p {
   border-bottom: 1px dashed var(--muted);
   cursor: help;
@@ -188,7 +180,7 @@ summary { cursor: pointer; user-select: none; }
   overflow-wrap: break-word;
   line-height: 1.6;
 }
-.ipa-line .word { font-style: italic; }
+/* (no italics on IPA) */
 
 /* ============== Modal ============== */
 #table-modal {
@@ -196,7 +188,7 @@ summary { cursor: pointer; user-select: none; }
   border-radius: 12px;
   padding: 0;
   max-width: 95vw;
-  width: 1150px;
+  width: 1100px;
   max-height: 92vh;
   background: var(--panel);
   color: var(--text);
@@ -214,16 +206,8 @@ summary { cursor: pointer; user-select: none; }
   border-bottom: 1px solid var(--border);
   background: var(--panel);
 }
-.modal-header h2 {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 600;
-}
-.modal-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
+.modal-header h2 { margin: 0; font-size: 17px; font-weight: 600; }
+.modal-header-actions { display: flex; align-items: center; gap: 16px; }
 #close-modal {
   background: none;
   border: none;
@@ -247,82 +231,90 @@ summary { cursor: pointer; user-select: none; }
 .modal-source a:hover { text-decoration: underline; }
 
 .modal-body {
-  padding: 16px 20px 24px;
+  padding: 12px 20px 20px;
   overflow: auto;
   max-height: calc(92vh - 110px);
 }
 
+/* ============== Transcription table ============== */
 table.translit-table {
   border-collapse: separate;
   border-spacing: 0;
   font-size: 14px;
   width: 100%;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
 }
 table.translit-table th,
 table.translit-table td {
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  padding: 8px 8px;
+  padding: 4px 6px;
   text-align: center;
   vertical-align: middle;
-  min-width: 40px;
 }
-table.translit-table th:last-child,
-table.translit-table td:last-child { border-right: none; }
+table.translit-table thead th { border-top: 1px solid var(--border); }
+table.translit-table th:first-child,
+table.translit-table td:first-child { border-left: 1px solid var(--border); }
 table.translit-table tr:last-child td,
-table.translit-table tr:last-child th { border-bottom: none; }
+table.translit-table tr:last-child th { /* keep border-bottom for clean grid */ }
 
+/* Column headers (top, sticky) */
 table.translit-table thead th {
-  background: #f3f4f6;
+  background: var(--accent-soft);
+  color: var(--accent);
   font-size: 13px;
   font-weight: 600;
-  color: var(--text);
   position: sticky;
   top: 0;
   z-index: 2;
-  padding: 10px 8px;
+  padding: 8px 6px;
 }
+/* Row headers (left, sticky, narrow + wrap) */
 table.translit-table tbody th {
-  background: #f9fafb;
+  background: var(--accent-soft);
+  color: var(--accent);
   font-size: 12px;
-  font-weight: 500;
-  color: var(--muted);
+  font-weight: 600;
   text-align: right;
-  padding: 8px 12px;
-  white-space: nowrap;
+  padding: 4px 10px;
   position: sticky;
   left: 0;
   z-index: 1;
+  width: 110px;
+  max-width: 110px;
+  white-space: normal;
+  line-height: 1.35;
 }
-table.translit-table tbody tr:hover td {
-  background: #fafbfc;
+/* Top-left intersection cell — sticks both directions, sits on top */
+table.translit-table thead th:first-child {
+  left: 0;
+  z-index: 3;
+  width: 110px;
+  max-width: 110px;
 }
+
 table.translit-table td {
-  font-size: 20px;
-  line-height: 1.6;
+  font-size: 18px;
+  line-height: 1.45;
   color: var(--text);
+  white-space: nowrap;          /* multi-char cells like 比尤 stay on one line */
+  background: var(--panel);     /* opaque so sticky headers don't show through */
 }
 table.translit-table.with-pinyin td {
-  line-height: 2.5;
-  padding-top: 14px;
-  font-size: 18px;
+  line-height: 2.1;
+  padding-top: 10px;
+  font-size: 17px;
 }
-table.translit-table td.empty {
-  background: #fcfcfd;
-  color: #cfd4dc;
-}
+table.translit-table td.empty { color: #cfd4dc; background: #fcfcfd; }
 table.translit-table td.empty::before { content: "—"; font-size: 12px; }
 
-/* Female / word-initial alternate characters inside table cells */
+table.translit-table tbody tr:hover td:not(.empty) { background: #fafbff; }
+
+/* Alt characters — parens via CSS only (no double parens) */
 table.translit-table .alt {
   display: inline-block;
   margin-left: 4px;
   color: var(--muted);
 }
-table.translit-table .alt::before { content: "("; margin-right: 1px; }
-table.translit-table .alt::after  { content: ")"; margin-left: 1px; }
-/* Don't shrink the alt to unreadable size when pinyin is on */
-table.translit-table.with-pinyin .alt { font-size: 0.85em; }
+table.translit-table .alt::before { content: "("; }
+table.translit-table .alt::after  { content: ")"; }
+table.translit-table.with-pinyin .alt { font-size: 0.9em; }
