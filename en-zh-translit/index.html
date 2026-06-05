@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>English → Chinese Transliterator</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+  <h1>English → Chinese Transliterator</h1>
+  <p class="subtitle">Phonetic transliteration based on Xinhua's "Names of the World's Peoples" table.</p>
+
+  <div class="panel">
+    <label class="field-label" for="input">English text</label>
+    <textarea id="input" placeholder="Type or paste English text — e.g. names, places, sentences."></textarea>
+    <div class="controls">
+      <label class="toggle">
+        <input type="checkbox" id="female">
+        Female-name characters
+      </label>
+      <span class="status" id="status">Loading dictionary…</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <label class="field-label">Chinese</label>
+    <div class="output-box empty" id="output">Output will appear here.</div>
+    <details>
+      <summary>Show IPA</summary>
+      <div class="ipa-line" id="ipa-line">—</div>
+    </details>
+  </div>
+
+  <footer>Words not in the CMU dictionary are shown wrapped in *asterisks*.</footer>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
