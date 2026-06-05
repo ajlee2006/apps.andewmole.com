@@ -4,20 +4,33 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>English → Chinese Transliterator</title>
+<link rel="icon" href="/andewmole.png" type="image/png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="container">
+  <nav class="topnav">
+    <a href="/" class="back-link">← Back to home</a>
+  </nav>
+
   <h1>English → Chinese Transliterator</h1>
-  <p class="subtitle">Phonetic transliteration based on Xinhua's "Names of the World's Peoples" table.</p>
+  <p class="subtitle">
+    Phonetic transliteration based on Xinhua's "Names of the World's Peoples" table
+    (<a href="https://en.wikipedia.org/wiki/Transcription_into_Chinese_characters" target="_blank" rel="noopener">Wikipedia</a>).
+    <button class="link-button" id="show-table-btn">View transcription table</button>
+  </p>
 
   <div class="panel">
     <label class="field-label" for="input">English text</label>
-    <textarea id="input" placeholder="Type or paste English text — e.g. names, places, sentences."></textarea>
+    <textarea id="input" placeholder="Type or paste English text — names, places, sentences."></textarea>
     <div class="controls">
       <label class="toggle">
         <input type="checkbox" id="female">
         Female-name characters
+      </label>
+      <label class="toggle">
+        <input type="checkbox" id="pinyin">
+        Show pinyin
       </label>
       <span class="status" id="status">Loading dictionary…</span>
     </div>
@@ -31,9 +44,21 @@
       <div class="ipa-line" id="ipa-line">—</div>
     </details>
   </div>
-
-  <footer>Words not in the CMU dictionary are shown wrapped in *asterisks*.</footer>
 </div>
+
+<dialog id="table-modal">
+  <div class="modal-header">
+    <h2>Transcription table</h2>
+    <button id="close-modal" aria-label="Close" title="Close">×</button>
+  </div>
+  <div class="modal-controls">
+    <label class="toggle">
+      <input type="checkbox" id="table-pinyin" checked>
+      Show pinyin
+    </label>
+  </div>
+  <div class="modal-body" id="table-container"></div>
+</dialog>
 
 <script type="module" src="app.js"></script>
 </body>
