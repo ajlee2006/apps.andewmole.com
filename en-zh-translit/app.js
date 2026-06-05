@@ -614,19 +614,19 @@ async function transliterateTagged(text, female) {
   const dict = cmudict;
   const parts = text.match(/[A-Za-z']+|[^\sA-Za-z']+|\s+/g) || [];
 
-  const segments = []; // { type: 'word'|'punct'|'space', zh, source?: 'dict'|'g2p' }
+  const segments = []; // { type: 'word'|'punct'|'space', zh, source?: 'dict'|'g2p', ipa? }
   for (const p of parts) {
     if (/^\s+$/.test(p)) {
-      segments.push({ type: 'space', zh: ' ' });
+      segments.push({ type: 'space', zh: ' ', ipa: ' ' });
     } else if (/^[A-Za-z']+$/.test(p) && /[A-Za-z]/.test(p)) {
       const arpa = dict[p.toLowerCase()];
       let ipa, source;
       if (arpa) { ipa = arpaWordToIpa(arpa); source = 'dict'; }
       else      { ipa = g2p(p); source = 'g2p'; }
       const zh = transliterateWordSync(p, ipa, female);
-      segments.push({ type: 'word', zh, source });
+      segments.push({ type: 'word', zh, source, ipa });
     } else {
-      segments.push({ type: 'punct', zh: mapPunct(p) });
+      segments.push({ type: 'punct', zh: mapPunct(p), ipa: p });
     }
   }
   return segments;
@@ -646,10 +646,12 @@ function renderSegmentsHTML(segments, showPinyin) {
   for (const seg of segments) {
     if (seg.type === 'space') { html += ' '; continue; }
     if (seg.type === 'punct') { html += escapeHtml(seg.zh); continue; }
-    // word
-    const open  = seg.source === 'g2p' ? '<span class="g2p" title="Inferred from spelling (not in CMU dict)">' : '';
-    const close = seg.source === 'g2p' ? '</span>' : '';
-    html += open;
+    // word — wrap in span so it can't break mid-character
+    const classes = ['word'];
+    if (seg.source === 'g2p') classes.push('g2p');
+    const titleAttr = seg.source === 'g2p'
+      ? ' title="Inferred from spelling (not in CMU dict)"' : '';
+    html += `<span class="${classes.join(' ')}"${titleAttr}>`;
     if (showPinyin) {
       for (const ch of seg.zh) {
         if (PINYIN.has(ch)) {
@@ -661,7 +663,21 @@ function renderSegmentsHTML(segments, showPinyin) {
     } else {
       html += escapeHtml(seg.zh);
     }
-    html += close;
+    html += '</span>';
+  }
+  return html;
+}
+
+function renderIpaHTML(segments) {
+  let html = '';
+  for (const seg of segments) {
+    if (seg.type === 'space') { html += ' '; continue; }
+    if (seg.type === 'punct') { html += escapeHtml(seg.ipa || ''); continue; }
+    const classes = ['word'];
+    if (seg.source === 'g2p') classes.push('g2p');
+    const titleAttr = seg.source === 'g2p'
+      ? ' title="Inferred from spelling (not in CMU dict)"' : '';
+    html += `<span class="${classes.join(' ')}"${titleAttr}>${escapeHtml(seg.ipa || '')}</span>`;
   }
   return html;
 }
@@ -747,16 +763,13 @@ async function update() {
   const myToken = Symbol();
   pending = myToken;
   try {
-    const [segments, ipa] = await Promise.all([
-      transliterateTagged(text, $female.checked),
-      eng2ipa(text)
-    ]);
+    const segments = await transliterateTagged(text, $female.checked);
     if (pending !== myToken) return;
     const showPinyin = $pinyin.checked;
     $output.innerHTML = renderSegmentsHTML(segments, showPinyin);
     $output.classList.remove("empty");
     $output.classList.toggle("with-pinyin", showPinyin);
-    $ipa.textContent = ipa;
+    $ipa.innerHTML = renderIpaHTML(segments);
   } catch (err) {
     $output.textContent = "Error: " + err.message;
     $output.classList.remove("empty");
