@@ -13,31 +13,36 @@
     <a href="/" class="back-link">← Back to home</a>
   </nav>
 
-  <h1>English → Chinese Transliterator</h1>
-  <p class="subtitle">
-    Phonetic transliteration based on Xinhua's "Names of the World's Peoples" table
-    (<a href="https://en.wikipedia.org/wiki/Transcription_into_Chinese_characters" target="_blank" rel="noopener">Wikipedia</a>).
-    <button class="link-button" id="show-table-btn">View transcription table</button>
-  </p>
+  <header class="page-header">
+    <h1>English → Chinese Transliterator</h1>
+    <p class="subtitle">
+      Phonetic transliteration based on Xinhua's "Names of the World's Peoples" table.
+    </p>
+    <button class="btn btn-secondary" id="show-table-btn" type="button">
+      <span aria-hidden="true">▦</span> View transcription table
+    </button>
+  </header>
 
   <div class="panel">
     <label class="field-label" for="input">English text</label>
     <textarea id="input" placeholder="Type or paste English text — names, places, sentences."></textarea>
-    <div class="controls">
-      <label class="toggle">
-        <input type="checkbox" id="female">
-        Female-name characters
-      </label>
-      <label class="toggle">
-        <input type="checkbox" id="pinyin">
-        Show pinyin
-      </label>
-      <span class="status" id="status">Loading dictionary…</span>
-    </div>
+    <div class="status-line"><span class="status" id="status">Loading dictionary…</span></div>
   </div>
 
   <div class="panel">
-    <label class="field-label">Chinese</label>
+    <div class="panel-header">
+      <span class="field-label">Chinese</span>
+      <div class="header-controls">
+        <label class="toggle">
+          <input type="checkbox" id="female">
+          Female-name characters
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="pinyin">
+          Show pinyin
+        </label>
+      </div>
+    </div>
     <div class="output-box empty" id="output">Output will appear here.</div>
     <details>
       <summary>Show IPA</summary>
@@ -49,13 +54,18 @@
 <dialog id="table-modal">
   <div class="modal-header">
     <h2>Transcription table</h2>
-    <button id="close-modal" aria-label="Close" title="Close">×</button>
+    <div class="modal-header-actions">
+      <label class="toggle">
+        <input type="checkbox" id="table-pinyin" checked>
+        Show pinyin
+      </label>
+      <button id="close-modal" aria-label="Close" title="Close" type="button">×</button>
+    </div>
   </div>
-  <div class="modal-controls">
-    <label class="toggle">
-      <input type="checkbox" id="table-pinyin" checked>
-      Show pinyin
-    </label>
+  <div class="modal-source">
+    Source:
+    <a href="https://en.wikipedia.org/wiki/Transcription_into_Chinese_characters"
+       target="_blank" rel="noopener">Transcription into Chinese characters — Wikipedia</a>
   </div>
   <div class="modal-body" id="table-container"></div>
 </dialog>
