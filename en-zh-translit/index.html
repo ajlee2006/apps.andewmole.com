@@ -14,7 +14,7 @@
   </nav>
 
   <header class="page-header">
-    <h1>English → Chinese Transliterator</h1>
+    <h1 id="title">English → Chinese Transliterator</h1>
     <p class="subtitle">
       Phonetic transliteration based on Xinhua's "Names of the World's Peoples" table.
     </p>
@@ -23,52 +23,65 @@
     </button>
   </header>
 
-  <div class="panel">
-    <label class="field-label" for="input">English text</label>
-    <textarea id="input" placeholder="Type or paste English text — names, places, sentences."></textarea>
-    <div class="status-line"><span class="status" id="status">Loading dictionary…</span></div>
-  </div>
-
-  <div class="panel">
-    <div class="panel-header">
-      <span class="field-label">Chinese</span>
-      <div class="header-controls">
-        <label class="toggle">
-          <input type="checkbox" id="female">
-          Female-name characters
-        </label>
-        <label class="toggle">
-          <input type="checkbox" id="pinyin">
-          Show pinyin
-        </label>
+  <div class="panels">
+    <div class="panel input-panel">
+      <label class="field-label" for="input">English text</label>
+      <div class="textarea-wrap">
+        <textarea id="input" placeholder="Type or paste English text — names, places, sentences."></textarea>
+        <div class="input-overlay" id="input-overlay" aria-hidden="true"></div>
       </div>
+      <div class="status-line"><span class="status" id="status">Loading dictionary…</span></div>
     </div>
-    <div class="output-box empty" id="output">Output will appear here.</div>
-    <details>
-      <summary>Show IPA</summary>
-      <div class="ipa-line" id="ipa-line">—</div>
-    </details>
+
+    <div class="panel output-panel">
+      <div class="panel-header">
+        <span class="field-label">Chinese</span>
+        <div class="header-controls">
+          <label class="toggle">
+            <input type="checkbox" id="female">
+            Female-name characters
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="pinyin">
+            Show pinyin
+          </label>
+          <div class="font-controls" id="pinyin-size-main" hidden>
+            <button class="font-btn" id="pinyin-smaller" type="button" title="Decrease pinyin size" aria-label="Decrease pinyin size">A−</button>
+            <button class="font-btn" id="pinyin-larger" type="button" title="Increase pinyin size" aria-label="Increase pinyin size">A+</button>
+          </div>
+        </div>
+      </div>
+      <div class="output-box empty" id="output">Output will appear here.</div>
+      <details>
+        <summary>Show IPA</summary>
+        <div class="ipa-line" id="ipa-line">—</div>
+      </details>
+    </div>
   </div>
 </div>
 
 <dialog id="table-modal">
   <div class="modal-header">
     <h2>Transcription table</h2>
+    <a class="modal-source-link"
+       href="https://en.wikipedia.org/wiki/Transcription_into_Chinese_characters"
+       target="_blank" rel="noopener">Source: Wikipedia ↗</a>
     <div class="modal-header-actions">
       <label class="toggle">
         <input type="checkbox" id="table-pinyin" checked>
         Show pinyin
       </label>
+      <div class="font-controls" id="pinyin-size-table">
+        <button class="font-btn" id="pinyin-smaller-table" type="button" title="Decrease pinyin size" aria-label="Decrease pinyin size">A−</button>
+        <button class="font-btn" id="pinyin-larger-table" type="button" title="Increase pinyin size" aria-label="Increase pinyin size">A+</button>
+      </div>
       <button id="close-modal" aria-label="Close" title="Close" type="button">×</button>
     </div>
   </div>
-  <div class="modal-source">
-    Source:
-    <a href="https://en.wikipedia.org/wiki/Transcription_into_Chinese_characters"
-       target="_blank" rel="noopener">Transcription into Chinese characters — Wikipedia</a>
-  </div>
   <div class="modal-body" id="table-container"></div>
 </dialog>
+
+<div class="word-bubble" id="word-bubble" hidden></div>
 
 <script type="module" src="app.js"></script>
 </body>
