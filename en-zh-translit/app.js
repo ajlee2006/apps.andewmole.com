@@ -691,39 +691,62 @@ function renderIpaHTML(segments) {
 // =============================================================
 function renderTable(showPinyin) {
   let html = '<table class="translit-table' + (showPinyin ? ' with-pinyin' : '') + '">';
-  // Header row — top-left empty corner (no col data), then per-column headers
   html += '<thead><tr><th></th>';
   for (let ci = 0; ci < COL_LABELS.length; ci++) {
     html += `<th data-col-start="${ci}" data-col-end="${ci}">${escapeHtml(COL_LABELS[ci])}</th>`;
   }
   html += '</tr></thead><tbody>';
 
-  for (const row of ROW_KEYS) {
-    html += `<tr><th>${escapeHtml(ROW_LABELS[row])}</th>`;
+  // Phase 1: per-row horizontal grouping (colspan candidates)
+  const rowGroups = [];
+  for (let ri = 0; ri < ROW_KEYS.length; ri++) {
+    const row = ROW_KEYS[ri];
     const entries = TABLE_RAW[row];
-
-    // Group adjacent cells with identical content for colspan merging
     const groups = [];
     for (let ci = 0; ci < COLS.length; ci++) {
       const main = entries[ci];
       const altKey = row + "|" + COLS[ci];
       let alt = FEMALE_ALT.get(altKey);
       let fu  = WORD_INITIAL_FU.get(altKey);
-      // Drop redundant alts that match the main character
       if (alt === main) alt = undefined;
       if (fu  === main) fu  = undefined;
       const key = (main || '') + '|' + (alt || '') + '|' + (fu || '');
       const prev = groups[groups.length - 1];
       if (prev && prev.key === key) prev.colEnd = ci;
-      else groups.push({ key, colStart: ci, colEnd: ci, main, alt, fu });
+      else groups.push({ key, colStart: ci, colEnd: ci, main, alt, fu, rowspan: 1, render: true });
     }
+    rowGroups.push(groups);
+  }
 
-    for (const g of groups) {
+  // Phase 2: vertical merge. A group merges with the row above only when its
+  // column range matches exactly AND its content key matches. The matching
+  // group above is the "master" that owns the rowspan; subsequent matching
+  // groups below mark themselves as non-rendered and walk up to find the master.
+  for (let ri = 1; ri < rowGroups.length; ri++) {
+    for (const g of rowGroups[ri]) {
+      const above = rowGroups[ri - 1].find(p => p.colStart === g.colStart && p.colEnd === g.colEnd);
+      if (above && above.key === g.key) {
+        const master = above.render ? above : above.master;
+        master.rowspan++;
+        g.render = false;
+        g.master = master;
+      }
+    }
+  }
+
+  // Phase 3: emit HTML
+  for (let ri = 0; ri < ROW_KEYS.length; ri++) {
+    const row = ROW_KEYS[ri];
+    html += `<tr data-row="${ri}"><th>${escapeHtml(ROW_LABELS[row])}</th>`;
+    for (const g of rowGroups[ri]) {
+      if (!g.render) continue;
       const colspan = g.colEnd - g.colStart + 1;
       const colspanAttr = colspan > 1 ? ` colspan="${colspan}"` : '';
-      const colAttrs = ` data-col-start="${g.colStart}" data-col-end="${g.colEnd}"`;
+      const rowspanAttr = g.rowspan > 1 ? ` rowspan="${g.rowspan}"` : '';
+      const rowEnd = ri + g.rowspan - 1;
+      const dataAttrs = ` data-row-start="${ri}" data-row-end="${rowEnd}" data-col-start="${g.colStart}" data-col-end="${g.colEnd}"`;
       if (!g.main && !g.alt && !g.fu) {
-        html += `<td class="empty"${colspanAttr}${colAttrs}></td>`;
+        html += `<td class="empty"${colspanAttr}${rowspanAttr}${dataAttrs}></td>`;
         continue;
       }
       let cell = '';
@@ -738,7 +761,7 @@ function renderTable(showPinyin) {
         cell += renderHanziWithPinyin(g.fu, showPinyin);
         cell += '</span>';
       }
-      html += `<td${colspanAttr}${colAttrs}>${cell}</td>`;
+      html += `<td${colspanAttr}${rowspanAttr}${dataAttrs}>${cell}</td>`;
     }
     html += '</tr>';
   }
@@ -759,14 +782,22 @@ function attachTableHoverHandlers(container) {
   table.addEventListener('mouseover', e => {
     const td = e.target.closest('td');
     if (!td || !table.contains(td)) return;
-    if (td.classList.contains('cell-hover')) return; // already current
+    if (td.classList.contains('cell-hover')) return;
 
     clearHighlights();
     const colStart = +td.dataset.colStart;
     const colEnd   = +td.dataset.colEnd;
-    td.parentElement.classList.add('row-hover');
+    const rowStart = +td.dataset.rowStart;
+    const rowEnd   = +td.dataset.rowEnd;
 
-    // All cells (header + body) whose col range overlaps [colStart, colEnd]
+    // Row highlight: every <tr> whose data-row is in the cell's row range
+    // (handles rowspan: a 2-tall cell highlights both rows it covers)
+    table.querySelectorAll('tbody tr').forEach(tr => {
+      const r = +tr.dataset.row;
+      if (r >= rowStart && r <= rowEnd) tr.classList.add('row-hover');
+    });
+
+    // Column highlight: every cell whose col range overlaps
     table.querySelectorAll('[data-col-start]').forEach(cell => {
       const cs = +cell.dataset.colStart;
       const ce = +cell.dataset.colEnd;
