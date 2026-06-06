@@ -8,6 +8,9 @@
   --accent: #2563eb;
   --accent-soft: #eff6ff;
   --accent-soft-2: #e0ebff;
+  /* Pinyin font size as a ratio of the surrounding character — controlled
+     by the A+/A- buttons. Capped via JS to [0.30, 0.70]. */
+  --pinyin-ratio: 0.42;
 }
 * { box-sizing: border-box; }
 html, body {
@@ -19,7 +22,7 @@ html, body {
   line-height: 1.5;
 }
 .container {
-  max-width: 760px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 20px 20px 60px;
 }
@@ -39,6 +42,7 @@ html, body {
   font-weight: 600;
   margin: 0 0 4px;
   letter-spacing: -0.01em;
+  cursor: default;
 }
 .subtitle {
   color: var(--muted);
@@ -65,6 +69,21 @@ html, body {
 .btn:hover { background: #f3f4f6; border-color: #9ca3af; }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btn-secondary span[aria-hidden] { color: var(--accent); font-size: 14px; }
+
+/* Side-by-side panels on wide screens, stacked on narrow */
+.panels {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+@media (min-width: 900px) {
+  .panels { flex-direction: row; }
+  .panels > .panel {
+    flex: 1 1 0;
+    min-width: 0;
+    margin-bottom: 0;
+  }
+}
 
 .panel {
   background: var(--panel);
@@ -98,24 +117,59 @@ html, body {
   flex-wrap: wrap;
 }
 
-textarea {
+/* Textarea + overlay — overlay shows hoverable word spans on top of the
+   editable textarea. Text in overlay is invisible (color: transparent) and
+   only word spans receive pointer events; everywhere else lets the textarea
+   receive clicks for editing. */
+.textarea-wrap {
+  position: relative;
+}
+.textarea-wrap textarea,
+.textarea-wrap .input-overlay {
   width: 100%;
   min-height: 110px;
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
   font-family: inherit;
-  font-size: 15px;
-  resize: vertical;
+  font-size: 16px;
+  line-height: 1.55;
+  font-weight: 400;
+  resize: none;
   background: var(--bg);
   color: var(--text);
+  white-space: pre-wrap;
+  word-break: normal;
+  overflow-wrap: break-word;
+  margin: 0;
 }
-textarea:focus {
+.textarea-wrap textarea { display: block; resize: vertical; }
+.textarea-wrap textarea:focus {
   outline: none;
   border-color: var(--accent);
   background: #fff;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
+.textarea-wrap .input-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: transparent;
+  background: transparent;
+  border-color: transparent;
+  overflow: hidden;
+}
+.textarea-wrap .input-overlay .word {
+  pointer-events: auto;
+  border-radius: 2px;
+}
+@media (min-width: 900px) {
+  /* Larger, more readable text on laptop screens */
+  .textarea-wrap textarea,
+  .textarea-wrap .input-overlay { font-size: 18px; min-height: 160px; }
+  .output-box { font-size: 26px; }
+}
+
 .status-line { min-height: 18px; margin-top: 8px; }
 .status { font-size: 12px; color: var(--muted); }
 
@@ -131,6 +185,28 @@ textarea:focus {
 }
 .toggle input { margin: 0; }
 
+/* Pinyin A+ / A− controls */
+.font-controls {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.font-controls[hidden] { display: none; }
+.font-btn {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 2px 6px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.font-btn:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.font-btn:disabled { opacity: 0.4; cursor: default; }
+.font-btn:disabled:hover { background: var(--panel); color: var(--muted); border-color: var(--border); }
+
 .output-box {
   min-height: 60px;
   padding: 18px 16px;
@@ -141,6 +217,7 @@ textarea:focus {
   line-height: 1.85;
   word-break: normal;
   overflow-wrap: break-word;
+  white-space: pre-wrap;   /* preserve newlines */
 }
 .output-box.empty {
   color: var(--muted);
@@ -150,23 +227,33 @@ textarea:focus {
 }
 .output-box.with-pinyin { line-height: 2.6; padding-top: 24px; }
 
-/* Each transliterated word stays together — no mid-word line breaks.
-   NOTE: inline (NOT inline-block) so that border-bottom (g2p dashed
-   underline) hugs the text baseline rather than the line-box bottom. */
-.word { white-space: nowrap; }
+/* Each transliterated word stays together (no mid-word linebreaks).
+   inline (NOT inline-block) so border-bottom hugs the text baseline. */
+.word { white-space: nowrap; border-radius: 2px; padding: 0 1px; }
 .g2p {
   border-bottom: 1px dashed var(--muted);
   cursor: help;
 }
 
+/* Cross-panel word highlight (hovering a word in input/output/IPA
+   highlights its counterpart in the others) */
+.word.word-link-hover { background: #d1e2ff; }
+
 ruby { ruby-position: over; }
 rt {
-  font-size: 0.42em;
+  /* font-size scales off the surrounding character, controlled by --pinyin-ratio */
+  font-size: calc(var(--pinyin-ratio) * 1em);
   font-weight: normal;
   color: var(--muted);
   font-family: inherit;
   line-height: 1.2;
   letter-spacing: 0;
+}
+/* Hide ruby annotations when pinyin toggle is off. The ruby tags are always
+   rendered (so titles/tooltips work), but rt is hidden. */
+.output-box:not(.with-pinyin) rt,
+.translit-table:not(.with-pinyin) rt {
+  display: none;
 }
 
 details { margin-top: 14px; font-size: 13px; color: var(--muted); }
@@ -179,8 +266,39 @@ summary { cursor: pointer; user-select: none; }
   word-break: normal;
   overflow-wrap: break-word;
   line-height: 1.6;
+  white-space: pre-wrap;   /* preserve newlines */
 }
-/* (no italics on IPA) */
+
+/* Floating bubble shown on mobile when a Chinese word is tapped */
+.word-bubble {
+  position: absolute;
+  z-index: 10000;
+  background: #1f2937;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+  pointer-events: none;
+  max-width: 80vw;
+  transform: translate(-50%, -100%);
+  margin-top: -6px;
+}
+.word-bubble[hidden] { display: none; }
+.word-bubble .bubble-en { font-weight: 600; }
+.word-bubble .bubble-ipa { color: #cbd5e1; font-size: 13px; margin-top: 2px; }
+.word-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #1f2937;
+}
 
 /* ============== Modal ============== */
 #table-modal {
@@ -200,14 +318,26 @@ summary { cursor: pointer; user-select: none; }
 .modal-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 18px;
   padding: 14px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--panel);
+  flex-wrap: wrap;
 }
 .modal-header h2 { margin: 0; font-size: 17px; font-weight: 600; }
-.modal-header-actions { display: flex; align-items: center; gap: 16px; }
+.modal-source-link {
+  font-size: 13px;
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.modal-source-link:hover { text-decoration: underline; }
+.modal-header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
 #close-modal {
   background: none;
   border: none;
@@ -220,20 +350,7 @@ summary { cursor: pointer; user-select: none; }
 }
 #close-modal:hover { color: var(--text); background: #f3f4f6; }
 
-.modal-source {
-  padding: 10px 20px;
-  font-size: 13px;
-  color: var(--muted);
-  border-bottom: 1px solid var(--border);
-  background: #fafbfc;
-}
-.modal-source a { color: var(--accent); text-decoration: none; }
-.modal-source a:hover { text-decoration: underline; }
-
 .modal-body {
-  /* Padding 0 on top/left so sticky headers clip cleanly — see-through gap
-     was caused by content scrolling through the padding region (overflow
-     clips at the padding box, but sticky locks at top:0 of the scrollport). */
   padding: 0 0 16px;
   overflow: auto;
   max-height: calc(92vh - 110px);
@@ -244,9 +361,6 @@ table.translit-table {
   border-collapse: separate;
   border-spacing: 0;
   font-size: 14px;
-  /* Size to content (NOT 100%) — with width:100% the browser squeezes the
-     first column to fit. We want each column to get its preferred width
-     and let modal-body scroll horizontally if needed. */
   width: max-content;
   min-width: 100%;
 }
@@ -261,8 +375,6 @@ table.translit-table td {
 table.translit-table thead th { border-top: 1px solid var(--border); }
 table.translit-table th:first-child,
 table.translit-table td:first-child { border-left: 1px solid var(--border); }
-table.translit-table tr:last-child td,
-table.translit-table tr:last-child th { /* keep border-bottom for clean grid */ }
 
 /* Column headers (top, sticky) */
 table.translit-table thead th {
@@ -275,8 +387,7 @@ table.translit-table thead th {
   z-index: 2;
   padding: 8px 6px;
 }
-/* Row headers (left, sticky) — width chosen so the longest label
-   "ɑn, aʊn, ʌŋ, ɔn, ɒn, ɒŋ" wraps to ~3 lines max, no more */
+/* Row headers (left, sticky) — 80px, labels can wrap */
 table.translit-table tbody th {
   background: var(--accent-soft);
   color: var(--accent);
@@ -287,40 +398,48 @@ table.translit-table tbody th {
   position: sticky;
   left: 0;
   z-index: 1;
-  width: 100px;
-  min-width: 100px;
-  max-width: 100px;
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
   white-space: normal;
   line-height: 1.25;
 }
-/* Top-left intersection cell — sticks both directions, sits on top */
 table.translit-table thead th:first-child {
   left: 0;
   z-index: 3;
-  width: 100px;
-  min-width: 100px;
-  max-width: 100px;
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
 }
 
 table.translit-table td {
   font-size: 18px;
   line-height: 1.45;
   color: var(--text);
-  white-space: nowrap;          /* multi-char cells like 比尤 stay on one line */
-  background: var(--panel);     /* opaque so sticky headers don't show through */
+  white-space: nowrap;
+  background: var(--panel);
 }
 table.translit-table.with-pinyin td {
   line-height: 2.1;
   padding-top: 10px;
   font-size: 17px;
 }
-table.translit-table td.empty { color: #cfd4dc; background: #fcfcfd; }
-table.translit-table td.empty::before { content: "—"; font-size: 12px; }
 
-/* Hover crosshair: faint row + column, strong on the hovered cell.
-   Order matters — later rules override earlier ones via equal specificity. */
-table.translit-table tbody tr.row-hover > td,
-table.translit-table td.col-hover {
+table.translit-table td.empty {
+  background: #e6e7eb;
+  color: transparent;
+  cursor: default;
+}
+table.translit-table td.empty::before { content: none; }
+table.translit-table td.empty:has(+ td.empty) {
+  border-right-color: transparent;
+}
+table.translit-table td.empty.no-border-bottom { border-bottom-color: transparent; }
+table.translit-table td.empty.no-border-right  { border-right-color: transparent; }
+
+/* Hover crosshair */
+table.translit-table tbody tr.row-hover > td:not(.empty),
+table.translit-table td.col-hover:not(.empty) {
   background: #eaf2ff;
 }
 table.translit-table tbody tr.row-hover > th,
@@ -331,7 +450,7 @@ table.translit-table td.cell-hover {
   background: #bfdbfe;
 }
 
-/* Alt characters — parens via CSS only (no double parens) */
+/* Alt characters in table cells */
 table.translit-table .alt {
   display: inline-block;
   margin-left: 4px;
