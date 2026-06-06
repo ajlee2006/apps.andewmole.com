@@ -610,34 +610,58 @@ function transliterateWordSync(englishWord, ipaForWord, female) {
 }
 
 // =============================================================
-// Top-level transliteration: returns segments tagged by source
-// so the renderer can mark G2P-fallback words distinctively.
+// Sync transliteration (assumes cmudict is already loaded — used by the
+// easter egg, where everything must happen synchronously)
+// =============================================================
+function transliterateTextSync(text, female) {
+  if (!cmudict) return text;
+  const parts = text.match(/[A-Za-z']+|[^\sA-Za-z']+|\s+/g) || [];
+  return parts.map(p => {
+    if (/^\s+$/.test(p)) return p;
+    if (/^[A-Za-z']+$/.test(p) && /[A-Za-z]/.test(p)) {
+      const arpa = cmudict[p.toLowerCase()];
+      const ipa = arpa ? arpaWordToIpa(arpa) : g2p(p);
+      return transliterateWordSync(p, ipa, female);
+    }
+    return mapPunct(p);
+  }).join('');
+}
+
+// =============================================================
+// Tagged segments — each word carries its English source, Chinese, IPA,
+// and a stable word index used for cross-panel hover linking.
 // =============================================================
 async function transliterateTagged(text, female) {
   await loadCmudict();
   const dict = cmudict;
   const parts = text.match(/[A-Za-z']+|[^\sA-Za-z']+|\s+/g) || [];
 
-  const segments = []; // { type: 'word'|'punct'|'space', zh, source?: 'dict'|'g2p', ipa? }
+  const segments = []; // { type, text, en?, zh?, ipa?, source?, widx? }
+  let widx = 0;
+  let charIdx = 0; // running offset into the original text — used for input overlay click handling
   for (const p of parts) {
     if (/^\s+$/.test(p)) {
-      segments.push({ type: 'space', zh: ' ', ipa: ' ' });
+      segments.push({ type: 'space', text: p, startIdx: charIdx });
     } else if (/^[A-Za-z']+$/.test(p) && /[A-Za-z]/.test(p)) {
       const arpa = dict[p.toLowerCase()];
       let ipa, source;
       if (arpa) { ipa = arpaWordToIpa(arpa); source = 'dict'; }
       else      { ipa = g2p(p); source = 'g2p'; }
       const zh = transliterateWordSync(p, ipa, female);
-      segments.push({ type: 'word', zh, source, ipa });
+      segments.push({
+        type: 'word', en: p, zh, ipa, source,
+        widx: widx++, startIdx: charIdx, endIdx: charIdx + p.length
+      });
     } else {
-      segments.push({ type: 'punct', zh: mapPunct(p), ipa: p });
+      segments.push({ type: 'punct', text: p, zhText: mapPunct(p), startIdx: charIdx });
     }
+    charIdx += p.length;
   }
   return segments;
 }
 
 // =============================================================
-// Rendering — plain text vs. ruby with pinyin annotations
+// HTML rendering
 // =============================================================
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({
@@ -645,28 +669,55 @@ function escapeHtml(s) {
   }[c]));
 }
 
-function renderSegmentsHTML(segments, showPinyin) {
+// Compute the full pinyin string for a sequence of hanzi
+function pinyinOf(text) {
+  const parts = [];
+  for (const ch of text) {
+    if (PINYIN.has(ch)) parts.push(PINYIN.get(ch));
+  }
+  return parts.join(' ');
+}
+
+// Render hanzi with ruby+rt. CSS controls whether rt is visible based on a
+// .with-pinyin parent. The `titleMode` controls what tooltip each ruby gets:
+//   'each'  — each ruby gets its own character pinyin
+//   'none'  — no title on rubies (use when parent span owns the tooltip)
+//   string  — shared title applied to every ruby
+function renderHanzi(text, titleMode = 'each') {
+  let out = '';
+  for (const ch of text) {
+    if (PINYIN.has(ch)) {
+      const p = PINYIN.get(ch);
+      let title = null;
+      if (titleMode === 'each') title = p;
+      else if (typeof titleMode === 'string' && titleMode !== 'none') title = titleMode;
+      const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
+      out += `<ruby${titleAttr}>${escapeHtml(ch)}<rt>${escapeHtml(p)}</rt></ruby>`;
+    } else {
+      out += escapeHtml(ch);
+    }
+  }
+  return out;
+}
+
+function renderSegmentsHTML(segments) {
   let html = '';
   for (const seg of segments) {
-    if (seg.type === 'space') { html += ' '; continue; }
-    if (seg.type === 'punct') { html += escapeHtml(seg.zh); continue; }
-    // word — wrap in span so it can't break mid-character
+    if (seg.type === 'space') { html += escapeHtml(seg.text); continue; }
+    if (seg.type === 'punct') { html += escapeHtml(seg.zhText); continue; }
+    // word
+    const isG2p = seg.source === 'g2p';
     const classes = ['word'];
-    if (seg.source === 'g2p') classes.push('g2p');
-    const titleAttr = seg.source === 'g2p'
-      ? ' title="Inferred from spelling (not in CMU dict)"' : '';
-    html += `<span class="${classes.join(' ')}"${titleAttr}>`;
-    if (showPinyin) {
-      for (const ch of seg.zh) {
-        if (PINYIN.has(ch)) {
-          html += `<ruby>${escapeHtml(ch)}<rt>${escapeHtml(PINYIN.get(ch))}</rt></ruby>`;
-        } else {
-          html += escapeHtml(ch);
-        }
-      }
-    } else {
-      html += escapeHtml(seg.zh);
-    }
+    if (isG2p) classes.push('g2p');
+    // G2P tooltip takes priority over pinyin tooltip
+    const title = isG2p
+      ? 'Inferred from spelling (not in CMU dict)'
+      : pinyinOf(seg.zh);
+    const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
+    const dataAttrs = ` data-widx="${seg.widx}" data-en="${escapeHtml(seg.en)}" data-ipa="${escapeHtml(seg.ipa)}"`;
+    // Ruby titles set to the shared word title so hovering any character shows it
+    html += `<span class="${classes.join(' ')}"${titleAttr}${dataAttrs}>`;
+    html += renderHanzi(seg.zh, title || 'none');
     html += '</span>';
   }
   return html;
@@ -675,13 +726,24 @@ function renderSegmentsHTML(segments, showPinyin) {
 function renderIpaHTML(segments) {
   let html = '';
   for (const seg of segments) {
-    if (seg.type === 'space') { html += ' '; continue; }
-    if (seg.type === 'punct') { html += escapeHtml(seg.ipa || ''); continue; }
+    if (seg.type === 'space') { html += escapeHtml(seg.text); continue; }
+    if (seg.type === 'punct') { html += escapeHtml(seg.text); continue; }
+    const isG2p = seg.source === 'g2p';
     const classes = ['word'];
-    if (seg.source === 'g2p') classes.push('g2p');
-    const titleAttr = seg.source === 'g2p'
-      ? ' title="Inferred from spelling (not in CMU dict)"' : '';
-    html += `<span class="${classes.join(' ')}"${titleAttr}>${escapeHtml(seg.ipa || '')}</span>`;
+    if (isG2p) classes.push('g2p');
+    const titleAttr = isG2p ? ' title="Inferred from spelling (not in CMU dict)"' : '';
+    html += `<span class="${classes.join(' ')}" data-widx="${seg.widx}"${titleAttr}>${escapeHtml(seg.ipa)}</span>`;
+  }
+  return html;
+}
+
+// Mirror the input text in the overlay, wrapping each word in a hoverable span
+function renderInputOverlay(segments) {
+  let html = '';
+  for (const seg of segments) {
+    if (seg.type === 'space') { html += escapeHtml(seg.text); continue; }
+    if (seg.type === 'punct') { html += escapeHtml(seg.text); continue; }
+    html += `<span class="word" data-widx="${seg.widx}" data-start="${seg.startIdx}" data-end="${seg.endIdx}">${escapeHtml(seg.en)}</span>`;
   }
   return html;
 }
@@ -697,7 +759,7 @@ function renderTable(showPinyin) {
   }
   html += '</tr></thead><tbody>';
 
-  // Phase 1: per-row horizontal grouping (colspan candidates)
+  // Phase 1: per-row horizontal grouping
   const rowGroups = [];
   for (let ri = 0; ri < ROW_KEYS.length; ri++) {
     const row = ROW_KEYS[ri];
@@ -718,10 +780,7 @@ function renderTable(showPinyin) {
     rowGroups.push(groups);
   }
 
-  // Phase 2: vertical merge. A group merges with the row above only when its
-  // column range matches exactly AND its content key matches. The matching
-  // group above is the "master" that owns the rowspan; subsequent matching
-  // groups below mark themselves as non-rendered and walk up to find the master.
+  // Phase 2: vertical merge via rowspan
   for (let ri = 1; ri < rowGroups.length; ri++) {
     for (const g of rowGroups[ri]) {
       const above = rowGroups[ri - 1].find(p => p.colStart === g.colStart && p.colEnd === g.colEnd);
@@ -734,7 +793,7 @@ function renderTable(showPinyin) {
     }
   }
 
-  // Phase 3: emit HTML
+  // Phase 3: emit
   for (let ri = 0; ri < ROW_KEYS.length; ri++) {
     const row = ROW_KEYS[ri];
     html += `<tr data-row="${ri}"><th>${escapeHtml(ROW_LABELS[row])}</th>`;
@@ -750,15 +809,24 @@ function renderTable(showPinyin) {
         continue;
       }
       let cell = '';
-      if (g.main) cell += renderHanziWithPinyin(g.main, showPinyin);
+      if (g.main) cell += renderHanzi(g.main, 'each');
       if (g.alt) {
-        cell += '<span class="alt" title="Used in female names">';
-        cell += renderHanziWithPinyin(g.alt, showPinyin);
+        const altPinyin = pinyinOf(g.alt);
+        const altTitle = altPinyin
+          ? `${altPinyin} (used in female names)`
+          : 'Used in female names';
+        cell += `<span class="alt" title="${escapeHtml(altTitle)}">`;
+        // 'none' so the alt span's title wins on hover (not the inner ruby's)
+        cell += renderHanzi(g.alt, 'none');
         cell += '</span>';
       }
       if (g.fu) {
-        cell += '<span class="alt" title="Used at the beginning of a word">';
-        cell += renderHanziWithPinyin(g.fu, showPinyin);
+        const fuPinyin = pinyinOf(g.fu);
+        const fuTitle = fuPinyin
+          ? `${fuPinyin} (used at the beginning of a word)`
+          : 'Used at the beginning of a word';
+        cell += `<span class="alt" title="${escapeHtml(fuTitle)}">`;
+        cell += renderHanzi(g.fu, 'none');
         cell += '</span>';
       }
       html += `<td${colspanAttr}${rowspanAttr}${dataAttrs}>${cell}</td>`;
@@ -769,36 +837,31 @@ function renderTable(showPinyin) {
   return html;
 }
 
+// Table hover crosshair (unchanged)
 function attachTableHoverHandlers(container) {
   const table = container.querySelector('table.translit-table');
   if (!table) return;
-
   function clearHighlights() {
     table.querySelectorAll('.row-hover, .col-hover, .cell-hover').forEach(el => {
       el.classList.remove('row-hover', 'col-hover', 'cell-hover');
     });
   }
-
   table.addEventListener('mouseover', e => {
     const td = e.target.closest('td');
     if (!td || !table.contains(td)) return;
+    if (td.classList.contains('empty')) { clearHighlights(); return; }
     if (td.classList.contains('cell-hover')) return;
-
     clearHighlights();
     const colStart = +td.dataset.colStart;
     const colEnd   = +td.dataset.colEnd;
     const rowStart = +td.dataset.rowStart;
     const rowEnd   = +td.dataset.rowEnd;
-
-    // Row highlight: every <tr> whose data-row is in the cell's row range
-    // (handles rowspan: a 2-tall cell highlights both rows it covers)
     table.querySelectorAll('tbody tr').forEach(tr => {
       const r = +tr.dataset.row;
       if (r >= rowStart && r <= rowEnd) tr.classList.add('row-hover');
     });
-
-    // Column highlight: every cell whose col range overlaps
     table.querySelectorAll('[data-col-start]').forEach(cell => {
+      if (cell.classList.contains('empty')) return;
       const cs = +cell.dataset.colStart;
       const ce = +cell.dataset.colEnd;
       if (!(ce < colStart || cs > colEnd)) cell.classList.add('col-hover');
@@ -808,41 +871,64 @@ function attachTableHoverHandlers(container) {
   table.addEventListener('mouseleave', clearHighlights);
 }
 
-function renderHanziWithPinyin(text, showPinyin) {
-  let out = '';
-  for (const ch of text) {
-    if (showPinyin && PINYIN.has(ch)) {
-      out += `<ruby>${escapeHtml(ch)}<rt>${escapeHtml(PINYIN.get(ch))}</rt></ruby>`;
-    } else {
-      out += escapeHtml(ch);
+function adjustEmptyBorders(container) {
+  const table = container.querySelector('table.translit-table');
+  if (!table) return;
+  const rowCount = ROW_KEYS.length;
+  const colCount = COLS.length;
+  const grid = Array.from({ length: rowCount }, () => new Array(colCount).fill(null));
+  const tds = table.querySelectorAll('tbody td');
+  tds.forEach(td => {
+    const rs = +td.dataset.rowStart, re = +td.dataset.rowEnd;
+    const cs = +td.dataset.colStart, ce = +td.dataset.colEnd;
+    for (let r = rs; r <= re; r++)
+      for (let c = cs; c <= ce; c++) grid[r][c] = td;
+  });
+  tds.forEach(td => {
+    if (!td.classList.contains('empty')) return;
+    const re = +td.dataset.rowEnd;
+    const cs = +td.dataset.colStart, ce = +td.dataset.colEnd;
+    if (re + 1 >= rowCount) return;
+    let all = true;
+    for (let c = cs; c <= ce; c++) {
+      const below = grid[re + 1][c];
+      if (!below || !below.classList.contains('empty')) { all = false; break; }
     }
-  }
-  return out;
+    if (all) td.classList.add('no-border-bottom');
+  });
 }
 
 // =============================================================
 // UI wiring
 // =============================================================
-const $input  = document.getElementById("input");
-const $output = document.getElementById("output");
-const $status = document.getElementById("status");
-const $female = document.getElementById("female");
-const $pinyin = document.getElementById("pinyin");
-const $ipa    = document.getElementById("ipa-line");
-const $modal  = document.getElementById("table-modal");
-const $modalBtn = document.getElementById("show-table-btn");
-const $closeModal = document.getElementById("close-modal");
+const $input         = document.getElementById("input");
+const $inputOverlay  = document.getElementById("input-overlay");
+const $output        = document.getElementById("output");
+const $status        = document.getElementById("status");
+const $female        = document.getElementById("female");
+const $pinyin        = document.getElementById("pinyin");
+const $pinyinSizeMain = document.getElementById("pinyin-size-main");
+const $ipa           = document.getElementById("ipa-line");
+const $modal         = document.getElementById("table-modal");
+const $modalBtn      = document.getElementById("show-table-btn");
+const $closeModal    = document.getElementById("close-modal");
 const $tableContainer = document.getElementById("table-container");
-const $tablePinyin = document.getElementById("table-pinyin");
+const $tablePinyin   = document.getElementById("table-pinyin");
+const $title         = document.getElementById("title");
+const $bubble        = document.getElementById("word-bubble");
+
+let currentSegments = [];
 
 let pending = null;
 async function update() {
   const text = $input.value;
   if (!text.trim()) {
+    currentSegments = [];
     $output.textContent = "Output will appear here.";
     $output.classList.add("empty");
     $output.classList.remove("with-pinyin");
     $ipa.textContent = "—";
+    $inputOverlay.innerHTML = "";
     return;
   }
   const myToken = Symbol();
@@ -850,11 +936,13 @@ async function update() {
   try {
     const segments = await transliterateTagged(text, $female.checked);
     if (pending !== myToken) return;
+    currentSegments = segments;
     const showPinyin = $pinyin.checked;
-    $output.innerHTML = renderSegmentsHTML(segments, showPinyin);
+    $output.innerHTML = renderSegmentsHTML(segments);
     $output.classList.remove("empty");
     $output.classList.toggle("with-pinyin", showPinyin);
     $ipa.innerHTML = renderIpaHTML(segments);
+    $inputOverlay.innerHTML = renderInputOverlay(segments);
   } catch (err) {
     $output.textContent = "Error: " + err.message;
     $output.classList.remove("empty");
@@ -863,12 +951,135 @@ async function update() {
 
 $input.addEventListener("input", update);
 $female.addEventListener("change", update);
-$pinyin.addEventListener("change", update);
+$pinyin.addEventListener("change", () => {
+  $output.classList.toggle("with-pinyin", $pinyin.checked);
+  $pinyinSizeMain.hidden = !$pinyin.checked;
+});
 
+// =============================================================
+// Cross-panel word linking — hovering a .word with data-widx anywhere
+// (input overlay, output box, IPA line) highlights every .word with the
+// same widx across all three.
+// =============================================================
+function clearWordLinkHighlights() {
+  document.querySelectorAll('.word.word-link-hover').forEach(el => {
+    el.classList.remove('word-link-hover');
+  });
+}
+function highlightWordLink(widx) {
+  document.querySelectorAll(`.word[data-widx="${widx}"]`).forEach(el => {
+    el.classList.add('word-link-hover');
+  });
+}
+// Delegate at document level so we catch all panels with one listener
+document.addEventListener('mouseover', e => {
+  const w = e.target.closest('.word[data-widx]');
+  if (!w) return;
+  // Don't trigger from inside the table modal — that uses its own crosshair
+  if (w.closest('#table-modal')) return;
+  const widx = w.dataset.widx;
+  if (!widx) return;
+  clearWordLinkHighlights();
+  highlightWordLink(widx);
+});
+document.addEventListener('mouseout', e => {
+  const w = e.target.closest('.word[data-widx]');
+  if (!w) return;
+  const related = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.word[data-widx]');
+  if (related && related.dataset.widx === w.dataset.widx) return; // still on same word group
+  clearWordLinkHighlights();
+});
+
+// Input overlay click → focus textarea and place cursor at the word's end
+$inputOverlay.addEventListener('mousedown', e => {
+  const span = e.target.closest('.word');
+  if (!span) return;
+  e.preventDefault();
+  const end = +span.dataset.end;
+  $input.focus();
+  try { $input.setSelectionRange(end, end); } catch (_) {}
+});
+
+// =============================================================
+// Mobile: tap on a Chinese (output) word shows a floating bubble with the
+// English word and IPA. Only active when the layout is stacked (narrow).
+// =============================================================
+function isStackedLayout() { return window.matchMedia('(max-width: 899px)').matches; }
+let bubbleTimer = null;
+function showBubble(targetEl, en, ipa, showIpa) {
+  $bubble.innerHTML = `<div class="bubble-en">${escapeHtml(en)}</div>` +
+                      (showIpa && ipa ? `<div class="bubble-ipa">${escapeHtml(ipa)}</div>` : '');
+  $bubble.hidden = false;
+  const r = targetEl.getBoundingClientRect();
+  const x = r.left + r.width / 2 + window.scrollX;
+  const y = r.top + window.scrollY;
+  $bubble.style.left = x + 'px';
+  $bubble.style.top  = y + 'px';
+  if (bubbleTimer) clearTimeout(bubbleTimer);
+  bubbleTimer = setTimeout(hideBubble, 3000);
+}
+function hideBubble() {
+  $bubble.hidden = true;
+  if (bubbleTimer) { clearTimeout(bubbleTimer); bubbleTimer = null; }
+}
+$output.addEventListener('click', e => {
+  if (!isStackedLayout()) return;
+  const w = e.target.closest('.word[data-widx]');
+  if (!w) return;
+  const ipaOpen = !!$ipa.closest('details').open;
+  showBubble(w, w.dataset.en, w.dataset.ipa, ipaOpen);
+});
+document.addEventListener('click', e => {
+  // Dismiss bubble on outside click
+  if ($bubble.hidden) return;
+  if (e.target.closest('#word-bubble') || e.target.closest('.word[data-widx]')) return;
+  hideBubble();
+});
+window.addEventListener('scroll', hideBubble, { passive: true });
+window.addEventListener('resize', hideBubble);
+
+// =============================================================
+// Pinyin font size (A+/A-) — controls a CSS variable shared across
+// both the output and table modal. Persisted in localStorage.
+// =============================================================
+const PINYIN_MIN = 0.30;
+const PINYIN_MAX = 0.70;
+const PINYIN_STEP = 0.06;
+function getPinyinRatio() {
+  const v = parseFloat(localStorage.getItem('pinyinRatio'));
+  return isFinite(v) && v >= PINYIN_MIN && v <= PINYIN_MAX ? v : 0.42;
+}
+function setPinyinRatio(v) {
+  v = Math.max(PINYIN_MIN, Math.min(PINYIN_MAX, v));
+  document.documentElement.style.setProperty('--pinyin-ratio', v.toFixed(3));
+  localStorage.setItem('pinyinRatio', v.toString());
+  // Disable buttons at extremes
+  for (const idMinus of ['pinyin-smaller', 'pinyin-smaller-table']) {
+    const b = document.getElementById(idMinus);
+    if (b) b.disabled = v <= PINYIN_MIN + 1e-6;
+  }
+  for (const idPlus of ['pinyin-larger', 'pinyin-larger-table']) {
+    const b = document.getElementById(idPlus);
+    if (b) b.disabled = v >= PINYIN_MAX - 1e-6;
+  }
+}
+setPinyinRatio(getPinyinRatio());
+function wirePinyinBtns(minusId, plusId) {
+  const minus = document.getElementById(minusId);
+  const plus  = document.getElementById(plusId);
+  if (minus) minus.addEventListener('click', () => setPinyinRatio(getPinyinRatio() - PINYIN_STEP));
+  if (plus)  plus.addEventListener('click',  () => setPinyinRatio(getPinyinRatio() + PINYIN_STEP));
+}
+wirePinyinBtns('pinyin-smaller', 'pinyin-larger');
+wirePinyinBtns('pinyin-smaller-table', 'pinyin-larger-table');
+
+// =============================================================
 // Modal
+// =============================================================
 function openTableModal() {
   $tableContainer.innerHTML = renderTable($tablePinyin.checked);
   attachTableHoverHandlers($tableContainer);
+  adjustEmptyBorders($tableContainer);
   if (typeof $modal.showModal === 'function') $modal.showModal();
   else $modal.setAttribute('open', '');
 }
@@ -882,11 +1093,57 @@ $modal.addEventListener('click', (e) => {
   if (e.target === $modal) closeTableModal();
 });
 $tablePinyin.addEventListener('change', () => {
-  $tableContainer.innerHTML = renderTable($tablePinyin.checked);
-  attachTableHoverHandlers($tableContainer);
+  const c = $tableContainer.querySelector('table.translit-table');
+  if (c) c.classList.toggle('with-pinyin', $tablePinyin.checked);
 });
 
+// =============================================================
+// Easter egg: hovering the page title transliterates all English text
+// on the page into Chinese (no pinyin, no underlines). The user's input
+// text and the IPA headers in the modal are excluded.
+// =============================================================
+function transliterateAllText() {
+  if (!cmudict) return;
+  // Walk text nodes inside the container, skipping inputs, the table modal's
+  // IPA headers, and a few other excluded regions.
+  const root = document.querySelector('.container');
+  if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const p = node.parentElement;
+      if (!p) return NodeFilter.FILTER_REJECT;
+      // Skip textareas/inputs (handled separately) and our generated output panels
+      if (p.closest('textarea, input')) return NodeFilter.FILTER_REJECT;
+      if (p.closest('#output, #ipa-line, #input-overlay')) return NodeFilter.FILTER_REJECT;
+      if (p.closest('#word-bubble')) return NodeFilter.FILTER_REJECT;
+      // Pinyin annotations stay in Chinese phonetics already
+      if (p.closest('rt')) return NodeFilter.FILTER_REJECT;
+      const text = node.nodeValue;
+      if (!/[A-Za-z]/.test(text)) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  const nodes = [];
+  for (let n; (n = walker.nextNode()); ) nodes.push(n);
+  for (const n of nodes) {
+    if (!n._origText) n._origText = n.nodeValue;
+    n.nodeValue = transliterateTextSync(n._origText, false);
+  }
+}
+function restoreAllText() {
+  const root = document.querySelector('.container');
+  if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let n; (n = walker.nextNode()); ) {
+    if (n._origText !== undefined) n.nodeValue = n._origText;
+  }
+}
+$title.addEventListener('mouseenter', transliterateAllText);
+$title.addEventListener('mouseleave', restoreAllText);
+
+// =============================================================
 // Boot
+// =============================================================
 (async () => {
   try {
     await loadCmudict();
