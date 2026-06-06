@@ -275,30 +275,31 @@ table.translit-table thead th {
   z-index: 2;
   padding: 8px 6px;
 }
-/* Row headers (left, sticky, wraps to ~3 lines max) */
+/* Row headers (left, sticky) — width chosen so the longest label
+   "ɑn, aʊn, ʌŋ, ɔn, ɒn, ɒŋ" wraps to ~3 lines max, no more */
 table.translit-table tbody th {
   background: var(--accent-soft);
   color: var(--accent);
   font-size: 11px;
   font-weight: 600;
   text-align: right;
-  padding: 4px 10px;
+  padding: 4px 8px;
   position: sticky;
   left: 0;
   z-index: 1;
-  width: 160px;
-  min-width: 160px;
-  max-width: 160px;
+  width: 115px;
+  min-width: 115px;
+  max-width: 115px;
   white-space: normal;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 /* Top-left intersection cell — sticks both directions, sits on top */
 table.translit-table thead th:first-child {
   left: 0;
   z-index: 3;
-  width: 160px;
-  min-width: 160px;
-  max-width: 160px;
+  width: 115px;
+  min-width: 115px;
+  max-width: 115px;
 }
 
 table.translit-table td {
