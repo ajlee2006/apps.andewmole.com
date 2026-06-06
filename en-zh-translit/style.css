@@ -231,7 +231,10 @@ summary { cursor: pointer; user-select: none; }
 .modal-source a:hover { text-decoration: underline; }
 
 .modal-body {
-  padding: 12px 20px 20px;
+  /* Padding 0 on top/left so sticky headers clip cleanly — see-through gap
+     was caused by content scrolling through the padding region (overflow
+     clips at the padding box, but sticky locks at top:0 of the scrollport). */
+  padding: 0 0 16px;
   overflow: auto;
   max-height: calc(92vh - 110px);
 }
@@ -268,7 +271,7 @@ table.translit-table thead th {
   z-index: 2;
   padding: 8px 6px;
 }
-/* Row headers (left, sticky, narrow + wrap) */
+/* Row headers (left, sticky, wraps to ~2 lines max) */
 table.translit-table tbody th {
   background: var(--accent-soft);
   color: var(--accent);
@@ -279,17 +282,17 @@ table.translit-table tbody th {
   position: sticky;
   left: 0;
   z-index: 1;
-  width: 110px;
-  max-width: 110px;
+  width: 150px;
+  max-width: 150px;
   white-space: normal;
-  line-height: 1.35;
+  line-height: 1.25;
 }
 /* Top-left intersection cell — sticks both directions, sits on top */
 table.translit-table thead th:first-child {
   left: 0;
   z-index: 3;
-  width: 110px;
-  max-width: 110px;
+  width: 150px;
+  max-width: 150px;
 }
 
 table.translit-table td {
@@ -314,6 +317,7 @@ table.translit-table .alt {
   display: inline-block;
   margin-left: 4px;
   color: var(--muted);
+  cursor: help;
 }
 table.translit-table .alt::before { content: "("; }
 table.translit-table .alt::after  { content: ")"; }
