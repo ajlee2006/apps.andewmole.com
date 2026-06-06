@@ -287,9 +287,9 @@ table.translit-table tbody th {
   position: sticky;
   left: 0;
   z-index: 1;
-  width: 115px;
-  min-width: 115px;
-  max-width: 115px;
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
   white-space: normal;
   line-height: 1.25;
 }
@@ -297,9 +297,9 @@ table.translit-table tbody th {
 table.translit-table thead th:first-child {
   left: 0;
   z-index: 3;
-  width: 115px;
-  min-width: 115px;
-  max-width: 115px;
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
 }
 
 table.translit-table td {
