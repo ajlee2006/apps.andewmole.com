@@ -706,13 +706,14 @@ function renderTable(showPinyin) {
       }
       let cell = '';
       if (main) cell += renderHanziWithPinyin(main, showPinyin);
-      // alternate (female) or word-initial 弗
-      const alts = [];
-      if (alt) alts.push(alt);
-      if (fu)  alts.push(fu);
-      if (alts.length) {
-        cell += '<span class="alt">';
-        for (const a of alts) cell += renderHanziWithPinyin(a, showPinyin);
+      if (alt) {
+        cell += '<span class="alt" title="Used in female names">';
+        cell += renderHanziWithPinyin(alt, showPinyin);
+        cell += '</span>';
+      }
+      if (fu) {
+        cell += '<span class="alt" title="Used at the beginning of a word">';
+        cell += renderHanziWithPinyin(fu, showPinyin);
         cell += '</span>';
       }
       html += `<td>${cell}</td>`;
