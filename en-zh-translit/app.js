@@ -285,8 +285,12 @@ const FEMALE_ALT = new Map(Object.entries({
   "-|s":"丝"
 }));
 
+// Word-initial substitution: 夫 → 弗 at the beginning of a word.
+// This belongs to row "-" (the bare-consonant row, where 夫 is the main
+// character at v/w/f), NOT row ə — 弗 in row ə is just the standard main
+// character there and needs no substitution.
 const WORD_INITIAL_FU = new Map(Object.entries({
-  "ə|v":"弗","ə|f":"弗","ə|w":"弗"
+  "-|v":"弗","-|w":"弗","-|f":"弗"
 }));
 
 // =============================================================
@@ -687,41 +691,90 @@ function renderIpaHTML(segments) {
 // =============================================================
 function renderTable(showPinyin) {
   let html = '<table class="translit-table' + (showPinyin ? ' with-pinyin' : '') + '">';
-  // Header row
+  // Header row — top-left empty corner (no col data), then per-column headers
   html += '<thead><tr><th></th>';
-  for (const lab of COL_LABELS) html += `<th>${escapeHtml(lab)}</th>`;
+  for (let ci = 0; ci < COL_LABELS.length; ci++) {
+    html += `<th data-col-start="${ci}" data-col-end="${ci}">${escapeHtml(COL_LABELS[ci])}</th>`;
+  }
   html += '</tr></thead><tbody>';
 
   for (const row of ROW_KEYS) {
     html += `<tr><th>${escapeHtml(ROW_LABELS[row])}</th>`;
     const entries = TABLE_RAW[row];
+
+    // Group adjacent cells with identical content for colspan merging
+    const groups = [];
     for (let ci = 0; ci < COLS.length; ci++) {
       const main = entries[ci];
       const altKey = row + "|" + COLS[ci];
-      const alt = FEMALE_ALT.get(altKey);
-      const fu  = WORD_INITIAL_FU.get(altKey);
-      if (!main && !alt && !fu) {
-        html += '<td class="empty"></td>';
+      let alt = FEMALE_ALT.get(altKey);
+      let fu  = WORD_INITIAL_FU.get(altKey);
+      // Drop redundant alts that match the main character
+      if (alt === main) alt = undefined;
+      if (fu  === main) fu  = undefined;
+      const key = (main || '') + '|' + (alt || '') + '|' + (fu || '');
+      const prev = groups[groups.length - 1];
+      if (prev && prev.key === key) prev.colEnd = ci;
+      else groups.push({ key, colStart: ci, colEnd: ci, main, alt, fu });
+    }
+
+    for (const g of groups) {
+      const colspan = g.colEnd - g.colStart + 1;
+      const colspanAttr = colspan > 1 ? ` colspan="${colspan}"` : '';
+      const colAttrs = ` data-col-start="${g.colStart}" data-col-end="${g.colEnd}"`;
+      if (!g.main && !g.alt && !g.fu) {
+        html += `<td class="empty"${colspanAttr}${colAttrs}></td>`;
         continue;
       }
       let cell = '';
-      if (main) cell += renderHanziWithPinyin(main, showPinyin);
-      if (alt) {
+      if (g.main) cell += renderHanziWithPinyin(g.main, showPinyin);
+      if (g.alt) {
         cell += '<span class="alt" title="Used in female names">';
-        cell += renderHanziWithPinyin(alt, showPinyin);
+        cell += renderHanziWithPinyin(g.alt, showPinyin);
         cell += '</span>';
       }
-      if (fu) {
+      if (g.fu) {
         cell += '<span class="alt" title="Used at the beginning of a word">';
-        cell += renderHanziWithPinyin(fu, showPinyin);
+        cell += renderHanziWithPinyin(g.fu, showPinyin);
         cell += '</span>';
       }
-      html += `<td>${cell}</td>`;
+      html += `<td${colspanAttr}${colAttrs}>${cell}</td>`;
     }
     html += '</tr>';
   }
   html += '</tbody></table>';
   return html;
+}
+
+function attachTableHoverHandlers(container) {
+  const table = container.querySelector('table.translit-table');
+  if (!table) return;
+
+  function clearHighlights() {
+    table.querySelectorAll('.row-hover, .col-hover, .cell-hover').forEach(el => {
+      el.classList.remove('row-hover', 'col-hover', 'cell-hover');
+    });
+  }
+
+  table.addEventListener('mouseover', e => {
+    const td = e.target.closest('td');
+    if (!td || !table.contains(td)) return;
+    if (td.classList.contains('cell-hover')) return; // already current
+
+    clearHighlights();
+    const colStart = +td.dataset.colStart;
+    const colEnd   = +td.dataset.colEnd;
+    td.parentElement.classList.add('row-hover');
+
+    // All cells (header + body) whose col range overlaps [colStart, colEnd]
+    table.querySelectorAll('[data-col-start]').forEach(cell => {
+      const cs = +cell.dataset.colStart;
+      const ce = +cell.dataset.colEnd;
+      if (!(ce < colStart || cs > colEnd)) cell.classList.add('col-hover');
+    });
+    td.classList.add('cell-hover');
+  });
+  table.addEventListener('mouseleave', clearHighlights);
 }
 
 function renderHanziWithPinyin(text, showPinyin) {
@@ -784,6 +837,7 @@ $pinyin.addEventListener("change", update);
 // Modal
 function openTableModal() {
   $tableContainer.innerHTML = renderTable($tablePinyin.checked);
+  attachTableHoverHandlers($tableContainer);
   if (typeof $modal.showModal === 'function') $modal.showModal();
   else $modal.setAttribute('open', '');
 }
@@ -794,11 +848,11 @@ function closeTableModal() {
 $modalBtn.addEventListener('click', (e) => { e.preventDefault(); openTableModal(); });
 $closeModal.addEventListener('click', closeTableModal);
 $modal.addEventListener('click', (e) => {
-  // Close when clicking on backdrop (outside .modal-header/.modal-body)
   if (e.target === $modal) closeTableModal();
 });
 $tablePinyin.addEventListener('change', () => {
   $tableContainer.innerHTML = renderTable($tablePinyin.checked);
+  attachTableHoverHandlers($tableContainer);
 });
 
 // Boot
