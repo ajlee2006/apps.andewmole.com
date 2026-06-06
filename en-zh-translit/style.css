@@ -244,7 +244,11 @@ table.translit-table {
   border-collapse: separate;
   border-spacing: 0;
   font-size: 14px;
-  width: 100%;
+  /* Size to content (NOT 100%) — with width:100% the browser squeezes the
+     first column to fit. We want each column to get its preferred width
+     and let modal-body scroll horizontally if needed. */
+  width: max-content;
+  min-width: 100%;
 }
 table.translit-table th,
 table.translit-table td {
@@ -271,28 +275,30 @@ table.translit-table thead th {
   z-index: 2;
   padding: 8px 6px;
 }
-/* Row headers (left, sticky, wraps to ~2 lines max) */
+/* Row headers (left, sticky, wraps to ~3 lines max) */
 table.translit-table tbody th {
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-align: right;
   padding: 4px 10px;
   position: sticky;
   left: 0;
   z-index: 1;
-  width: 150px;
-  max-width: 150px;
+  width: 160px;
+  min-width: 160px;
+  max-width: 160px;
   white-space: normal;
-  line-height: 1.25;
+  line-height: 1.2;
 }
 /* Top-left intersection cell — sticks both directions, sits on top */
 table.translit-table thead th:first-child {
   left: 0;
   z-index: 3;
-  width: 150px;
-  max-width: 150px;
+  width: 160px;
+  min-width: 160px;
+  max-width: 160px;
 }
 
 table.translit-table td {
@@ -310,7 +316,19 @@ table.translit-table.with-pinyin td {
 table.translit-table td.empty { color: #cfd4dc; background: #fcfcfd; }
 table.translit-table td.empty::before { content: "—"; font-size: 12px; }
 
-table.translit-table tbody tr:hover td:not(.empty) { background: #fafbff; }
+/* Hover crosshair: faint row + column, strong on the hovered cell.
+   Order matters — later rules override earlier ones via equal specificity. */
+table.translit-table tbody tr.row-hover > td,
+table.translit-table td.col-hover {
+  background: #eaf2ff;
+}
+table.translit-table tbody tr.row-hover > th,
+table.translit-table thead th.col-hover {
+  background: var(--accent-soft-2);
+}
+table.translit-table td.cell-hover {
+  background: #bfdbfe;
+}
 
 /* Alt characters — parens via CSS only (no double parens) */
 table.translit-table .alt {
