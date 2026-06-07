@@ -507,8 +507,10 @@ function syllabify(tokens) {
 // =============================================================
 function getSpellingHints(word) {
   const w = word.toLowerCase();
+  const first = w[0];
   return {
-    is_initial_a_schwa: w.startsWith("a"),
+    initial_vowel_letter: 'aeiou'.includes(first) ? first : null,
+    is_initial_a_schwa: first === 'a',           // kept for word-initial 'a' fallback
     is_initial_ai_ay:   w.startsWith("ai") || w.startsWith("ay"),
     is_ia_final:        w.endsWith("ia"),
     is_final_r_schwa:   w.endsWith("r") || w.endsWith("re")
@@ -523,6 +525,31 @@ function fixMBeforeBP(word, tokens) {
     (t === "m" && i + 1 < tokens.length && (tokens[i + 1] === "b" || tokens[i + 1] === "p"))
       ? "n" : t
   );
+}
+
+// Unstressed-vowel rule: "When vowels ⟨a⟩, ⟨e⟩, ⟨i⟩, ⟨o⟩, ⟨u⟩ are in an
+// unstressed syllable, generally transcribe them according to their written
+// forms" — meaning a schwa (ə) whose corresponding spelling letter is
+// a/e/i/o/u should be mapped to ɑ/ɛ/i/ɔ/u respectively (not the ə row).
+// We align in-order: ith vowel syllable ↔ ith vowel letter. Only applied
+// when counts match, since misalignment would do more harm than good.
+const LETTER_TO_VOWEL = { a: 'ɑ', e: 'ɛ', i: 'i', o: 'ɔ', u: 'u' };
+function applyUnstressedVowelRule(sylls, word) {
+  // 'y' is counted as a vowel letter for alignment purposes only — it never
+  // triggers a replacement. (Words like "happy" → letters [a, y], 2 syllables.)
+  const letters = [];
+  for (const c of word.toLowerCase()) {
+    if ('aeiouy'.includes(c)) letters.push(c);
+  }
+  const vowelSylls = sylls.filter(s => s.vowel);
+  if (letters.length !== vowelSylls.length) return; // unreliable, skip
+  for (let i = 0; i < vowelSylls.length; i++) {
+    const s = vowelSylls[i];
+    const letter = letters[i];
+    if (s.vowel === 'ə' && LETTER_TO_VOWEL[letter]) {
+      s.vowel = LETTER_TO_VOWEL[letter];
+    }
+  }
 }
 
 // =============================================================
@@ -542,7 +569,12 @@ function lookupSyllable(syll, { wordInitial = false, wordFinal = false, hints = 
   if (vowel === "") {
     row = "-";
   } else {
-    if (wordInitial && hints && hints.is_initial_a_schwa && vowel === "ə") vowel = "ɑ";
+    // Word-initial vowel schwa: use the spelling letter's row
+    // (handles cases where the unstressed-vowel rule didn't align cleanly)
+    if (wordInitial && vowel === "ə" && hints && hints.initial_vowel_letter
+        && LETTER_TO_VOWEL[hints.initial_vowel_letter]) {
+      vowel = LETTER_TO_VOWEL[hints.initial_vowel_letter];
+    }
     if (wordInitial && hints && hints.is_initial_ai_ay) vowel = "aɪ";
     row = vowelRow(vowel, coda);
   }
@@ -596,6 +628,7 @@ function transliterateWordSync(englishWord, ipaForWord, female) {
 
   const sylls = syllabify(tokens);
   const hints = getSpellingHints(englishWord);
+  applyUnstressedVowelRule(sylls, englishWord);
 
   const pieces = [];
   for (let i = 0; i < sylls.length; i++) {
@@ -809,23 +842,18 @@ function renderTable(showPinyin) {
         continue;
       }
       let cell = '';
-      if (g.main) cell += renderHanzi(g.main, 'each');
+      // When pinyin is shown, suppress per-character pinyin tooltips
+      // (they'd be redundant with the visible annotations)
+      const mainTitleMode = showPinyin ? 'none' : 'each';
+      if (g.main) cell += renderHanzi(g.main, mainTitleMode);
       if (g.alt) {
-        const altPinyin = pinyinOf(g.alt);
-        const altTitle = altPinyin
-          ? `${altPinyin} (used in female names)`
-          : 'Used in female names';
-        cell += `<span class="alt" title="${escapeHtml(altTitle)}">`;
-        // 'none' so the alt span's title wins on hover (not the inner ruby's)
+        // Just the description — no pinyin, no parentheses
+        cell += `<span class="alt" title="Used in female names">`;
         cell += renderHanzi(g.alt, 'none');
         cell += '</span>';
       }
       if (g.fu) {
-        const fuPinyin = pinyinOf(g.fu);
-        const fuTitle = fuPinyin
-          ? `${fuPinyin} (used at the beginning of a word)`
-          : 'Used at the beginning of a word';
-        cell += `<span class="alt" title="${escapeHtml(fuTitle)}">`;
+        cell += `<span class="alt" title="Used at the beginning of a word">`;
         cell += renderHanzi(g.fu, 'none');
         cell += '</span>';
       }
@@ -949,7 +977,13 @@ async function update() {
   }
 }
 
-$input.addEventListener("input", update);
+// Auto-grow the textarea so the user never has to drag the resize handle.
+// CSS min-height takes precedence when content is short.
+function autoGrowTextarea() {
+  $input.style.height = 'auto';
+  $input.style.height = $input.scrollHeight + 'px';
+}
+$input.addEventListener("input", () => { autoGrowTextarea(); update(); });
 $female.addEventListener("change", update);
 $pinyin.addEventListener("change", () => {
   $output.classList.toggle("with-pinyin", $pinyin.checked);
@@ -1043,8 +1077,8 @@ window.addEventListener('resize', hideBubble);
 // both the output and table modal. Persisted in localStorage.
 // =============================================================
 const PINYIN_MIN = 0.30;
-const PINYIN_MAX = 0.70;
-const PINYIN_STEP = 0.06;
+const PINYIN_MAX = 0.95;
+const PINYIN_STEP = 0.07;
 function getPinyinRatio() {
   const v = parseFloat(localStorage.getItem('pinyinRatio'));
   return isFinite(v) && v >= PINYIN_MIN && v <= PINYIN_MAX ? v : 0.42;
@@ -1093,8 +1127,9 @@ $modal.addEventListener('click', (e) => {
   if (e.target === $modal) closeTableModal();
 });
 $tablePinyin.addEventListener('change', () => {
-  const c = $tableContainer.querySelector('table.translit-table');
-  if (c) c.classList.toggle('with-pinyin', $tablePinyin.checked);
+  $tableContainer.innerHTML = renderTable($tablePinyin.checked);
+  attachTableHoverHandlers($tableContainer);
+  adjustEmptyBorders($tableContainer);
 });
 
 // =============================================================
@@ -1104,19 +1139,15 @@ $tablePinyin.addEventListener('change', () => {
 // =============================================================
 function transliterateAllText() {
   if (!cmudict) return;
-  // Walk text nodes inside the container, skipping inputs, the table modal's
-  // IPA headers, and a few other excluded regions.
   const root = document.querySelector('.container');
   if (!root) return;
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const p = node.parentElement;
       if (!p) return NodeFilter.FILTER_REJECT;
-      // Skip textareas/inputs (handled separately) and our generated output panels
       if (p.closest('textarea, input')) return NodeFilter.FILTER_REJECT;
       if (p.closest('#output, #ipa-line, #input-overlay')) return NodeFilter.FILTER_REJECT;
       if (p.closest('#word-bubble')) return NodeFilter.FILTER_REJECT;
-      // Pinyin annotations stay in Chinese phonetics already
       if (p.closest('rt')) return NodeFilter.FILTER_REJECT;
       const text = node.nodeValue;
       if (!/[A-Za-z]/.test(text)) return NodeFilter.FILTER_REJECT;
@@ -1129,6 +1160,11 @@ function transliterateAllText() {
     if (!n._origText) n._origText = n.nodeValue;
     n.nodeValue = transliterateTextSync(n._origText, false);
   }
+  // Placeholder attributes (textarea/input) aren't text nodes — handle separately
+  document.querySelectorAll('textarea[placeholder], input[placeholder]').forEach(el => {
+    if (el._origPlaceholder === undefined) el._origPlaceholder = el.placeholder;
+    el.placeholder = transliterateTextSync(el._origPlaceholder, false);
+  });
 }
 function restoreAllText() {
   const root = document.querySelector('.container');
@@ -1137,18 +1173,20 @@ function restoreAllText() {
   for (let n; (n = walker.nextNode()); ) {
     if (n._origText !== undefined) n.nodeValue = n._origText;
   }
+  document.querySelectorAll('textarea, input').forEach(el => {
+    if (el._origPlaceholder !== undefined) el.placeholder = el._origPlaceholder;
+  });
 }
 $title.addEventListener('mouseenter', transliterateAllText);
 $title.addEventListener('mouseleave', restoreAllText);
 
-// =============================================================
 // Boot
-// =============================================================
 (async () => {
   try {
     await loadCmudict();
     $status.textContent = "Ready.";
     setTimeout(() => { $status.textContent = ""; }, 1500);
+    autoGrowTextarea();
     if ($input.value) update();
   } catch (e) {
     $status.textContent = "Failed to load dictionary.";
