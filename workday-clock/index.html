@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workday Clock</title>
+<link rel="icon" href="/andewmole.png">
+<style>
+:root {
+  --bg: #131313;
+  --panel: #1d1d1d;
+  --panel-2: #161616;
+  --border: #2c2c2c;
+  --text: #e8e8e8;
+  --muted: #888;
+  --dim: #666;
+  --accent: #4a9eff;
+  --red: #e63946;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  min-height: 100vh;
+  padding: 1.25rem;
+  line-height: 1.4;
+}
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .container { grid-template-columns: 1fr; }
+}
+.header { grid-column: 1 / -1; }
+.home-link {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+.home-link:hover { color: var(--accent); }
+h1 {
+  margin: 0.4rem 0 1rem;
+  font-weight: 600;
+  font-size: 1.5rem;
+}
+h1 .sub { color: var(--muted); font-weight: 400; font-size: 0.95rem; margin-left: 0.5rem; }
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.1rem 1.2rem;
+}
+.field { margin-bottom: 0.95rem; }
+.field:last-child { margin-bottom: 0; }
+.field-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+label.lbl {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+input[type="date"], input[type="time"], select {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color-scheme: dark;
+  min-width: 0;
+  width: 100%;
+}
+input[type="date"] { flex: 1.2; }
+input[type="time"] { flex: 1; }
+input:focus, select:focus { outline: 1px solid var(--accent); outline-offset: 0; }
+input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; }
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.83rem;
+  color: var(--muted);
+  margin-top: 0.4rem;
+  cursor: pointer;
+  user-select: none;
+}
+.check input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+.arrow { color: var(--muted); padding: 0 0.1rem; }
+.clock-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1.5rem 1.2rem 1.8rem;
+}
+.clock-svg {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  display: block;
+}
+.time-text {
+  font-size: 2rem;
+  font-weight: 300;
+  margin-top: 1.1rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.percent {
+  font-size: 1rem;
+  color: var(--muted);
+  margin-top: 0.35rem;
+  font-variant-numeric: tabular-nums;
+}
+.ratio {
+  font-size: 0.85rem;
+  color: var(--dim);
+  margin-top: 0.3rem;
+  font-variant-numeric: tabular-nums;
+}
+.error { color: #ff7a7a; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <a href="/" class="home-link">← Back to home</a>
+    <h1>Workday Clock<span class="sub">compress any period into a clock face</span></h1>
+  </div>
+
+  <div class="panel">
+    <div class="field">
+      <label class="lbl">Start</label>
+      <div class="field-row">
+        <input type="date" id="startDate">
+        <input type="time" id="startTime" step="1" value="00:00:00" disabled>
+      </div>
+      <label class="check"><input type="checkbox" id="startTimeEnable"> Enable start time</label>
+    </div>
+
+    <div class="field">
+      <label class="lbl">End</label>
+      <div class="field-row">
+        <input type="date" id="endDate">
+        <input type="time" id="endTime" step="1" value="23:59:59" disabled>
+      </div>
+      <label class="check"><input type="checkbox" id="endTimeEnable"> Enable end time</label>
+    </div>
+
+    <div class="field">
+      <label class="lbl">Current</label>
+      <div class="field-row">
+        <input type="date" id="currentDate" disabled>
+        <input type="time" id="currentTime" step="1" disabled>
+      </div>
+      <label class="check"><input type="checkbox" id="useNow" checked> Use current datetime</label>
+    </div>
+
+    <div class="field">
+      <label class="lbl">Timezone</label>
+      <select id="timezone" disabled></select>
+      <label class="check"><input type="checkbox" id="tzEnable"> Override timezone</label>
+    </div>
+
+    <div class="field">
+      <label class="lbl">Output period</label>
+      <div class="field-row">
+        <input type="time" id="outStart" step="1" value="09:00:00">
+        <span class="arrow">→</span>
+        <input type="time" id="outEnd" step="1" value="17:00:00">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel clock-panel">
+    <svg class="clock-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="100" cy="100" r="95" fill="none" stroke="#fff" stroke-width="1.5"/>
+      <g id="ticks"></g>
+      <g id="numbers"></g>
+      <line id="hourHand" x1="100" y1="100" x2="100" y2="55" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+      <line id="minHand" x1="100" y1="100" x2="100" y2="35" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+      <line id="secHand" x1="100" y1="112" x2="100" y2="28" stroke="#e63946" stroke-width="1.5" stroke-linecap="round"/>
+      <circle cx="100" cy="100" r="3" fill="#e63946"/>
+    </svg>
+    <div class="time-text" id="timeText">9:00:00 am</div>
+    <div class="percent" id="percentText">0.00% complete</div>
+    <div class="ratio" id="ratioText">—</div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const SVGNS = 'http://www.w3.org/2000/svg';
+const pad = n => String(n).padStart(2, '0');
+
+// --- defaults ---
+const now0 = new Date();
+const y0 = now0.getFullYear();
+$('startDate').value = `${y0}-01-01`;
+$('endDate').value = `${y0}-12-31`;
+
+function updateCurrentInputs() {
+  const d = new Date();
+  $('currentDate').value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  $('currentTime').value = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+updateCurrentInputs();
+
+// --- timezone list ---
+const tzSel = $('timezone');
+let tzList = [];
+try { tzList = Intl.supportedValuesOf('timeZone'); }
+catch { tzList = ['UTC','America/New_York','America/Los_Angeles','Europe/London','Europe/Paris','Asia/Tokyo','Asia/Singapore','Asia/Hong_Kong','Australia/Sydney']; }
+const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+tzList.forEach(tz => {
+  const opt = document.createElement('option');
+  opt.value = tz; opt.textContent = tz;
+  if (tz === localTz) opt.selected = true;
+  tzSel.appendChild(opt);
+});
+
+// --- URL state ---
+let suppressSync = false;
+function syncUrl() {
+  if (suppressSync) return;
+  const p = new URLSearchParams();
+  p.set('s', $('startDate').value);
+  if ($('startTimeEnable').checked) p.set('st', $('startTime').value);
+  p.set('e', $('endDate').value);
+  if ($('endTimeEnable').checked) p.set('et', $('endTime').value);
+  if ($('useNow').checked) {
+    p.set('n', '1');
+  } else {
+    p.set('n', '0');
+    p.set('c', $('currentDate').value);
+    p.set('ct', $('currentTime').value);
+  }
+  if ($('tzEnable').checked) p.set('tz', $('timezone').value);
+  p.set('os', $('outStart').value);
+  p.set('oe', $('outEnd').value);
+  history.replaceState(null, '', '#' + p.toString());
+}
+
+function loadFromUrl() {
+  if (!location.hash) return;
+  suppressSync = true;
+  const p = new URLSearchParams(location.hash.slice(1));
+  if (p.has('s')) $('startDate').value = p.get('s');
+  if (p.has('e')) $('endDate').value = p.get('e');
+  if (p.has('st')) { $('startTimeEnable').checked = true; $('startTime').value = p.get('st'); }
+  if (p.has('et')) { $('endTimeEnable').checked = true; $('endTime').value = p.get('et'); }
+  if (p.has('n')) {
+    $('useNow').checked = p.get('n') === '1';
+    if (!$('useNow').checked) {
+      if (p.has('c')) $('currentDate').value = p.get('c');
+      if (p.has('ct')) $('currentTime').value = p.get('ct');
+    }
+  }
+  if (p.has('tz')) { $('tzEnable').checked = true; $('timezone').value = p.get('tz'); }
+  if (p.has('os')) $('outStart').value = p.get('os');
+  if (p.has('oe')) $('outEnd').value = p.get('oe');
+  suppressSync = false;
+}
+
+// --- enable/disable wiring ---
+function wire() {
+  $('startTime').disabled = !$('startTimeEnable').checked;
+  $('endTime').disabled = !$('endTimeEnable').checked;
+  const useNow = $('useNow').checked;
+  $('currentDate').disabled = useNow;
+  $('currentTime').disabled = useNow;
+  $('timezone').disabled = !$('tzEnable').checked;
+}
+
+loadFromUrl();
+wire();
+
+// listeners
+const INPUT_IDS = ['startDate','startTime','startTimeEnable','endDate','endTime','endTimeEnable',
+  'useNow','currentDate','currentTime','tzEnable','timezone','outStart','outEnd'];
+INPUT_IDS.forEach(id => {
+  const el = $(id);
+  el.addEventListener('change', () => { wire(); syncUrl(); });
+  el.addEventListener('input', syncUrl);
+});
+
+syncUrl();
+
+// --- TZ-aware timestamp conversion ---
+function wallToTs(year, mon, day, h, m, s, tz) {
+  if (!tz) return new Date(year, mon-1, day, h, m, s).getTime();
+  const asUTC = Date.UTC(year, mon-1, day, h, m, s);
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false
+  });
+  const o = {};
+  dtf.formatToParts(new Date(asUTC)).forEach(p => o[p.type] = p.value);
+  let hh = +o.hour; if (hh === 24) hh = 0;
+  const seen = Date.UTC(+o.year, +o.month-1, +o.day, hh, +o.minute, +o.second);
+  return asUTC - (seen - asUTC);
+}
+function parseDT(dateStr, timeStr, tz) {
+  if (!dateStr) return null;
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const [h='0', mi='0', se='0'] = (timeStr || '00:00:00').split(':');
+  return wallToTs(y, mo, d, +h, +mi, +se, tz);
+}
+function parseTimeSec(t) {
+  if (!t) return 0;
+  const [h='0', m='0', s='0'] = t.split(':');
+  return (+h)*3600 + (+m)*60 + (+s);
+}
+function addDay(dateStr) {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, mo-1, d));
+  dt.setUTCDate(dt.getUTCDate() + 1);
+  return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth()+1)}-${pad(dt.getUTCDate())}`;
+}
+
+// --- compute ---
+function compute() {
+  const tz = $('tzEnable').checked ? $('timezone').value : null;
+
+  const sTime = $('startTimeEnable').checked ? $('startTime').value : '00:00:00';
+  const startTs = parseDT($('startDate').value, sTime, tz);
+
+  let endTs;
+  if ($('endTimeEnable').checked) {
+    endTs = parseDT($('endDate').value, $('endTime').value, tz);
+  } else {
+    endTs = parseDT(addDay($('endDate').value), '00:00:00', tz);
+  }
+
+  let curTs;
+  if ($('useNow').checked) {
+    curTs = Date.now();
+  } else {
+    curTs = parseDT($('currentDate').value, $('currentTime').value || '00:00:00', tz);
+  }
+
+  if (startTs == null || endTs == null || curTs == null || endTs <= startTs) return null;
+
+  let progress = (curTs - startTs) / (endTs - startTs);
+  progress = Math.max(0, Math.min(1, progress));
+
+  const oS = parseTimeSec($('outStart').value);
+  const oE = parseTimeSec($('outEnd').value);
+  let dur;
+  if (oS === oE) dur = 86400;
+  else if (oE > oS) dur = oE - oS;
+  else dur = (86400 - oS) + oE;
+
+  const elapsedSmooth = progress * dur;
+  const elapsedFloor = Math.floor(elapsedSmooth);
+  const displaySec = (oS + elapsedFloor) % 86400;
+  const smoothSec = (((oS + elapsedSmooth) % 86400) + 86400) % 86400;
+
+  const realSecPerOutSec = (endTs - startTs) / 1000 / dur;
+
+  return { progress, displaySec, smoothSec, realSecPerOutSec };
+}
+
+function format12(totalSec) {
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = Math.floor(totalSec % 60);
+  const ampm = h >= 12 ? 'pm' : 'am';
+  let h12 = h % 12; if (h12 === 0) h12 = 12;
+  return `${h12}:${pad(m)}:${pad(s)} ${ampm}`;
+}
+
+function plural(n, w) { return `${n} ${w}${n !== 1 ? 's' : ''}`; }
+function formatRatio(s) {
+  if (!isFinite(s) || s <= 0) return '—';
+  if (s >= 86400) {
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    return h > 0 ? `${plural(d,'day')}, ${plural(h,'hour')}` : plural(d,'day');
+  }
+  if (s >= 3600) {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return m > 0 ? `${plural(h,'hour')}, ${plural(m,'minute')}` : plural(h,'hour');
+  }
+  if (s >= 60) {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return sec > 0 ? `${plural(m,'minute')}, ${plural(sec,'second')}` : plural(m,'minute');
+  }
+  if (s >= 1) return `${s.toFixed(2)} seconds`;
+  return `${(s*1000).toFixed(0)} ms`;
+}
+
+function setHand(id, deg) {
+  $(id).setAttribute('transform', `rotate(${deg} 100 100)`);
+}
+
+// --- clock face ---
+const ticksG = $('ticks');
+for (let i = 0; i < 60; i++) {
+  const a = i * 6 * Math.PI / 180;
+  const isHour = i % 5 === 0;
+  const r1 = 92, r2 = isHour ? 82 : 87;
+  const ln = document.createElementNS(SVGNS, 'line');
+  ln.setAttribute('x1', 100 + Math.sin(a) * r1);
+  ln.setAttribute('y1', 100 - Math.cos(a) * r1);
+  ln.setAttribute('x2', 100 + Math.sin(a) * r2);
+  ln.setAttribute('y2', 100 - Math.cos(a) * r2);
+  ln.setAttribute('stroke', '#fff');
+  ln.setAttribute('stroke-width', isHour ? 2 : 0.8);
+  ln.setAttribute('stroke-linecap', 'round');
+  ticksG.appendChild(ln);
+}
+const numbersG = $('numbers');
+for (let i = 1; i <= 12; i++) {
+  const a = i * 30 * Math.PI / 180;
+  const t = document.createElementNS(SVGNS, 'text');
+  t.setAttribute('x', 100 + Math.sin(a) * 70);
+  t.setAttribute('y', 100 - Math.cos(a) * 70);
+  t.setAttribute('text-anchor', 'middle');
+  t.setAttribute('dominant-baseline', 'central');
+  t.setAttribute('fill', '#fff');
+  t.setAttribute('font-size', '13');
+  t.setAttribute('font-family', 'inherit');
+  t.setAttribute('font-weight', '500');
+  t.textContent = i;
+  numbersG.appendChild(t);
+}
+
+// --- loop ---
+let lastInputSync = 0;
+function tick(t) {
+  if ($('useNow').checked && (!lastInputSync || t - lastInputSync > 1000)) {
+    updateCurrentInputs();
+    lastInputSync = t;
+  }
+  const r = compute();
+  if (r) {
+    $('timeText').textContent = format12(r.displaySec);
+    $('timeText').classList.remove('error');
+    $('percentText').textContent = `${(r.progress * 100).toFixed(2)}% complete`;
+    $('ratioText').textContent = `Each second ≈ ${formatRatio(r.realSecPerOutSec)}`;
+    const sH = (r.smoothSec / 3600) % 12;
+    const sM = (r.smoothSec / 60) % 60;
+    const sS = r.smoothSec % 60;
+    setHand('hourHand', sH * 30 + sM * 0.5);
+    setHand('minHand', sM * 6 + sS * 0.1);
+    setHand('secHand', sS * 6);
+  } else {
+    $('timeText').textContent = '—';
+    $('timeText').classList.add('error');
+    $('percentText').textContent = 'Check inputs (end must be after start)';
+    $('ratioText').textContent = '';
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
