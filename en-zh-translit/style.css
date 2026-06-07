@@ -143,7 +143,7 @@ html, body {
   overflow-wrap: break-word;
   margin: 0;
 }
-.textarea-wrap textarea { display: block; resize: vertical; }
+.textarea-wrap textarea { display: block; resize: none; overflow: hidden; }
 .textarea-wrap textarea:focus {
   outline: none;
   border-color: var(--accent);
@@ -229,15 +229,15 @@ html, body {
 
 /* Each transliterated word stays together (no mid-word linebreaks).
    inline (NOT inline-block) so border-bottom hugs the text baseline. */
-.word { white-space: nowrap; border-radius: 2px; padding: 0 1px; }
+.word { white-space: nowrap; border-radius: 2px; }
 .g2p {
   border-bottom: 1px dashed var(--muted);
   cursor: help;
 }
 
-/* Cross-panel word highlight (hovering a word in input/output/IPA
-   highlights its counterpart in the others) */
-.word.word-link-hover { background: #d1e2ff; }
+/* Cross-panel word highlight: translucent so the textarea text underneath
+   the input overlay stays readable (highlight is a tint, not a cover) */
+.word.word-link-hover { background: rgba(37, 99, 235, 0.18); }
 
 ruby { ruby-position: over; }
 rt {
