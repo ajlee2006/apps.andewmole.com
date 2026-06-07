@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Workday Clock</title>
+<title>Timespan Compressor</title>
 <link rel="icon" href="/andewmole.png">
 <style>
 :root {
@@ -134,13 +134,28 @@ input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; }
   font-variant-numeric: tabular-nums;
 }
 .error { color: #ff7a7a; }
+.tooltip {
+  position: fixed;
+  background: #0d0d0d;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.4rem 0.6rem;
+  border-radius: 5px;
+  font-size: 0.82rem;
+  pointer-events: none;
+  z-index: 100;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  display: none;
+}
+.clock-svg { cursor: crosshair; }
 </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
     <a href="/" class="home-link">← Back to home</a>
-    <h1>Workday Clock<span class="sub">compress any period into a clock face</span></h1>
+    <h1>Timespan Compressor<span class="sub">map your progress through a time period onto a 12-hour clock face</span></h1>
   </div>
 
   <div class="panel">
@@ -168,7 +183,7 @@ input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; }
         <input type="date" id="currentDate" disabled>
         <input type="time" id="currentTime" step="1" disabled>
       </div>
-      <label class="check"><input type="checkbox" id="useNow" checked> Use current datetime</label>
+      <label class="check"><input type="checkbox" id="useNow" checked> Use current date and time</label>
     </div>
 
     <div class="field">
@@ -202,6 +217,8 @@ input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; }
     <div class="ratio" id="ratioText">—</div>
   </div>
 </div>
+
+<div class="tooltip" id="tooltip"></div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -407,6 +424,25 @@ function formatRatio(s) {
   return `${(s*1000).toFixed(0)} ms`;
 }
 
+function formatRemaining(s) {
+  if (!isFinite(s) || s < 0) return '—';
+  if (s < 1) return `${(s*1000).toFixed(0)} ms`;
+  if (s < 60) return `${s.toFixed(1)} sec`;
+  if (s < 3600) {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m} min ${pad(sec)} sec`;
+  }
+  if (s < 86400) {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return `${h} hr ${pad(m)} min`;
+  }
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  return `${d} day ${h} hr`;
+}
+
 function setHand(id, deg) {
   $(id).setAttribute('transform', `rotate(${deg} 100 100)`);
 }
@@ -443,6 +479,17 @@ for (let i = 1; i <= 12; i++) {
   numbersG.appendChild(t);
 }
 
+// --- tooltip ---
+const clockSvg = document.querySelector('.clock-svg');
+const tooltip = $('tooltip');
+let tooltipVisible = false;
+clockSvg.addEventListener('mouseenter', () => { tooltip.style.display = 'block'; tooltipVisible = true; });
+clockSvg.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; tooltipVisible = false; });
+clockSvg.addEventListener('mousemove', (e) => {
+  tooltip.style.left = (e.clientX + 14) + 'px';
+  tooltip.style.top = (e.clientY + 14) + 'px';
+});
+
 // --- loop ---
 let lastInputSync = 0;
 function tick(t) {
@@ -456,12 +503,14 @@ function tick(t) {
     $('timeText').classList.remove('error');
     $('percentText').textContent = `${(r.progress * 100).toFixed(2)}% complete`;
     $('ratioText').textContent = `Each second ≈ ${formatRatio(r.realSecPerOutSec)}`;
-    const sH = (r.smoothSec / 3600) % 12;
-    const sM = (r.smoothSec / 60) % 60;
-    const sS = r.smoothSec % 60;
-    setHand('hourHand', sH * 30 + sM * 0.5);
-    setHand('minHand', sM * 6 + sS * 0.1);
-    setHand('secHand', sS * 6);
+    setHand('hourHand', (r.smoothSec / 3600 * 30) % 360);
+    setHand('minHand', (r.smoothSec / 60 * 6) % 360);
+    setHand('secHand', (r.smoothSec * 6) % 360);
+    if (tooltipVisible) {
+      const frac = r.smoothSec - Math.floor(r.smoothSec);
+      const remaining = (1 - frac) * r.realSecPerOutSec;
+      tooltip.textContent = `${formatRemaining(remaining)} to next second`;
+    }
   } else {
     $('timeText').textContent = '—';
     $('timeText').classList.add('error');
