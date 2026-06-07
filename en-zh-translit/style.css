@@ -43,6 +43,9 @@ html, body {
   margin: 0 0 4px;
   letter-spacing: -0.01em;
   cursor: default;
+  /* Hover area = text only, not the full page width */
+  width: fit-content;
+  max-width: 100%;
 }
 .subtitle {
   color: var(--muted);
