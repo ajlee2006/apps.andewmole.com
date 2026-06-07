@@ -221,9 +221,12 @@ html, body {
 }
 .output-box.empty {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 16px;
   background: var(--bg);
   border-style: dashed;
+}
+@media (min-width: 900px) {
+  .output-box.empty { font-size: 18px; }
 }
 .output-box.with-pinyin { line-height: 2.6; padding-top: 24px; }
 
