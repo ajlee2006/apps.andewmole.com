@@ -387,8 +387,9 @@ function normalize_ipa(ipa) {
            .split("ɡw").join("\uE0A2")
            .split("hw").join("\uE0A3");
 
-  ipa = ipa.split("æ").join("ɑ").split("ʌ").join("ɑ")
-           .split("ɪ").join("i").split("ʊ").join("u")
+  // Keep æ and ʌ DISTINCT from ɑ — the table has separate æn and ɑn rows,
+  // so we need to know which underlying vowel a coda+n came from.
+  ipa = ipa.split("ɪ").join("i").split("ʊ").join("u")
            .split("ɒ").join("ɔ").split("ɜ").join("ə");
 
   ipa = ipa.split("ʤ").join("dʒ").split("ʧ").join("tʃ");
@@ -410,7 +411,7 @@ const MULTI = ["dʒ", "tʃ", "ts", "dz", "ɡʷ", "kʷ", "hʷ",
                "eɪ", "aɪ", "aʊ", "oʊ", "əʊ", "ju", "jʊ"];
 
 const SIMPLE_C = new Set(["b","p","d","t","ɡ","k","v","w","f","z","s","ʃ","ʒ","h","m","n","l","r","j","ð","θ"]);
-const SIMPLE_V = new Set(["ɑ","ɛ","ə","i","ɔ","u"]);
+const SIMPLE_V = new Set(["ɑ","æ","ʌ","ɛ","ə","i","ɔ","u"]);
 const DIPHTHONGS = new Set(["eɪ", "aɪ", "aʊ", "oʊ", "əʊ", "ju", "jʊ"]);
 const NASALS = new Set(["n", "ŋ"]);
 const COMPLEX_C = new Set(["dʒ", "tʃ", "ts", "ɡʷ", "kʷ", "hʷ"]);
@@ -452,13 +453,18 @@ function vowelRow(vowel, coda) {
   else if (vowel === "jʊ") vowel = "ju";
 
   if (coda === "n") {
-    const m = {"ɑ":"æn","ɛ":"ɛn","ə":"ɛn","i":"ɪn","ɔ":"ɑn","u":"un","aʊ":"ɑn"};
+    // Per table: row æn covers /æn, ʌn, æŋ/; row ɑn covers /ɑn, aʊn, ʌŋ, ɔn, ɒn, ɒŋ/
+    const m = {"ɑ":"ɑn","æ":"æn","ʌ":"æn","ɛ":"ɛn","ə":"ɛn",
+               "i":"ɪn","ɔ":"ɑn","u":"un","aʊ":"ɑn"};
     return m[vowel] || vowel;
   }
   if (coda === "ŋ") {
-    const m = {"ɑ":"ɑn","ɛ":"ɛn","ə":"ɛn","i":"ɪŋ","ɔ":"ɑn","u":"ʊŋ","aʊ":"ɑn"};
+    const m = {"ɑ":"ɑn","æ":"æn","ʌ":"ɑn","ɛ":"ɛn","ə":"ɛn",
+               "i":"ɪŋ","ɔ":"ɑn","u":"ʊŋ","aʊ":"ɑn"};
     return m[vowel] || vowel;
   }
+  // No coda: æ and ʌ collapse to the ɑ row (which covers /ɑː, æ, ʌ/)
+  if (vowel === "æ" || vowel === "ʌ") return "ɑ";
   return vowel;
 }
 
@@ -561,8 +567,10 @@ function applyUnstressedVowelRule(sylls, word) {
     const { s, idx } = vowelSylls[i];
     const letter = letters[i];
     if (s.vowel !== 'ə' || !LETTER_TO_VOWEL[letter]) continue;
-    // r-coloring filter for 'e': /ər/ here came from /ɜ:r/, not /ɛr/
     if (letter === 'e') {
+      // "the" and other single-syllable schwa+e words keep the ə row
+      if (vowelSylls.length === 1) continue;
+      // r-coloring filter: /ər/ here came from /ɜ:r/, not /ɛr/
       const next = sylls[idx + 1];
       if (next && next.onset === 'r' && !next.vowel) continue;
     }
@@ -606,6 +614,16 @@ function lookupSyllable(syll, { wordInitial = false, wordFinal = false, hints = 
   if (female && FEMALE_ALT.has(row + "|" + col)) return FEMALE_ALT.get(row + "|" + col);
   if (wordInitial && WORD_INITIAL_FU.has(row + "|" + col)) return WORD_INITIAL_FU.get(row + "|" + col);
   if (TABLE.has(row + "|" + col)) return TABLE.get(row + "|" + col);
+
+  // Empty cell — split into consonant + vowel-with-coda. The (-, col) gives
+  // the bare consonant character (e.g. ʒ→日, ɡʷ→古) and (row, -) gives the
+  // bare vowel character including coda (e.g. aʊ→奥, ɑn→昂, un→温).
+  // So /ʒaʊ/ (xiao) → 日 + 奥 = 日奥 instead of dropping the consonant.
+  if (row !== "-" && col !== "-") {
+    const cons = TABLE.get("-|" + col);
+    const vow  = TABLE.get(row + "|-");
+    if (cons && vow) return cons + vow;
+  }
 
   const baseRow = vowel ? vowelRow(vowel, "") : "-";
   if (TABLE.has(baseRow + "|" + col)) {
