@@ -508,8 +508,16 @@ function syllabify(tokens) {
 function getSpellingHints(word) {
   const w = word.toLowerCase();
   const first = w[0];
+  let initial_vowel_letter = 'aeiou'.includes(first) ? first : null;
+  // Same r-coloring filter as the unstressed-vowel rule: if the word starts
+  // with 'e' followed by 'r' followed by a consonant/end (Ernest, Erma…),
+  // the 'e' represents /ɜ:/ not /ɛ/, so don't trigger the initial-ɛ hint.
+  if (initial_vowel_letter === 'e' && w[1] === 'r'
+      && (!w[2] || !'aeiouy'.includes(w[2]))) {
+    initial_vowel_letter = null;
+  }
   return {
-    initial_vowel_letter: 'aeiou'.includes(first) ? first : null,
+    initial_vowel_letter,
     is_initial_a_schwa: first === 'a',           // kept for word-initial 'a' fallback
     is_initial_ai_ay:   w.startsWith("ai") || w.startsWith("ay"),
     is_ia_final:        w.endsWith("ia"),
@@ -533,22 +541,32 @@ function fixMBeforeBP(word, tokens) {
 // a/e/i/o/u should be mapped to ɑ/ɛ/i/ɔ/u respectively (not the ə row).
 // We align in-order: ith vowel syllable ↔ ith vowel letter. Only applied
 // when counts match, since misalignment would do more harm than good.
+// Filter: for letter 'e', if the schwa is r-colored (the next syllable is
+// bare /r/), the original sound was /ɜ:/ not /ɛ/ — skip the substitution.
+// (Examples: "her", "fern", "Berlin" — 'e' here represents /ɜ:/, not /ɛ/.)
 const LETTER_TO_VOWEL = { a: 'ɑ', e: 'ɛ', i: 'i', o: 'ɔ', u: 'u' };
 function applyUnstressedVowelRule(sylls, word) {
-  // 'y' is counted as a vowel letter for alignment purposes only — it never
-  // triggers a replacement. (Words like "happy" → letters [a, y], 2 syllables.)
   const letters = [];
   for (const c of word.toLowerCase()) {
     if ('aeiouy'.includes(c)) letters.push(c);
   }
-  const vowelSylls = sylls.filter(s => s.vowel);
-  if (letters.length !== vowelSylls.length) return; // unreliable, skip
+  // Track each vowel syllable's index in the full sylls array (so we can
+  // peek at the next syllable for the r-coloring check)
+  const vowelSylls = [];
+  for (let i = 0; i < sylls.length; i++) {
+    if (sylls[i].vowel) vowelSylls.push({ s: sylls[i], idx: i });
+  }
+  if (letters.length !== vowelSylls.length) return;
   for (let i = 0; i < vowelSylls.length; i++) {
-    const s = vowelSylls[i];
+    const { s, idx } = vowelSylls[i];
     const letter = letters[i];
-    if (s.vowel === 'ə' && LETTER_TO_VOWEL[letter]) {
-      s.vowel = LETTER_TO_VOWEL[letter];
+    if (s.vowel !== 'ə' || !LETTER_TO_VOWEL[letter]) continue;
+    // r-coloring filter for 'e': /ər/ here came from /ɜ:r/, not /ɛr/
+    if (letter === 'e') {
+      const next = sylls[idx + 1];
+      if (next && next.onset === 'r' && !next.vowel) continue;
     }
+    s.vowel = LETTER_TO_VOWEL[letter];
   }
 }
 
