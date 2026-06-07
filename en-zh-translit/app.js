@@ -1146,7 +1146,10 @@ function transliterateAllText() {
       const p = node.parentElement;
       if (!p) return NodeFilter.FILTER_REJECT;
       if (p.closest('textarea, input')) return NodeFilter.FILTER_REJECT;
-      if (p.closest('#output, #ipa-line, #input-overlay')) return NodeFilter.FILTER_REJECT;
+      // Reject the rendered output unless it's still showing its empty placeholder
+      const out = p.closest('#output');
+      if (out && !out.classList.contains('empty')) return NodeFilter.FILTER_REJECT;
+      if (p.closest('#ipa-line, #input-overlay')) return NodeFilter.FILTER_REJECT;
       if (p.closest('#word-bubble')) return NodeFilter.FILTER_REJECT;
       if (p.closest('rt')) return NodeFilter.FILTER_REJECT;
       const text = node.nodeValue;
