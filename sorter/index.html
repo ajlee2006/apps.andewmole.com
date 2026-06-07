@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sorter</title>
+<link rel="icon" href="/andewmole.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>Sorter</h1>
+    <span class="sub">tier list / categorizer</span>
+  </div>
+  <div class="toolbar">
+    <button id="exportBtn">Export</button>
+    <button id="importBtn">Import</button>
+    <button id="resetBtn" class="danger">Reset</button>
+    <a id="homeBtn" class="icon-btn" href="/" title="Home" aria-label="Home">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 11.5 12 4l9 7.5"/>
+        <path d="M5 10v10h14V10"/>
+      </svg>
+    </a>
+    <input type="file" id="fileInput" accept=".txt,.json" style="display:none">
+  </div>
+</header>
+
+<main>
+  <div class="categories" id="categories"></div>
+  <button id="addCatBtn" class="add-cat-btn">＋ Add category</button>
+
+  <div class="pool-wrap">
+    <div class="pool-head">
+      <h2>Unsorted</h2>
+      <span class="count" id="poolCount">0 items</span>
+    </div>
+    <div class="pool" id="pool"></div>
+    <div class="add-row">
+      <input type="text" id="newItemInput" placeholder="Add new item… (press Enter)">
+      <button id="addItemBtn" class="primary">+ Add</button>
+    </div>
+  </div>
+</main>
+
+<!-- Setup modal -->
+<div class="modal-bg" id="setupModal" style="display:none">
+  <div class="modal">
+    <h2>Set up your list</h2>
+    <p>Enter your items and categories below — one per line. You can edit, add, and rearrange everything later.</p>
+    <div class="field">
+      <label>Items</label>
+      <textarea id="setupItems" placeholder="Apple&#10;Banana&#10;Cherry"></textarea>
+    </div>
+    <div class="field">
+      <label>Categories</label>
+      <textarea id="setupCats" placeholder="Favorites&#10;Okay&#10;Dislike"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button id="setupCancel">Cancel</button>
+      <button id="setupGo" class="primary">Create</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
