@@ -139,7 +139,7 @@ input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; }
   background: #0d0d0d;
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 0.4rem 0.6rem;
+  padding: 0.35rem 0.55rem;
   border-radius: 5px;
   font-size: 0.82rem;
   pointer-events: none;
@@ -148,7 +148,6 @@ input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; }
   white-space: nowrap;
   display: none;
 }
-.clock-svg { cursor: crosshair; }
 </style>
 </head>
 <body>
@@ -211,6 +210,7 @@ input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; }
       <line id="minHand" x1="100" y1="100" x2="100" y2="35" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
       <line id="secHand" x1="100" y1="112" x2="100" y2="28" stroke="#e63946" stroke-width="1.5" stroke-linecap="round"/>
       <circle cx="100" cy="100" r="3" fill="#e63946"/>
+      <circle id="hoverArea" cx="100" cy="100" r="95" fill="transparent" pointer-events="all"/>
     </svg>
     <div class="time-text" id="timeText">9:00:00 am</div>
     <div class="percent" id="percentText">0.00% complete</div>
@@ -479,13 +479,13 @@ for (let i = 1; i <= 12; i++) {
   numbersG.appendChild(t);
 }
 
-// --- tooltip ---
-const clockSvg = document.querySelector('.clock-svg');
+// --- tooltip (hover on circle only, not bounding box) ---
+const hoverArea = $('hoverArea');
 const tooltip = $('tooltip');
 let tooltipVisible = false;
-clockSvg.addEventListener('mouseenter', () => { tooltip.style.display = 'block'; tooltipVisible = true; });
-clockSvg.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; tooltipVisible = false; });
-clockSvg.addEventListener('mousemove', (e) => {
+hoverArea.addEventListener('mouseenter', () => { tooltip.style.display = 'block'; tooltipVisible = true; });
+hoverArea.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; tooltipVisible = false; });
+hoverArea.addEventListener('mousemove', (e) => {
   tooltip.style.left = (e.clientX + 14) + 'px';
   tooltip.style.top = (e.clientY + 14) + 'px';
 });
