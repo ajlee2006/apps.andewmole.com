@@ -99,6 +99,8 @@ input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; }
   user-select: none;
 }
 .check input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+.hint { color: var(--dim); font-size: 0.78rem; margin-left: 0.2rem; }
+.tz-select { margin-top: 0.5rem; }
 .arrow { color: var(--muted); padding: 0 0.1rem; }
 .clock-panel {
   display: flex;
@@ -183,12 +185,8 @@ input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; }
         <input type="time" id="currentTime" step="1" disabled>
       </div>
       <label class="check"><input type="checkbox" id="useNow" checked> Use current date and time</label>
-    </div>
-
-    <div class="field">
-      <label class="lbl">Timezone</label>
-      <select id="timezone" disabled></select>
-      <label class="check"><input type="checkbox" id="tzEnable"> Override timezone</label>
+      <select id="timezone" class="tz-select" disabled></select>
+      <label class="check"><input type="checkbox" id="tzEnable"> Override timezone <span class="hint">(affects what "now" is)</span></label>
     </div>
 
     <div class="field">
@@ -231,10 +229,39 @@ const y0 = now0.getFullYear();
 $('startDate').value = `${y0}-01-01`;
 $('endDate').value = `${y0}-12-31`;
 
+function getActiveTz() {
+  return $('tzEnable').checked ? $('timezone').value : Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+function tzOffsetLabel(tz) {
+  try {
+    const now = Date.now();
+    const dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false
+    });
+    const o = {};
+    dtf.formatToParts(new Date(now)).forEach(p => o[p.type] = p.value);
+    let hh = +o.hour; if (hh === 24) hh = 0;
+    const seen = Date.UTC(+o.year, +o.month-1, +o.day, hh, +o.minute, +o.second);
+    const offMin = Math.round((seen - now) / 60000);
+    const sign = offMin >= 0 ? '+' : '-';
+    const abs = Math.abs(offMin);
+    return `UTC${sign}${pad(Math.floor(abs/60))}:${pad(abs%60)}`;
+  } catch { return 'UTC'; }
+}
+
 function updateCurrentInputs() {
-  const d = new Date();
-  $('currentDate').value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-  $('currentTime').value = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  const tz = getActiveTz();
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false
+  });
+  const o = {};
+  dtf.formatToParts(new Date()).forEach(p => o[p.type] = p.value);
+  let hh = +o.hour; if (hh === 24) hh = 0;
+  $('currentDate').value = `${o.year}-${o.month}-${o.day}`;
+  $('currentTime').value = `${pad(hh)}:${o.minute}:${o.second}`;
 }
 updateCurrentInputs();
 
@@ -246,7 +273,8 @@ catch { tzList = ['UTC','America/New_York','America/Los_Angeles','Europe/London'
 const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 tzList.forEach(tz => {
   const opt = document.createElement('option');
-  opt.value = tz; opt.textContent = tz;
+  opt.value = tz;
+  opt.textContent = `(${tzOffsetLabel(tz)}) ${tz}`;
   if (tz === localTz) opt.selected = true;
   tzSel.appendChild(opt);
 });
@@ -312,7 +340,11 @@ const INPUT_IDS = ['startDate','startTime','startTimeEnable','endDate','endTime'
   'useNow','currentDate','currentTime','tzEnable','timezone','outStart','outEnd'];
 INPUT_IDS.forEach(id => {
   const el = $(id);
-  el.addEventListener('change', () => { wire(); syncUrl(); });
+  el.addEventListener('change', () => {
+    wire();
+    if ($('useNow').checked) updateCurrentInputs();
+    syncUrl();
+  });
   el.addEventListener('input', syncUrl);
 });
 
