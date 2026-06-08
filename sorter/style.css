@@ -137,8 +137,8 @@
   .pool-head h2 { font-family: var(--font-text); font-size: 12px; text-transform: uppercase; letter-spacing: 0.2em; font-weight: 600; }
   .pool-head .count { color: var(--muted); font-size: 11px; }
   .pool {
-    padding: 14px; display: flex; flex-wrap: wrap; gap: 8px;
-    min-height: 80px; max-height: 240px; overflow-y: auto;
+    padding: 12px; display: flex; flex-wrap: wrap; gap: 8px;
+    min-height: 48px; max-height: 240px; overflow-y: auto;
   }
   .add-row { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--line); background: var(--panel-2); }
   .add-row input {
