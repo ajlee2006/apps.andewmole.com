@@ -45,14 +45,6 @@ h1 {
   font-size: 1.5rem;
 }
 h1 .sub { color: var(--muted); font-weight: 400; font-size: 0.95rem; margin-left: 0.5rem; }
-.format-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0.8rem 0 0.2rem;
-  font-size: 0.85rem;
-  color: var(--muted);
-}
 .seg {
   display: inline-flex;
   border: 1px solid var(--border);
@@ -70,6 +62,7 @@ h1 .sub { color: var(--muted); font-weight: 400; font-size: 0.95rem; margin-left
 }
 .seg button.on { background: var(--accent); color: white; }
 .seg button + button { border-left: 1px solid var(--border); }
+#timeSeconds { cursor: help; }
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -166,13 +159,6 @@ input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; }
   <div class="header">
     <a href="/" class="home-link">← Back to home</a>
     <h1>Timespan Compressor<span class="sub">map your progress through a time period onto a 12-hour clock face</span></h1>
-    <div class="format-bar">
-      <span>Output:</span>
-      <div class="seg" id="timeFmtSeg">
-        <button type="button" data-val="24">24h</button>
-        <button type="button" data-val="12">12h</button>
-      </div>
-    </div>
   </div>
 
   <div class="panel">
@@ -226,9 +212,13 @@ input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; }
       <circle cx="100" cy="100" r="3" fill="#e63946"/>
       <circle id="hoverArea" cx="100" cy="100" r="95" fill="transparent" pointer-events="all"/>
     </svg>
-    <div class="time-text" id="timeText">9:00:00</div>
+    <div class="time-text" id="timeText"><span id="timePrefix"></span><span id="timeSeconds"></span><span id="timeSuffix"></span></div>
     <div class="percent" id="percentText">0.00% complete</div>
     <div class="ratio" id="ratioText">—</div>
+    <div class="seg" id="timeFmtSeg" style="margin-top: 0.7rem">
+      <button type="button" data-val="12">12h</button>
+      <button type="button" data-val="24">24h</button>
+    </div>
   </div>
 </div>
 
@@ -239,7 +229,7 @@ const $ = id => document.getElementById(id);
 const SVGNS = 'http://www.w3.org/2000/svg';
 const pad = n => String(n).padStart(2, '0');
 
-let timeFormat = '24';  // '24' or '12' — affects clock output only
+let timeFormat = '12';  // '24' or '12' — affects clock output only
 
 // --- defaults ---
 const now0 = new Date();
@@ -313,14 +303,14 @@ function syncUrl() {
   if ($('tzEnable').checked) p.set('tz', $('timezone').value);
   p.set('os', $('outStart').value);
   p.set('oe', $('outEnd').value);
-  if (timeFormat !== '24') p.set('tf', timeFormat);
+  if (timeFormat !== '12') p.set('tf', timeFormat);
   history.replaceState(null, '', '#' + p.toString());
 }
 function loadFromUrl() {
   if (!location.hash) return;
   suppressSync = true;
   const p = new URLSearchParams(location.hash.slice(1));
-  if (p.has('tf')) timeFormat = p.get('tf') === '12' ? '12' : '24';
+  if (p.has('tf')) timeFormat = p.get('tf') === '24' ? '24' : '12';
   if (p.has('s')) $('startDate').value = p.get('s');
   if (p.has('e')) $('endDate').value = p.get('e');
   if (p.has('st')) { $('startTimeEnable').checked = true; userVal.startTime = p.get('st'); }
@@ -437,7 +427,7 @@ function compute() {
   const startTs = parseDT($('startDate').value, sTime, tz);
 
   let endTs;
-  if ($('endTimeEnable').checked) endTs = parseDT($('endDate').value, $('endTime').value, tz);
+  if ($('endTimeEnable').checked) endTs = parseDT($('endDate').value, $('endTime').value, tz) + 1000;
   else endTs = parseDT(addDay($('endDate').value), '00:00:00', tz);
 
   let curTs;
@@ -465,37 +455,58 @@ function compute() {
   return { progress, displaySec, smoothSec, realSecPerOutSec };
 }
 
-function formatOutputTime(totalSec) {
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = Math.floor(totalSec % 60);
+function setTimeText(displaySec, smoothSec) {
+  const h = Math.floor(displaySec / 3600);
+  const m = Math.floor((displaySec % 3600) / 60);
+  const s = Math.floor(displaySec % 60);
   if (timeFormat === '12') {
     const ampm = h >= 12 ? 'pm' : 'am';
     let h12 = h % 12; if (h12 === 0) h12 = 12;
-    return `${h12}:${pad(m)}:${pad(s)} ${ampm}`;
+    $('timePrefix').textContent = `${h12}:${pad(m)}:`;
+    $('timeSeconds').textContent = pad(s);
+    $('timeSuffix').textContent = ` ${ampm}`;
+  } else {
+    $('timePrefix').textContent = `${pad(h)}:${pad(m)}:`;
+    $('timeSeconds').textContent = pad(s);
+    $('timeSuffix').textContent = '';
   }
-  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+  // store smooth seconds for tooltip
+  const secFrac = (((smoothSec % 60) + 60) % 60);
+  $('timeSeconds').dataset.frac = secFrac.toFixed(3).padStart(6, '0');
 }
 
 function plural(n, w) { return `${n} ${w}${n !== 1 ? 's' : ''}`; }
+const YEAR_S = 31557600, MONTH_S = 2629800, DAY_S = 86400, HOUR_S = 3600, MIN_S = 60;
 function formatRatio(s) {
   if (!isFinite(s) || s <= 0) return '—';
-  if (s >= 86400) { const d = Math.floor(s/86400), h = Math.floor((s%86400)/3600);
+  if (s >= YEAR_S) { const y = Math.floor(s/YEAR_S), mo = Math.floor((s%YEAR_S)/MONTH_S);
+    return mo > 0 ? `${plural(y,'year')}, ${plural(mo,'month')}` : plural(y,'year'); }
+  if (s >= MONTH_S) { const mo = Math.floor(s/MONTH_S), d = Math.floor((s%MONTH_S)/DAY_S);
+    return d > 0 ? `${plural(mo,'month')}, ${plural(d,'day')}` : plural(mo,'month'); }
+  if (s >= DAY_S) { const d = Math.floor(s/DAY_S), h = Math.floor((s%DAY_S)/HOUR_S);
     return h > 0 ? `${plural(d,'day')}, ${plural(h,'hour')}` : plural(d,'day'); }
-  if (s >= 3600) { const h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+  if (s >= HOUR_S) { const h = Math.floor(s/HOUR_S), m = Math.floor((s%HOUR_S)/MIN_S);
     return m > 0 ? `${plural(h,'hour')}, ${plural(m,'minute')}` : plural(h,'hour'); }
-  if (s >= 60) { const m = Math.floor(s/60), sec = Math.floor(s%60);
+  if (s >= MIN_S) { const m = Math.floor(s/MIN_S), sec = Math.floor(s%MIN_S);
     return sec > 0 ? `${plural(m,'minute')}, ${plural(sec,'second')}` : plural(m,'minute'); }
   if (s >= 1) return `${s.toFixed(2)} seconds`;
-  return `${(s*1000).toFixed(0)} ms`;
+  const ms = s * 1000;
+  if (ms >= 0.5) return `${ms.toFixed(0)} ms`;
+  return `${s.toExponential(1)} seconds`;
 }
 function formatRemaining(s) {
   if (!isFinite(s) || s < 0) return '—';
-  if (s < 1) return `${(s*1000).toFixed(0)} ms`;
-  if (s < 60) return `${s.toFixed(1)} sec`;
-  if (s < 3600) { const m = Math.floor(s/60), sec = Math.floor(s%60); return `${m} min ${pad(sec)} sec`; }
-  if (s < 86400) { const h = Math.floor(s/3600), m = Math.floor((s%3600)/60); return `${h} hr ${pad(m)} min`; }
-  const d = Math.floor(s/86400), h = Math.floor((s%86400)/3600); return `${d} day ${h} hr`;
+  if (s < 1) {
+    const ms = s * 1000;
+    if (ms >= 0.5) return `${ms.toFixed(0)} ms`;
+    return `${s.toExponential(1)} sec`;
+  }
+  if (s < MIN_S) return `${s.toFixed(1)} sec`;
+  if (s < HOUR_S) { const m = Math.floor(s/MIN_S), sec = Math.floor(s%MIN_S); return `${m} min ${pad(sec)} sec`; }
+  if (s < DAY_S) { const h = Math.floor(s/HOUR_S), m = Math.floor((s%HOUR_S)/MIN_S); return `${h} hr ${pad(m)} min`; }
+  if (s < MONTH_S) { const d = Math.floor(s/DAY_S), h = Math.floor((s%DAY_S)/HOUR_S); return `${d} day ${h} hr`; }
+  if (s < YEAR_S) { const mo = Math.floor(s/MONTH_S), d = Math.floor((s%MONTH_S)/DAY_S); return `${mo} mo ${d} day`; }
+  const y = Math.floor(s/YEAR_S), mo = Math.floor((s%YEAR_S)/MONTH_S); return `${y} yr ${mo} mo`;
 }
 function setHand(id, deg) { $(id).setAttribute('transform', `rotate(${deg} 100 100)`); }
 
@@ -534,13 +545,19 @@ for (let i = 1; i <= 12; i++) {
 // --- tooltip ---
 const hoverArea = $('hoverArea');
 const tooltip = $('tooltip');
-let tooltipVisible = false;
-hoverArea.addEventListener('mouseenter', () => { tooltip.style.display = 'block'; tooltipVisible = true; });
-hoverArea.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; tooltipVisible = false; });
-hoverArea.addEventListener('mousemove', e => {
+let clockHover = false, secondsHover = false;
+function showTooltip() { tooltip.style.display = 'block'; }
+function hideTooltip() { if (!clockHover && !secondsHover) tooltip.style.display = 'none'; }
+function moveTooltip(e) {
   tooltip.style.left = (e.clientX + 14) + 'px';
   tooltip.style.top = (e.clientY + 14) + 'px';
-});
+}
+hoverArea.addEventListener('mouseenter', () => { clockHover = true; showTooltip(); });
+hoverArea.addEventListener('mouseleave', () => { clockHover = false; hideTooltip(); });
+hoverArea.addEventListener('mousemove', moveTooltip);
+$('timeSeconds').addEventListener('mouseenter', () => { secondsHover = true; showTooltip(); });
+$('timeSeconds').addEventListener('mouseleave', () => { secondsHover = false; hideTooltip(); });
+$('timeSeconds').addEventListener('mousemove', moveTooltip);
 
 // --- loop ---
 let lastInputSync = 0;
@@ -551,20 +568,24 @@ function tick(t) {
   }
   const r = compute();
   if (r) {
-    $('timeText').textContent = formatOutputTime(r.displaySec);
+    setTimeText(r.displaySec, r.smoothSec);
     $('timeText').classList.remove('error');
     $('percentText').textContent = `${(r.progress * 100).toFixed(2)}% complete`;
     $('ratioText').textContent = `Each second ≈ ${formatRatio(r.realSecPerOutSec)}`;
     setHand('hourHand', (r.smoothSec / 3600 * 30) % 360);
     setHand('minHand', (r.smoothSec / 60 * 6) % 360);
     setHand('secHand', (r.smoothSec * 6) % 360);
-    if (tooltipVisible) {
+    if (clockHover) {
       const frac = r.smoothSec - Math.floor(r.smoothSec);
       const remaining = (1 - frac) * r.realSecPerOutSec;
       tooltip.textContent = `${formatRemaining(remaining)} to next second`;
+    } else if (secondsHover) {
+      tooltip.textContent = `${$('timeSeconds').dataset.frac} seconds`;
     }
   } else {
-    $('timeText').textContent = '—';
+    $('timePrefix').textContent = '—';
+    $('timeSeconds').textContent = '';
+    $('timeSuffix').textContent = '';
     $('timeText').classList.add('error');
     $('percentText').textContent = 'Check inputs (end must be after start)';
     $('ratioText').textContent = '';
