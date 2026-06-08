@@ -280,7 +280,7 @@ const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 tzList.forEach(tz => {
   const opt = document.createElement('option');
   opt.value = tz;
-  opt.textContent = `${tz.replace(/_/g, ' ')} (${tzOffsetLabel(tz)})`;
+  opt.textContent = `${tz.replace(/_/g, ' ').replace('DumontDUrville', "Dumont-d'Urville")} (${tzOffsetLabel(tz)})`;
   if (tz === localTz) opt.selected = true;
   tzSel.appendChild(opt);
 });
