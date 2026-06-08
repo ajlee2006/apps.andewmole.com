@@ -79,6 +79,37 @@
     opacity: 0.7;
   }
 
+  .mode-toggle {
+    position: fixed;
+    top: 14px;
+    right: 22px;
+    display: flex;
+    gap: 4px;
+    z-index: 200;
+    font-family: 'Oswald', sans-serif;
+    font-size: 12px;
+  }
+  .mode-toggle button {
+    background: transparent;
+    border: 1px solid var(--panel-edge);
+    color: var(--dim);
+    padding: 4px 11px;
+    border-radius: 999px;
+    cursor: pointer;
+    font: inherit;
+    letter-spacing: 0.04em;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+  }
+  .mode-toggle button:hover {
+    color: var(--ink);
+    border-color: var(--panel-highlight);
+  }
+  .mode-toggle button.active {
+    background: var(--ink);
+    color: var(--bg);
+    border-color: var(--ink);
+  }
+
   .date-tag {
     font-family: 'Oswald', sans-serif;
     font-weight: 500;
@@ -278,6 +309,11 @@
 
   <a class="back-link" href="/">Back to home</a>
 
+  <div class="mode-toggle">
+    <button data-mode="exact" class="active">Exact</button>
+    <button data-mode="simplest">Simplest</button>
+  </div>
+
   <div class="date-tag" id="date">— Loading —</div>
 
   <h1>The time now is</h1>
@@ -312,6 +348,29 @@
   }
 
   function pad(n) { return String(n).padStart(2, '0'); }
+
+  // Stern-Brocot search: simplest p/q in the open interval ((2s-1)/7200, (2s+1)/7200),
+  // i.e. the simplest fraction within 0.5 seconds of the actual time.
+  function simplestFraction(secs) {
+    if (secs === 0) return [0, 1];
+    const loNum = 2 * secs - 1, loDen = 7200;
+    const hiNum = 2 * secs + 1, hiDen = 7200;
+    let aLo = 0, bLo = 1;   // 0/1
+    let aHi = 1, bHi = 0;   // 1/0
+    for (let i = 0; i < 10000; i++) {
+      const p = aLo + aHi;
+      const q = bLo + bHi;
+      // p/q <= loNum/loDen  ⇔  p*loDen <= loNum*q
+      if (p * loDen <= loNum * q) {
+        aLo = p; bLo = q;
+      } else if (p * hiDen >= hiNum * q) {
+        aHi = p; bHi = q;
+      } else {
+        return [p, q];
+      }
+    }
+    return [aLo + aHi, bLo + bHi];
+  }
 
   // returns { intPart, nonRepeat, repeat } for h + p/q
   function decimalParts(h, p, q) {
@@ -351,9 +410,24 @@
   function decimalHTML(parts) {
     const { intPart, nonRepeat, repeat } = parts;
     if (!nonRepeat && !repeat) return intPart;
-    let s = intPart + '.';
-    s += nonRepeat;
-    if (repeat) s += `<span class="rep">${repeat}</span>`;
+    const MAX_NONREP = 12;
+    const MAX_REP = 12;
+    let nr = nonRepeat, rp = repeat;
+    let nrTrunc = false, rpTrunc = false;
+    if (nr.length > MAX_NONREP) {
+      nr = nr.slice(0, MAX_NONREP);
+      nrTrunc = true;
+    }
+    if (rp.length > MAX_REP) {
+      rp = rp.slice(0, MAX_REP);
+      rpTrunc = true;
+    }
+    let s = intPart + '.' + nr;
+    if (nrTrunc) s += '…';
+    if (rp) {
+      s += `<span class="rep">${rp}</span>`;
+      if (rpTrunc) s += '…';
+    }
     return s;
   }
 
@@ -400,24 +474,47 @@
 
     const num0 = m * 60 + s;
     const den0 = 3600;
-    const g = gcd(num0, den0);
-    const num = num0 === 0 ? 0 : num0 / g;
-    const den = num0 === 0 ? 1 : den0 / g;
 
-    document.querySelector('.fraction').classList.toggle('whole-hour', num0 === 0);
+    let p, q;
+    if (mode === 'exact') {
+      const g = gcd(num0, den0);
+      p = num0 === 0 ? 0 : num0 / g;
+      q = num0 === 0 ? 1 : den0 / g;
+    } else {
+      [p, q] = simplestFraction(num0);
+    }
+
+    document.querySelector('.fraction').classList.toggle('whole-hour', p === 0);
 
     setDigit('whole', h12);
-    setDigit('num', num);
-    setDigit('den', den);
+    setDigit('num', p);
+    setDigit('den', q);
     setDigit('ap', apUpper);
 
-    const parts = decimalParts(h12, num0, den0);
+    const parts = decimalParts(h12, p, q);
     setDigitHTML('decOut', decimalHTML(parts));
     $('decAp').textContent = apLower;
 
     setDigitHTML('normOut', `${h12}:${pad(m)}:${pad(s)}`);
     $('normAp').textContent = apLower;
   }
+
+  // Mode state
+  let mode = localStorage.getItem('timeMode') || 'exact';
+  function applyModeUI() {
+    document.querySelectorAll('.mode-toggle button').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+  }
+  document.querySelectorAll('.mode-toggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      mode = btn.dataset.mode;
+      try { localStorage.setItem('timeMode', mode); } catch (e) {}
+      applyModeUI();
+      update();
+    });
+  });
+  applyModeUI();
 
   update();
   const msToNext = 1000 - (Date.now() % 1000);
