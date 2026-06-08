@@ -35,22 +35,41 @@ body {
   gap: 1.25rem;
   align-items: start;
 }
-@media (max-width: 760px) {
-  .container { grid-template-columns: 1fr; }
-}
+@media (max-width: 760px) { .container { grid-template-columns: 1fr; } }
 .header { grid-column: 1 / -1; }
-.home-link {
-  color: var(--muted);
-  text-decoration: none;
-  font-size: 0.85rem;
-}
+.home-link { color: var(--muted); text-decoration: none; font-size: 0.85rem; }
 .home-link:hover { color: var(--accent); }
 h1 {
-  margin: 0.4rem 0 1rem;
+  margin: 0.4rem 0 0.5rem;
   font-weight: 600;
   font-size: 1.5rem;
 }
 h1 .sub { color: var(--muted); font-weight: 400; font-size: 0.95rem; margin-left: 0.5rem; }
+.format-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.8rem 0 0.2rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.seg button {
+  background: var(--panel-2);
+  border: none;
+  color: var(--muted);
+  padding: 0.3rem 0.65rem;
+  font-family: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.seg button.on { background: var(--accent); color: white; }
+.seg button + button { border-left: 1px solid var(--border); }
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -59,11 +78,7 @@ h1 .sub { color: var(--muted); font-weight: 400; font-size: 0.95rem; margin-left
 }
 .field { margin-bottom: 0.95rem; }
 .field:last-child { margin-bottom: 0; }
-.field-row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
+.field-row { display: flex; gap: 0.5rem; align-items: center; }
 label.lbl {
   display: block;
   font-size: 0.8rem;
@@ -109,12 +124,7 @@ input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; }
   text-align: center;
   padding: 1.5rem 1.2rem 1.8rem;
 }
-.clock-svg {
-  width: 100%;
-  max-width: 320px;
-  height: auto;
-  display: block;
-}
+.clock-svg { width: 100%; max-width: 320px; height: auto; display: block; }
 .time-text {
   font-size: 2rem;
   font-weight: 300;
@@ -156,6 +166,13 @@ input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; }
   <div class="header">
     <a href="/" class="home-link">← Back to home</a>
     <h1>Timespan Compressor<span class="sub">map your progress through a time period onto a 12-hour clock face</span></h1>
+    <div class="format-bar">
+      <span>Output:</span>
+      <div class="seg" id="timeFmtSeg">
+        <button type="button" data-val="24">24h</button>
+        <button type="button" data-val="12">12h</button>
+      </div>
+    </div>
   </div>
 
   <div class="panel">
@@ -209,7 +226,7 @@ input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; }
       <circle cx="100" cy="100" r="3" fill="#e63946"/>
       <circle id="hoverArea" cx="100" cy="100" r="95" fill="transparent" pointer-events="all"/>
     </svg>
-    <div class="time-text" id="timeText">9:00:00 am</div>
+    <div class="time-text" id="timeText">9:00:00</div>
     <div class="percent" id="percentText">0.00% complete</div>
     <div class="ratio" id="ratioText">—</div>
   </div>
@@ -222,6 +239,8 @@ const $ = id => document.getElementById(id);
 const SVGNS = 'http://www.w3.org/2000/svg';
 const pad = n => String(n).padStart(2, '0');
 
+let timeFormat = '24';  // '24' or '12' — affects clock output only
+
 // --- defaults ---
 const now0 = new Date();
 const y0 = now0.getFullYear();
@@ -231,7 +250,6 @@ $('endDate').value = `${y0}-12-31`;
 function getActiveTz() {
   return $('tzEnable').checked ? $('timezone').value : Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
-
 function tzOffsetLabel(tz) {
   try {
     const now = Date.now();
@@ -249,7 +267,6 @@ function tzOffsetLabel(tz) {
     return `UTC${sign}${pad(Math.floor(abs/60))}:${pad(abs%60)}`;
   } catch { return 'UTC'; }
 }
-
 function updateCurrentInputs() {
   const tz = getActiveTz();
   const dtf = new Intl.DateTimeFormat('en-US', {
@@ -273,7 +290,7 @@ const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 tzList.forEach(tz => {
   const opt = document.createElement('option');
   opt.value = tz;
-  opt.textContent = `${tz} (${tzOffsetLabel(tz)})`;
+  opt.textContent = `${tz.replace(/_/g, ' ')} (${tzOffsetLabel(tz)})`;
   if (tz === localTz) opt.selected = true;
   tzSel.appendChild(opt);
 });
@@ -287,9 +304,8 @@ function syncUrl() {
   if ($('startTimeEnable').checked) p.set('st', $('startTime').value);
   p.set('e', $('endDate').value);
   if ($('endTimeEnable').checked) p.set('et', $('endTime').value);
-  if ($('useNow').checked) {
-    p.set('n', '1');
-  } else {
+  if ($('useNow').checked) p.set('n', '1');
+  else {
     p.set('n', '0');
     p.set('c', $('currentDate').value);
     p.set('ct', $('currentTime').value);
@@ -297,13 +313,14 @@ function syncUrl() {
   if ($('tzEnable').checked) p.set('tz', $('timezone').value);
   p.set('os', $('outStart').value);
   p.set('oe', $('outEnd').value);
+  if (timeFormat !== '24') p.set('tf', timeFormat);
   history.replaceState(null, '', '#' + p.toString());
 }
-
 function loadFromUrl() {
   if (!location.hash) return;
   suppressSync = true;
   const p = new URLSearchParams(location.hash.slice(1));
+  if (p.has('tf')) timeFormat = p.get('tf') === '12' ? '12' : '24';
   if (p.has('s')) $('startDate').value = p.get('s');
   if (p.has('e')) $('endDate').value = p.get('e');
   if (p.has('st')) { $('startTimeEnable').checked = true; userVal.startTime = p.get('st'); }
@@ -321,68 +338,51 @@ function loadFromUrl() {
   suppressSync = false;
 }
 
-// --- restorable user values (preserved across toggle off/on) ---
-const userVal = {
-  startTime: null,
-  endTime: null,
-  currentDate: null,
-  currentTime: null,
-  timezone: null,
-};
+// --- restorable user values ---
+const userVal = { startTime: null, endTime: null, currentDate: null, currentTime: null, timezone: null };
 
 function applyFieldStates() {
-  // startTime
   const stOn = $('startTimeEnable').checked;
   $('startTime').disabled = !stOn;
   $('startTime').value = stOn ? (userVal.startTime ?? '00:00:00') : '00:00:00';
 
-  // endTime
   const etOn = $('endTimeEnable').checked;
   $('endTime').disabled = !etOn;
   $('endTime').value = etOn ? (userVal.endTime ?? '23:59:59') : '23:59:59';
 
-  // timezone
   const tzOn = $('tzEnable').checked;
   $('timezone').disabled = !tzOn;
   $('timezone').value = tzOn ? (userVal.timezone ?? localTz) : localTz;
 
-  // current date/time
   const useNow = $('useNow').checked;
   $('currentDate').disabled = useNow;
   $('currentTime').disabled = useNow;
-  if (useNow) {
-    updateCurrentInputs();
-  } else if (userVal.currentDate != null) {
+  if (useNow) updateCurrentInputs();
+  else if (userVal.currentDate != null) {
     $('currentDate').value = userVal.currentDate;
     $('currentTime').value = userVal.currentTime ?? '00:00:00';
   }
-  // if useNow goes off and userVal.currentDate is null, keep whatever was last
-  // shown (i.e. "now at toggle time") — gives a sensible starting point
 }
 
-loadFromUrl();
-applyFieldStates();
+// --- format toggle ---
+function setTimeFormat(tf) {
+  timeFormat = tf;
+  document.querySelectorAll('#timeFmtSeg button').forEach(b => b.classList.toggle('on', b.dataset.val === tf));
+  syncUrl();
+}
+document.querySelectorAll('#timeFmtSeg button').forEach(b => {
+  b.addEventListener('click', () => setTimeFormat(b.dataset.val));
+});
 
-// listeners
+// --- input listeners ---
 const INPUT_IDS = ['startDate','startTime','startTimeEnable','endDate','endTime','endTimeEnable',
   'useNow','currentDate','currentTime','tzEnable','timezone','outStart','outEnd'];
 
-// Track user input on the toggleable fields (only save when "active")
-$('startTime').addEventListener('input', () => {
-  if ($('startTimeEnable').checked) userVal.startTime = $('startTime').value;
-});
-$('endTime').addEventListener('input', () => {
-  if ($('endTimeEnable').checked) userVal.endTime = $('endTime').value;
-});
-$('currentDate').addEventListener('input', () => {
-  if (!$('useNow').checked) userVal.currentDate = $('currentDate').value;
-});
-$('currentTime').addEventListener('input', () => {
-  if (!$('useNow').checked) userVal.currentTime = $('currentTime').value;
-});
-$('timezone').addEventListener('change', () => {
-  if ($('tzEnable').checked) userVal.timezone = $('timezone').value;
-});
+$('startTime').addEventListener('input', () => { if ($('startTimeEnable').checked) userVal.startTime = $('startTime').value; });
+$('endTime').addEventListener('input', () => { if ($('endTimeEnable').checked) userVal.endTime = $('endTime').value; });
+$('currentDate').addEventListener('input', () => { if (!$('useNow').checked) userVal.currentDate = $('currentDate').value; });
+$('currentTime').addEventListener('input', () => { if (!$('useNow').checked) userVal.currentTime = $('currentTime').value; });
+$('timezone').addEventListener('change', () => { if ($('tzEnable').checked) userVal.timezone = $('timezone').value; });
 
 INPUT_IDS.forEach(id => {
   const el = $(id);
@@ -394,6 +394,9 @@ INPUT_IDS.forEach(id => {
   el.addEventListener('input', syncUrl);
 });
 
+loadFromUrl();
+setTimeFormat(timeFormat);
+applyFieldStates();
 syncUrl();
 
 // --- TZ-aware timestamp conversion ---
@@ -428,26 +431,18 @@ function addDay(dateStr) {
   return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth()+1)}-${pad(dt.getUTCDate())}`;
 }
 
-// --- compute ---
 function compute() {
   const tz = $('tzEnable').checked ? $('timezone').value : null;
-
   const sTime = $('startTimeEnable').checked ? $('startTime').value : '00:00:00';
   const startTs = parseDT($('startDate').value, sTime, tz);
 
   let endTs;
-  if ($('endTimeEnable').checked) {
-    endTs = parseDT($('endDate').value, $('endTime').value, tz);
-  } else {
-    endTs = parseDT(addDay($('endDate').value), '00:00:00', tz);
-  }
+  if ($('endTimeEnable').checked) endTs = parseDT($('endDate').value, $('endTime').value, tz);
+  else endTs = parseDT(addDay($('endDate').value), '00:00:00', tz);
 
   let curTs;
-  if ($('useNow').checked) {
-    curTs = Date.now();
-  } else {
-    curTs = parseDT($('currentDate').value, $('currentTime').value || '00:00:00', tz);
-  }
+  if ($('useNow').checked) curTs = Date.now();
+  else curTs = parseDT($('currentDate').value, $('currentTime').value || '00:00:00', tz);
 
   if (startTs == null || endTs == null || curTs == null || endTs <= startTs) return null;
 
@@ -465,65 +460,44 @@ function compute() {
   const elapsedFloor = Math.floor(elapsedSmooth);
   const displaySec = (oS + elapsedFloor) % 86400;
   const smoothSec = (((oS + elapsedSmooth) % 86400) + 86400) % 86400;
-
   const realSecPerOutSec = (endTs - startTs) / 1000 / dur;
 
   return { progress, displaySec, smoothSec, realSecPerOutSec };
 }
 
-function format12(totalSec) {
+function formatOutputTime(totalSec) {
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = Math.floor(totalSec % 60);
-  const ampm = h >= 12 ? 'pm' : 'am';
-  let h12 = h % 12; if (h12 === 0) h12 = 12;
-  return `${h12}:${pad(m)}:${pad(s)} ${ampm}`;
+  if (timeFormat === '12') {
+    const ampm = h >= 12 ? 'pm' : 'am';
+    let h12 = h % 12; if (h12 === 0) h12 = 12;
+    return `${h12}:${pad(m)}:${pad(s)} ${ampm}`;
+  }
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
 function plural(n, w) { return `${n} ${w}${n !== 1 ? 's' : ''}`; }
 function formatRatio(s) {
   if (!isFinite(s) || s <= 0) return '—';
-  if (s >= 86400) {
-    const d = Math.floor(s / 86400);
-    const h = Math.floor((s % 86400) / 3600);
-    return h > 0 ? `${plural(d,'day')}, ${plural(h,'hour')}` : plural(d,'day');
-  }
-  if (s >= 3600) {
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    return m > 0 ? `${plural(h,'hour')}, ${plural(m,'minute')}` : plural(h,'hour');
-  }
-  if (s >= 60) {
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return sec > 0 ? `${plural(m,'minute')}, ${plural(sec,'second')}` : plural(m,'minute');
-  }
+  if (s >= 86400) { const d = Math.floor(s/86400), h = Math.floor((s%86400)/3600);
+    return h > 0 ? `${plural(d,'day')}, ${plural(h,'hour')}` : plural(d,'day'); }
+  if (s >= 3600) { const h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+    return m > 0 ? `${plural(h,'hour')}, ${plural(m,'minute')}` : plural(h,'hour'); }
+  if (s >= 60) { const m = Math.floor(s/60), sec = Math.floor(s%60);
+    return sec > 0 ? `${plural(m,'minute')}, ${plural(sec,'second')}` : plural(m,'minute'); }
   if (s >= 1) return `${s.toFixed(2)} seconds`;
   return `${(s*1000).toFixed(0)} ms`;
 }
-
 function formatRemaining(s) {
   if (!isFinite(s) || s < 0) return '—';
   if (s < 1) return `${(s*1000).toFixed(0)} ms`;
   if (s < 60) return `${s.toFixed(1)} sec`;
-  if (s < 3600) {
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m} min ${pad(sec)} sec`;
-  }
-  if (s < 86400) {
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    return `${h} hr ${pad(m)} min`;
-  }
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  return `${d} day ${h} hr`;
+  if (s < 3600) { const m = Math.floor(s/60), sec = Math.floor(s%60); return `${m} min ${pad(sec)} sec`; }
+  if (s < 86400) { const h = Math.floor(s/3600), m = Math.floor((s%3600)/60); return `${h} hr ${pad(m)} min`; }
+  const d = Math.floor(s/86400), h = Math.floor((s%86400)/3600); return `${d} day ${h} hr`;
 }
-
-function setHand(id, deg) {
-  $(id).setAttribute('transform', `rotate(${deg} 100 100)`);
-}
+function setHand(id, deg) { $(id).setAttribute('transform', `rotate(${deg} 100 100)`); }
 
 // --- clock face ---
 const ticksG = $('ticks');
@@ -557,13 +531,13 @@ for (let i = 1; i <= 12; i++) {
   numbersG.appendChild(t);
 }
 
-// --- tooltip (hover on circle only, not bounding box) ---
+// --- tooltip ---
 const hoverArea = $('hoverArea');
 const tooltip = $('tooltip');
 let tooltipVisible = false;
 hoverArea.addEventListener('mouseenter', () => { tooltip.style.display = 'block'; tooltipVisible = true; });
 hoverArea.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; tooltipVisible = false; });
-hoverArea.addEventListener('mousemove', (e) => {
+hoverArea.addEventListener('mousemove', e => {
   tooltip.style.left = (e.clientX + 14) + 'px';
   tooltip.style.top = (e.clientY + 14) + 'px';
 });
@@ -577,7 +551,7 @@ function tick(t) {
   }
   const r = compute();
   if (r) {
-    $('timeText').textContent = format12(r.displaySec);
+    $('timeText').textContent = formatOutputTime(r.displaySec);
     $('timeText').classList.remove('error');
     $('percentText').textContent = `${(r.progress * 100).toFixed(2)}% complete`;
     $('ratioText').textContent = `Each second ≈ ${formatRatio(r.realSecPerOutSec)}`;
