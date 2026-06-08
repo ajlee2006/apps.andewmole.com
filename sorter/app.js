@@ -113,8 +113,18 @@ function moveCat(id, delta) {
   const i = state.categories.findIndex(c => c.id === id);
   const j = i + delta;
   if (j < 0 || j >= state.categories.length) return;
+  // Capture pre-move position to scroll-anchor afterwards
+  const before = document.querySelector(`.category[data-cat-id="${id}"]`);
+  const beforeTop = before ? before.getBoundingClientRect().top : null;
   [state.categories[i], state.categories[j]] = [state.categories[j], state.categories[i]];
   save(); render();
+  if (beforeTop !== null) {
+    const after = document.querySelector(`.category[data-cat-id="${id}"]`);
+    if (after) {
+      const afterTop = after.getBoundingClientRect().top;
+      window.scrollBy(0, afterTop - beforeTop);
+    }
+  }
 }
 
 function deleteCat(id) {
