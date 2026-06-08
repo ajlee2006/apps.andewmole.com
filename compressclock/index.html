@@ -99,7 +99,6 @@ input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; }
   user-select: none;
 }
 .check input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
-.hint { color: var(--dim); font-size: 0.78rem; margin-left: 0.2rem; }
 .tz-select { margin-top: 0.5rem; }
 .arrow { color: var(--muted); padding: 0 0.1rem; }
 .clock-panel {
@@ -186,7 +185,7 @@ input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; }
       </div>
       <label class="check"><input type="checkbox" id="useNow" checked> Use current date and time</label>
       <select id="timezone" class="tz-select" disabled></select>
-      <label class="check"><input type="checkbox" id="tzEnable"> Override timezone <span class="hint">(affects what "now" is)</span></label>
+      <label class="check"><input type="checkbox" id="tzEnable"> Override timezone</label>
     </div>
 
     <div class="field">
@@ -274,7 +273,7 @@ const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 tzList.forEach(tz => {
   const opt = document.createElement('option');
   opt.value = tz;
-  opt.textContent = `(${tzOffsetLabel(tz)}) ${tz}`;
+  opt.textContent = `${tz} (${tzOffsetLabel(tz)})`;
   if (tz === localTz) opt.selected = true;
   tzSel.appendChild(opt);
 });
@@ -307,41 +306,88 @@ function loadFromUrl() {
   const p = new URLSearchParams(location.hash.slice(1));
   if (p.has('s')) $('startDate').value = p.get('s');
   if (p.has('e')) $('endDate').value = p.get('e');
-  if (p.has('st')) { $('startTimeEnable').checked = true; $('startTime').value = p.get('st'); }
-  if (p.has('et')) { $('endTimeEnable').checked = true; $('endTime').value = p.get('et'); }
+  if (p.has('st')) { $('startTimeEnable').checked = true; userVal.startTime = p.get('st'); }
+  if (p.has('et')) { $('endTimeEnable').checked = true; userVal.endTime = p.get('et'); }
   if (p.has('n')) {
     $('useNow').checked = p.get('n') === '1';
     if (!$('useNow').checked) {
-      if (p.has('c')) $('currentDate').value = p.get('c');
-      if (p.has('ct')) $('currentTime').value = p.get('ct');
+      if (p.has('c')) userVal.currentDate = p.get('c');
+      if (p.has('ct')) userVal.currentTime = p.get('ct');
     }
   }
-  if (p.has('tz')) { $('tzEnable').checked = true; $('timezone').value = p.get('tz'); }
+  if (p.has('tz')) { $('tzEnable').checked = true; userVal.timezone = p.get('tz'); }
   if (p.has('os')) $('outStart').value = p.get('os');
   if (p.has('oe')) $('outEnd').value = p.get('oe');
   suppressSync = false;
 }
 
-// --- enable/disable wiring ---
-function wire() {
-  $('startTime').disabled = !$('startTimeEnable').checked;
-  $('endTime').disabled = !$('endTimeEnable').checked;
+// --- restorable user values (preserved across toggle off/on) ---
+const userVal = {
+  startTime: null,
+  endTime: null,
+  currentDate: null,
+  currentTime: null,
+  timezone: null,
+};
+
+function applyFieldStates() {
+  // startTime
+  const stOn = $('startTimeEnable').checked;
+  $('startTime').disabled = !stOn;
+  $('startTime').value = stOn ? (userVal.startTime ?? '00:00:00') : '00:00:00';
+
+  // endTime
+  const etOn = $('endTimeEnable').checked;
+  $('endTime').disabled = !etOn;
+  $('endTime').value = etOn ? (userVal.endTime ?? '23:59:59') : '23:59:59';
+
+  // timezone
+  const tzOn = $('tzEnable').checked;
+  $('timezone').disabled = !tzOn;
+  $('timezone').value = tzOn ? (userVal.timezone ?? localTz) : localTz;
+
+  // current date/time
   const useNow = $('useNow').checked;
   $('currentDate').disabled = useNow;
   $('currentTime').disabled = useNow;
-  $('timezone').disabled = !$('tzEnable').checked;
+  if (useNow) {
+    updateCurrentInputs();
+  } else if (userVal.currentDate != null) {
+    $('currentDate').value = userVal.currentDate;
+    $('currentTime').value = userVal.currentTime ?? '00:00:00';
+  }
+  // if useNow goes off and userVal.currentDate is null, keep whatever was last
+  // shown (i.e. "now at toggle time") — gives a sensible starting point
 }
 
 loadFromUrl();
-wire();
+applyFieldStates();
 
 // listeners
 const INPUT_IDS = ['startDate','startTime','startTimeEnable','endDate','endTime','endTimeEnable',
   'useNow','currentDate','currentTime','tzEnable','timezone','outStart','outEnd'];
+
+// Track user input on the toggleable fields (only save when "active")
+$('startTime').addEventListener('input', () => {
+  if ($('startTimeEnable').checked) userVal.startTime = $('startTime').value;
+});
+$('endTime').addEventListener('input', () => {
+  if ($('endTimeEnable').checked) userVal.endTime = $('endTime').value;
+});
+$('currentDate').addEventListener('input', () => {
+  if (!$('useNow').checked) userVal.currentDate = $('currentDate').value;
+});
+$('currentTime').addEventListener('input', () => {
+  if (!$('useNow').checked) userVal.currentTime = $('currentTime').value;
+});
+$('timezone').addEventListener('change', () => {
+  if ($('tzEnable').checked) userVal.timezone = $('timezone').value;
+});
+
 INPUT_IDS.forEach(id => {
   const el = $(id);
   el.addEventListener('change', () => {
-    wire();
+    applyFieldStates();
     if ($('useNow').checked) updateCurrentInputs();
     syncUrl();
   });
