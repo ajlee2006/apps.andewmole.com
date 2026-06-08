@@ -499,8 +499,23 @@
     $('normAp').textContent = apLower;
   }
 
-  // Mode state
-  let mode = localStorage.getItem('timeMode') || 'exact';
+  // Mode state: URL ?mode= wins, then localStorage, else 'exact'
+  function readUrlMode() {
+    const m = new URLSearchParams(location.search).get('mode');
+    return (m === 'simplest' || m === 'exact') ? m : null;
+  }
+  function writeUrlMode(m) {
+    const params = new URLSearchParams(location.search);
+    if (m === 'simplest') params.set('mode', 'simplest');
+    else params.delete('mode');
+    const qs = params.toString();
+    const newUrl = location.pathname + (qs ? '?' + qs : '') + location.hash;
+    history.replaceState(null, '', newUrl);
+  }
+
+  let mode = readUrlMode() || localStorage.getItem('timeMode') || 'exact';
+  writeUrlMode(mode);
+
   function applyModeUI() {
     document.querySelectorAll('.mode-toggle button').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.mode === mode);
@@ -510,6 +525,7 @@
     btn.addEventListener('click', () => {
       mode = btn.dataset.mode;
       try { localStorage.setItem('timeMode', mode); } catch (e) {}
+      writeUrlMode(mode);
       applyModeUI();
       update();
     });
