@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Baby Development Tracker</title>
+<title>Pregnancy Countdown</title>
 <link rel="icon" href="/andewmole.png">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Lato:wght@300;400;700&display=swap');
@@ -79,9 +79,8 @@
   .trimester-3 { background: #f4eae8; color: var(--deep-rose); }
 
   .fetus-card { background: white; border-radius: 20px; padding: 2rem; margin-bottom: 2rem; box-shadow: 0 2px 20px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; }
-  .fetus-illustration { flex: 0 0 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; }
-  .fetus-illustration svg { width: 220px; height: 260px; }
-  .fetus-illustration img { width: 200px; height: 200px; object-fit: contain; image-rendering: auto; }
+  .fetus-illustration { flex: 0 0 260px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; }
+  .fetus-illustration img { width: 260px; height: 195px; object-fit: cover; border-radius: 10px; }
   .fetus-img-credit { font-size: 0.68rem; color: var(--light-grey); font-style: italic; text-align: center; }
   .fetus-img-credit a { color: var(--dusty-rose); text-decoration: none; }
   .fetus-img-credit a:hover { text-decoration: underline; }
@@ -91,7 +90,6 @@
   .size-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; }
   .size-item .skey { color: var(--mid-grey); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.72rem; }
   .comparator { margin-top: 0.8rem; font-size: 0.88rem; color: var(--deep-sage); font-style: italic; }
-  .img-credit { font-size: 0.7rem; color: var(--light-grey); margin-top: 0.8rem; font-style: italic; }
 
   .milestones { background: white; border-radius: 20px; padding: 2rem; margin-bottom: 2rem; box-shadow: 0 2px 20px rgba(0,0,0,0.05); }
   .milestones h2 { font-family: 'Playfair Display', serif; font-size: 1.3rem; color: var(--charcoal); margin-bottom: 1.2rem; }
@@ -123,20 +121,20 @@
 <body>
 
 <div id="setup-screen">
-  <h1>Baby Development<br>Tracker</h1>
+  <h1>Pregnancy<br>Countdown</h1>
   <p class="subtitle">Follow your baby's journey, week by week</p>
   <div class="setup-card">
     <label for="due-date">Expected Due Date</label>
     <input type="date" id="due-date">
     <p class="hint">Enter a date within the next 9 months (or up to 2 weeks past today for overdue).</p>
     <button class="btn-primary" onclick="startApp()">Begin Tracking</button>
-    <p id="setup-error">Please enter a valid due date within 9 months from today.</p>
+    <p id="setup-error">Please enter a valid date within 9 months from today.</p>
   </div>
 </div>
 
 <div id="app-screen">
   <header>
-    <span class="logo">Baby Tracker</span>
+    <span class="logo">Pregnancy Countdown</span>
     <div style="display:flex;align-items:center;gap:0.5rem;">
       <div class="due-info">Due <strong id="header-due-date"></strong></div>
       <button class="btn-reset" onclick="resetApp()">Change date</button>
@@ -160,7 +158,6 @@
         <h3>Size &amp; Growth</h3>
         <div class="size-row" id="size-row"></div>
         <div class="comparator" id="comparator"></div>
-        <div class="img-credit">Medical illustration</div>
       </div>
     </div>
     <div class="milestones">
@@ -170,351 +167,99 @@
     </div>
     <div class="week-nav">
       <button class="nav-btn" id="prev-btn" onclick="goWeek(selectedWeek - 1)">← Previous</button>
-      <button class="jump-current-btn" id="jump-btn" onclick="goWeek(currentPregnancyWeek)">↩ This week</button>
+      <button class="jump-current-btn" id="jump-btn" onclick="goWeek(currentPregnancyWeek)">↩ Current week</button>
       <button class="nav-btn" id="next-btn" onclick="goWeek(selectedWeek + 1)">Next →</button>
     </div>
   </div>
 </div>
 
 <script>
-// ─── WIKIMEDIA COMMONS images (3DPregnancy.com / Melchior Meijer, CC BY-SA 2.5)
-// Wikimedia Commons hotlink via Special:Redirect (the supported hotlinking method)
-function wikiImg(week) {
-  return `https://commons.wikimedia.org/w/index.php?title=Special:Redirect/file/${week}_weeks_pregnant.jpg&width=300`;
-}
-const WIKI_IMGS = Object.fromEntries(Array.from({length:37},(_,i)=>i+4).map(w=>[w, wikiImg(w)]));
-
-
-// Detailed medical-style schematic illustrations, week by week
-function fetusSVG(week) {
-  const W = 220, H = 260;
-  const bg = '#fdf8f2';
-
-  // Skin palette
-  const skinBase  = '#f2b89a';
-  const skinMid   = '#e09070';
-  const skinDark  = '#c07050';
-  const skinLight = '#fad4bc';
-  const veinBlue  = '#8ab0c8';
-  const amnioBlue = '#d0eaf5';
-
-  // ── Weeks 1–2: cells ──
-  if (week <= 2) {
-    const cells = week === 1
-      ? [[110,130,22,'#f2b89a'],[110,130,10,'#c07050',0.4]]
-      : [[110,120,30,'#d0eaf5',0.5],[95,115,11,skinBase],[125,115,10,skinBase],[110,135,12,skinMid],[95,138,9,skinBase,0.8],[125,138,9,skinBase,0.8],[110,115,8,skinMid]];
-    const label = week===1 ? 'Fertilized egg — highly magnified' : 'Blastocyst — highly magnified';
-    return svg(W,H,bg,[
-      ...cells.map(([cx,cy,r,fill,op=1])=>`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" opacity="${op}" stroke="${skinMid}" stroke-width="0.8"/>`),
-      week===2 ? `<ellipse cx="110" cy="128" rx="32" ry="30" fill="none" stroke="${veinBlue}" stroke-width="1" stroke-dasharray="4 3" opacity="0.6"/>` : '',
-      caption(W,H-16,label)
-    ]);
-  }
-
-  // ── Week 3: implanting blastocyst ──
-  if (week === 3) {
-    return svg(W,H,bg,[
-      `<ellipse cx="110" cy="170" rx="80" ry="22" fill="#f5ddd0" stroke="${skinMid}" stroke-width="1.2"/>`,
-      `<ellipse cx="110" cy="130" rx="28" ry="24" fill="${amnioBlue}" stroke="${veinBlue}" stroke-width="1" stroke-dasharray="3 2" opacity="0.7"/>`,
-      `<ellipse cx="110" cy="130" rx="16" ry="14" fill="${skinBase}" stroke="${skinMid}" stroke-width="1"/>`,
-      `<ellipse cx="105" cy="126" rx="7" ry="5" fill="${skinMid}" opacity="0.35"/>`,
-      caption(W,H-16,'Week 3 — Implanting blastocyst')
-    ]);
-  }
-
-  // ── Weeks 4–40: growing embryo/fetus ──
-  // Size progression
-  const t = Math.pow((week - 4) / 36, 0.6); // 0 at wk4, 1 at wk40
-  const maxScale = 0.92;
-  const scale = 0.08 + t * maxScale;
-
-  // Key measurements (pixels at full scale W=220,H=260)
-  const headR  = 52 * scale;
-  const bodyH  = 60 * scale;
-  const bodyW  = 38 * scale;
-  const limbW  = Math.max(2, 8 * scale);
-
-  // Positioning — center of composition
-  const cx = W / 2;
-  // Curl: embryo curls in early weeks, straightens by week 20
-  const curlDeg = week <= 8  ? 35 :
-                  week <= 12 ? 22 :
-                  week <= 16 ? 12 :
-                  week <= 20 ? 5  : 0;
-
-  // Body center Y — keep it centered
-  const headCY = H/2 - bodyH * 0.4 - headR * 0.3;
-  const bodyCY = headCY + headR * 0.82 + bodyH * 0.5;
-
-  const parts = [];
-
-  // ── Uterus / womb outline (week 16+) ──
-  if (week >= 16) {
-    const wr = Math.min(100, headR * 2.2 + bodyH * 0.8);
-    parts.push(`<ellipse cx="${cx}" cy="${H/2+8}" rx="${wr*0.9}" ry="${wr}" fill="#fce8e0" stroke="#e0b8a8" stroke-width="1.2" opacity="0.45"/>`);
-  }
-
-  // ── Amniotic sac (weeks 4–14) ──
-  if (week <= 14) {
-    const sr = Math.max(headR * 1.8, bodyH + headR * 1.3);
-    parts.push(`<ellipse cx="${cx}" cy="${H/2+4}" rx="${sr*0.85}" ry="${sr}" fill="${amnioBlue}" stroke="${veinBlue}" stroke-width="1" stroke-dasharray="4 2" opacity="0.55"/>`);
-  }
-
-  // ── Placenta (week 8+) ──
-  if (week >= 8) {
-    const pr = Math.min(45, 12 + scale * 40);
-    const py = week >= 20 ? H * 0.88 : H * 0.82;
-    parts.push(`<ellipse cx="${cx+bodyW*0.5}" cy="${py}" rx="${pr}" ry="${pr*0.45}" fill="#d49080" opacity="0.35" stroke="#c07858" stroke-width="0.8"/>`);
-  }
-
-  // ── Umbilical cord ──
-  if (week >= 5) {
-    const cordY0 = bodyCY + bodyH * 0.15;
-    const cordLen = Math.min(55, 15 + scale * 55);
-    const cordX1 = cx + bodyW * 0.25;
-    parts.push(`<path d="M${cordX1},${cordY0} C${cordX1+12},${cordY0+cordLen*0.4} ${cordX1-8},${cordY0+cordLen*0.7} ${cordX1+4},${cordY0+cordLen}" stroke="${skinDark}" stroke-width="${Math.max(1.2, limbW*0.5)}" fill="none" stroke-linecap="round" opacity="0.7"/>`);
-  }
-
-  // ── Spine hint (week 8+) ──
-  if (week >= 8) {
-    const spW = Math.max(1.2, 3 * scale);
-    const sx = cx + bodyW * 0.3;
-    parts.push(`<path d="M${sx},${headCY+headR*0.7} L${sx},${bodyCY+bodyH*0.7}" stroke="${skinDark}" stroke-width="${spW}" opacity="0.18" stroke-linecap="round"/>`);
-  }
-
-  // ── Legs ──
-  if (week >= 7) {
-    const legL = Math.max(6, bodyH * (week <= 10 ? 0.5 : week <= 16 ? 0.9 : 1.3));
-    const lw = Math.max(2, limbW * 0.85);
-    const lx = cx - bodyW * 0.45;
-    const rx2 = cx + bodyW * 0.45;
-    const ly0 = bodyCY + bodyH * 0.65;
-
-    if (week <= 9) {
-      // Leg buds
-      parts.push(`<ellipse cx="${lx}" cy="${ly0}" rx="${lw}" ry="${lw*0.6}" fill="${skinMid}" opacity="0.8"/>`);
-      parts.push(`<ellipse cx="${rx2}" cy="${ly0}" rx="${lw}" ry="${lw*0.6}" fill="${skinMid}" opacity="0.8"/>`);
-    } else {
-      // Full legs — slightly bent
-      const bend = week >= 32 ? 0.35 : 0.15;
-      const lkx = lx - legL * bend, lky = ly0 + legL * 0.55;
-      const rkx = rx2 + legL * bend, rky = ly0 + legL * 0.55;
-      const lfx = lx - legL * bend * 0.5, lfy = ly0 + legL;
-      const rfx = rx2 + legL * bend * 0.5, rfy = ly0 + legL;
-      parts.push(`<path d="M${lx},${ly0} Q${lkx},${lky} ${lfx},${lfy}" stroke="${skinMid}" stroke-width="${lw}" fill="none" stroke-linecap="round"/>`);
-      parts.push(`<path d="M${rx2},${ly0} Q${rkx},${rky} ${rfx},${rfy}" stroke="${skinMid}" stroke-width="${lw}" fill="none" stroke-linecap="round"/>`);
-      // Feet (week 12+)
-      if (week >= 12) {
-        const fw = Math.max(2.5, lw * 1.1);
-        parts.push(`<ellipse cx="${lfx}" cy="${lfy+fw*0.4}" rx="${fw*1.5}" ry="${fw*0.65}" fill="${skinBase}" stroke="${skinMid}" stroke-width="0.7"/>`);
-        parts.push(`<ellipse cx="${rfx}" cy="${rfy+fw*0.4}" rx="${fw*1.5}" ry="${fw*0.65}" fill="${skinBase}" stroke="${skinMid}" stroke-width="0.7"/>`);
-        // Toes (week 16+)
-        if (week >= 16) {
-          const tr = fw * 0.32;
-          for (let i = 0; i < 4; i++) {
-            parts.push(`<circle cx="${lfx - fw*0.9 + i*fw*0.55}" cy="${lfy+fw*0.15}" r="${tr}" fill="${skinLight}" stroke="${skinMid}" stroke-width="0.5"/>`);
-            parts.push(`<circle cx="${rfx - fw*0.9 + i*fw*0.55}" cy="${rfy+fw*0.15}" r="${tr}" fill="${skinLight}" stroke="${skinMid}" stroke-width="0.5"/>`);
-          }
-        }
-      }
-    }
-  }
-
-  // ── Arms ──
-  if (week >= 6) {
-    const armL = Math.max(5, bodyH * (week <= 10 ? 0.55 : 0.82));
-    const aw = Math.max(2, limbW * 0.75);
-    const ay0 = bodyCY - bodyH * 0.05;
-
-    if (week <= 8) {
-      // Arm buds
-      const bR = Math.max(2.5, aw * 1.2);
-      parts.push(`<ellipse cx="${cx - bodyW*0.92}" cy="${ay0}" rx="${bR*0.6}" ry="${bR}" fill="${skinMid}" opacity="0.8"/>`);
-      parts.push(`<ellipse cx="${cx + bodyW*0.92}" cy="${ay0}" rx="${bR*0.6}" ry="${bR}" fill="${skinMid}" opacity="0.8"/>`);
-    } else {
-      // Full arms
-      const lax = cx - bodyW * 0.9, rax = cx + bodyW * 0.9;
-      const lax2 = lax - armL * 0.75, rax2 = rax + armL * 0.75;
-      const lay2 = ay0 + armL * 0.55, ray2 = ay0 + armL * 0.55;
-      parts.push(`<path d="M${lax},${ay0} Q${lax - armL*0.5},${ay0 + armL*0.3} ${lax2},${lay2}" stroke="${skinMid}" stroke-width="${aw}" fill="none" stroke-linecap="round"/>`);
-      parts.push(`<path d="M${rax},${ay0} Q${rax + armL*0.5},${ay0 + armL*0.3} ${rax2},${ray2}" stroke="${skinMid}" stroke-width="${aw}" fill="none" stroke-linecap="round"/>`);
-      // Hands (week 10+)
-      if (week >= 10) {
-        const hR = Math.max(2.5, aw * 1.1);
-        parts.push(`<circle cx="${lax2}" cy="${lay2}" r="${hR}" fill="${skinBase}" stroke="${skinMid}" stroke-width="0.7"/>`);
-        parts.push(`<circle cx="${rax2}" cy="${ray2}" r="${hR}" fill="${skinBase}" stroke="${skinMid}" stroke-width="0.7"/>`);
-        // Fingers (week 12+)
-        if (week >= 12) {
-          const fr = hR * 0.32;
-          for (let i = 0; i < 4; i++) {
-            const angle = (-30 + i * 20) * Math.PI / 180;
-            parts.push(`<circle cx="${(lax2 - hR*0.6*Math.sin(angle)).toFixed(1)}" cy="${(lay2 - hR*0.9*Math.cos(angle)).toFixed(1)}" r="${fr}" fill="${skinLight}" stroke="${skinMid}" stroke-width="0.5"/>`);
-            parts.push(`<circle cx="${(rax2 + hR*0.6*Math.sin(angle)).toFixed(1)}" cy="${(ray2 - hR*0.9*Math.cos(angle)).toFixed(1)}" r="${fr}" fill="${skinLight}" stroke="${skinMid}" stroke-width="0.5"/>`);
-          }
-        }
-      }
-    }
-  }
-
-  // ── Body / torso ──
-  parts.push(`<ellipse cx="${cx}" cy="${bodyCY}" rx="${bodyW}" ry="${bodyH}" fill="${skinBase}" stroke="${skinMid}" stroke-width="${Math.max(0.8, 1.5*scale)}"/>`);
-
-  // ── Belly button (week 20+) ──
-  if (week >= 20) {
-    parts.push(`<circle cx="${cx}" cy="${bodyCY - bodyH*0.1}" r="${Math.max(1.2, 2.5*scale)}" fill="${skinDark}" opacity="0.3"/>`);
-  }
-
-  // ── Rib cage hint (week 16+) ──
-  if (week >= 16 && week <= 36) {
-    const rw = bodyW * 0.7, ry = bodyCY - bodyH * 0.35;
-    const rh = bodyH * 0.35;
-    for (let i = 0; i < 3; i++) {
-      const yy = ry + i * rh * 0.3;
-      parts.push(`<path d="M${cx-rw*0.2},${yy} Q${cx-rw},${yy+rh*0.12} ${cx-rw*0.85},${yy+rh*0.28}" fill="none" stroke="${skinDark}" stroke-width="0.7" opacity="0.18"/>`);
-      parts.push(`<path d="M${cx+rw*0.2},${yy} Q${cx+rw},${yy+rh*0.12} ${cx+rw*0.85},${yy+rh*0.28}" fill="none" stroke="${skinDark}" stroke-width="0.7" opacity="0.18"/>`);
-    }
-  }
-
-  // ── Head ──
-  // Head proportions: large at first, normalises by week 28+
-  const headWScale = week <= 10 ? 1.15 : week <= 16 ? 1.08 : 1.0;
-  parts.push(`<ellipse cx="${cx}" cy="${headCY}" rx="${headR*headWScale}" ry="${headR}" fill="${skinLight}" stroke="${skinMid}" stroke-width="${Math.max(0.8, 1.5*scale)}"/>`);
-
-  // ── Ear ──
-  if (week >= 10) {
-    const earH = Math.max(3, headR * 0.28);
-    const earW = earH * 0.55;
-    const earY = headCY + headR * 0.05;
-    parts.push(`<ellipse cx="${cx - headR*headWScale*0.94}" cy="${earY}" rx="${earW}" ry="${earH}" fill="${skinBase}" stroke="${skinMid}" stroke-width="0.7"/>`);
-    parts.push(`<ellipse cx="${cx + headR*headWScale*0.94}" cy="${earY}" rx="${earW}" ry="${earH}" fill="${skinBase}" stroke="${skinMid}" stroke-width="0.7"/>`);
-  }
-
-  // ── Eyes ──
-  if (week >= 7) {
-    const eyeSpread = headR * 0.38;
-    const eyeY = headCY - headR * 0.1;
-    const eyeR = Math.max(1.5, headR * 0.14);
-
-    if (week < 26) {
-      // Fused eyelids — horizontal line
-      const ew = eyeR * 1.6;
-      parts.push(`<path d="M${cx-eyeSpread-ew},${eyeY} Q${cx-eyeSpread},${eyeY+eyeR*0.5} ${cx-eyeSpread+ew},${eyeY}" fill="${skinMid}" opacity="0.5" stroke="none"/>`);
-      parts.push(`<path d="M${cx+eyeSpread-ew},${eyeY} Q${cx+eyeSpread},${eyeY+eyeR*0.5} ${cx+eyeSpread+ew},${eyeY}" fill="${skinMid}" opacity="0.5" stroke="none"/>`);
-    } else {
-      // Open eyes
-      parts.push(`<circle cx="${cx-eyeSpread}" cy="${eyeY}" r="${eyeR}" fill="#3a2820"/>`);
-      parts.push(`<circle cx="${cx+eyeSpread}" cy="${eyeY}" r="${eyeR}" fill="#3a2820"/>`);
-      // Iris
-      parts.push(`<circle cx="${cx-eyeSpread}" cy="${eyeY}" r="${eyeR*0.62}" fill="#6a4030"/>`);
-      parts.push(`<circle cx="${cx+eyeSpread}" cy="${eyeY}" r="${eyeR*0.62}" fill="#6a4030"/>`);
-      // Highlight
-      parts.push(`<circle cx="${cx-eyeSpread+eyeR*0.35}" cy="${eyeY-eyeR*0.3}" r="${eyeR*0.28}" fill="white"/>`);
-      parts.push(`<circle cx="${cx+eyeSpread+eyeR*0.35}" cy="${eyeY-eyeR*0.3}" r="${eyeR*0.28}" fill="white"/>`);
-    }
-  }
-
-  // ── Nose ──
-  if (week >= 9) {
-    const nY = headCY + headR * 0.22;
-    const nw = Math.max(1.5, headR * 0.12);
-    parts.push(`<ellipse cx="${cx-nw*0.8}" cy="${nY}" rx="${nw*0.6}" ry="${nw*0.4}" fill="${skinDark}" opacity="0.28"/>`);
-    parts.push(`<ellipse cx="${cx+nw*0.8}" cy="${nY}" rx="${nw*0.6}" ry="${nw*0.4}" fill="${skinDark}" opacity="0.28"/>`);
-    parts.push(`<ellipse cx="${cx}" cy="${nY-nw*0.5}" rx="${nw*0.55}" ry="${nw*0.7}" fill="${skinBase}" stroke="${skinMid}" stroke-width="0.5"/>`);
-  }
-
-  // ── Mouth ──
-  if (week >= 9) {
-    const mY = headCY + headR * 0.52;
-    const mW = Math.max(2, headR * 0.28);
-    const mCurve = week >= 20 ? headR * 0.06 : 0; // slight smile later
-    parts.push(`<path d="M${cx-mW},${mY} Q${cx},${mY+mCurve} ${cx+mW},${mY}" stroke="${skinDark}" stroke-width="${Math.max(0.8, headR*0.07)}" fill="none" stroke-linecap="round" opacity="0.55"/>`);
-  }
-
-  // ── Hair (week 16+) ──
-  if (week >= 16) {
-    const hairAmt = Math.min(1, (week - 16) / 12);
-    const nStrands = Math.floor(8 + hairAmt * 10);
-    const hairLen = Math.max(2, headR * 0.18 * (0.5 + hairAmt));
-    for (let i = 0; i < nStrands; i++) {
-      const angle = Math.PI * 1.5 * (i / (nStrands - 1)) - Math.PI * 0.75 + Math.PI * 1.5;
-      const bx = cx + headR * headWScale * 0.9 * Math.cos(angle);
-      const by = headCY + headR * 0.9 * Math.sin(angle);
-      const tx = bx + hairLen * Math.cos(angle);
-      const ty = by + hairLen * Math.sin(angle);
-      parts.push(`<line x1="${bx.toFixed(1)}" y1="${by.toFixed(1)}" x2="${tx.toFixed(1)}" y2="${ty.toFixed(1)}" stroke="${skinDark}" stroke-width="${0.7 + hairAmt * 0.5}" stroke-linecap="round" opacity="${0.4 + hairAmt * 0.25}"/>`);
-    }
-  }
-
-  // ── Thumb-sucking (week 20–34) ──
-  if (week >= 20 && week <= 34) {
-    const thumbR = Math.max(1.5, headR * 0.11);
-    const tx2 = cx - bodyW * 0.3;
-    const ty2 = headCY + headR * 0.48;
-    parts.push(`<circle cx="${tx2}" cy="${ty2}" r="${thumbR}" fill="${skinBase}" stroke="${skinMid}" stroke-width="0.6" opacity="0.9"/>`);
-  }
-
-  // Apply rotation for curled embryo
-  const groupTransform = curlDeg > 0
-    ? `transform="rotate(${-curlDeg}, ${cx}, ${H/2})"`
-    : '';
-
-  const label = week <= 8 ? `Embryo — Week ${week}` : `Fetus — Week ${week}`;
-  return svg(W, H, bg, [`<g ${groupTransform}>${parts.join('')}</g>`, caption(W, H-14, label)]);
-}
-
-function svg(W, H, bg, parts) {
-  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
-  <rect width="${W}" height="${H}" fill="${bg}" rx="12"/>
-  ${parts.join('\n  ')}
-</svg>`;
-}
-
-function caption(W, y, text) {
-  return `<text x="${W/2}" y="${y}" text-anchor="middle" font-size="9.5" fill="#b0a090" font-family="Lato,sans-serif" font-style="italic">${text}</text>`;
-}
+// ─── BABYCENTER IMAGES (hotlinked)
+const BC_IMGS = {
+  1:  'https://assets.babycenter.com/ims/2025/03/02-fetaldev-all-skintones_4x3.jpg',
+  2:  'https://assets.babycenter.com/ims/2025/03/03-fetaldev-all-skintones_4x3.jpg',
+  3:  'https://assets.babycenter.com/ims/2025/03/04-fetaldev-all-skintones_4x3.jpg',
+  4:  'https://assets.babycenter.com/ims/2025/03/05-fetaldev-all-skintones_4x3.jpg',
+  5:  'https://assets.babycenter.com/ims/2025/03/06-fetaldev-all-skintones_4x3.jpg',
+  6:  'https://assets.babycenter.com/ims/2025/03/07-fetaldev-all-skintones_4x3.jpg',
+  7:  'https://assets.babycenter.com/ims/2025/03/08-fetaldev-all-skintones_4x3.jpg',
+  8:  'https://assets.babycenter.com/ims/2025/03/09-fetaldev-all-skintones_4x3.jpg',
+  9:  'https://assets.babycenter.com/ims/2025/03/10-fetaldev-all-skintones_4x3.jpg',
+  10: 'https://assets.babycenter.com/ims/2025/03/11-fetaldev-all-skintones_4x3.jpg',
+  11: 'https://assets.babycenter.com/ims/2025/03/12-fetaldev-H-beige_4x3.jpg',
+  12: 'https://assets.babycenter.com/ims/2025/03/13-fetaldev-G-warmbeige_4x3.jpg',
+  13: 'https://assets.babycenter.com/ims/2025/03/14-body-E-deeptan_4x3.jpg',
+  14: 'https://assets.babycenter.com/ims/2025/03/15-body-E-deeptan_4x3.jpg',
+  15: 'https://assets.babycenter.com/ims/2025/03/16-body-E-deeptan_4x3.jpg',
+  16: 'https://assets.babycenter.com/ims/2025/03/17-body-E-deeptan_4x3.jpg',
+  17: 'https://assets.babycenter.com/ims/2025/03/18-body-E-deeptan_4x3.jpg',
+  18: 'https://assets.babycenter.com/ims/2025/03/19-body-E-deeptan_4x3.jpg',
+  19: 'https://assets.babycenter.com/ims/2025/03/20-body-E-deeptan_4x3.jpg',
+  20: 'https://assets.babycenter.com/ims/2025/03/21-body-E-deeptan_4x3.jpg',
+  21: 'https://assets.babycenter.com/ims/2025/03/22-body-E-deeptan_4x3.jpg',
+  22: 'https://assets.babycenter.com/ims/2025/03/23-body-E-deeptan_4x3.jpg',
+  23: 'https://assets.babycenter.com/ims/2025/03/24-body-E-deeptan_4x3.jpg',
+  24: 'https://assets.babycenter.com/ims/2025/03/25-body-E-deeptan_4x3.jpg',
+  25: 'https://assets.babycenter.com/ims/2025/03/26-body-E-deeptan_4x3.jpg',
+  26: 'https://assets.babycenter.com/ims/2025/03/27-body-E-deeptan_4x3.jpg',
+  27: 'https://assets.babycenter.com/ims/2025/03/28-body-E-deeptan_4x3.jpg',
+  28: 'https://assets.babycenter.com/ims/2025/03/29-body-E-deeptan_4x3.jpg',
+  29: 'https://assets.babycenter.com/ims/2025/03/30-body-E-deeptan_4x3.jpg',
+  30: 'https://assets.babycenter.com/ims/2025/03/31-body-E-deeptan_4x3.jpg',
+  31: 'https://assets.babycenter.com/ims/2025/03/32-body-E-deeptan_4x3.jpg',
+  32: 'https://assets.babycenter.com/ims/2025/03/33-body-E-deeptan_4x3.jpg',
+  33: 'https://assets.babycenter.com/ims/2025/03/34-body-E-deeptan_4x3.jpg',
+  34: 'https://assets.babycenter.com/ims/2025/03/35-body-E-deeptan_4x3.jpg',
+  35: 'https://assets.babycenter.com/ims/2025/03/36-body-E-deeptan_4x3.jpg',
+  36: 'https://assets.babycenter.com/ims/2025/03/37-body-E-deeptan_4x3.jpg',
+  37: 'https://assets.babycenter.com/ims/2025/03/38-body-E-deeptan_4x3.jpg',
+  38: 'https://assets.babycenter.com/ims/2025/03/39-body-E-deeptan_4x3.jpg',
+  39: 'https://assets.babycenter.com/ims/2025/03/40-body-E-deeptan_4x3.jpg',
+  40: 'https://assets.babycenter.com/ims/2025/03/41-body-E-deeptan_4x3.jpg',
+};
 
 // ─── WEEK DATA ──────────────────────────────────────────────────────────────
 const WEEK_DATA = {
-  1:  { length: '< 0.1 mm', weight: '–', compare: 'A single cell', text: ['Fertilization occurs as one sperm penetrates the egg, forming a zygote with all 46 chromosomes.', 'The zygote immediately begins dividing as it travels down the fallopian tube toward the uterus.'] },
-  2:  { length: '< 0.1 mm', weight: '–', compare: 'Invisible to the naked eye', text: ['The blastocyst arrives in the uterus and begins implanting into the soft uterine lining.', 'You may notice a missed period this week. Avoiding alcohol, tobacco, and drugs is critical from this point.'] },
-  3:  { length: '~0.1 mm', weight: '–', compare: 'A grain of sand', text: ['The embryo is embedding into the uterine lining. The foundational cell layers that will form every tissue and organ are establishing themselves.', 'The neural tube — which will become the brain and spinal cord — begins to take shape.'] },
-  4:  { length: '~2 mm', weight: 'trace', compare: 'A poppy seed', text: ['The heart begins to form and blood circulation begins — remarkable at just four weeks.', 'Major body systems are already forming; proper nutrition is essential and exposure to alcohol, tobacco, and drugs should be avoided.'], bullets: ['Heart begins to form', 'Blood circulation begins', 'Most clinic pregnancy tests are positive'] },
-  5:  { length: '~4 mm', weight: 'trace', compare: 'A sesame seed', text: ['The brain is dividing into five distinct regions, and the heart is beating around 100 times per minute.', 'Arm and leg buds are emerging, and the early structures of the nose and jaw begin their development.'] },
-  6:  { length: '~6 mm', weight: 'trace', compare: 'A lentil', text: ['The head and upper body are now well developed. The eyes have begun to form, and limb buds are appearing.', 'The heart, now in tubular form, begins to beat. The neural tube has formed, giving rise to the brain and spinal cord.'], bullets: ['Head and upper body well developed', 'Eyes beginning to form', 'Limb buds appearing', 'Heart beginning to beat'] },
-  7:  { length: '~10 mm', weight: 'trace', compare: 'A blueberry', text: ['The brain is growing rapidly, producing around 100 new neurons every minute.', 'Distinct elbows are forming and the face is becoming more defined with visible nostrils and a mouth.'] },
-  8:  { length: '~13 mm', weight: 'trace', compare: 'A raspberry', text: ['The embryo now has a four-chambered heart. The vertebral column is developed but still composed of cartilage.', 'Electrical activity begins in the developing brain and nervous system. Fingers are beginning to develop.'], bullets: ['Four-chambered heart', 'Spinal column formed (cartilage)', 'Brain electrical activity begins', 'Fingers developing'] },
-  9:  { length: '~23 mm', weight: '<1 g', compare: 'A grape', text: ['The embryo has lost its tail-like structure and now looks distinctly human.', 'Muscles are developing, allowing for more coordinated early movement. Earlobes and eyelids are taking shape.'] },
-  10: { length: '~31 mm', weight: '~4 g', compare: 'A strawberry', text: ['The embryo officially becomes a fetus this week — Latin for "young one." Arms, legs, fingers and toes are distinctly visible.', 'The first real bone cells begin replacing cartilage. Eyelids have formed though they stay fused shut.'], bullets: ['Now called a fetus', 'Head is half body size', 'Arms, legs, fingers, toes visible', 'Bone cells beginning to form'] },
-  11: { length: '~41 mm', weight: '~7 g', compare: 'A fig', text: ['The fetus can open and close its fists and mouth. Tooth buds are forming under the gums.', 'The head still makes up about half the total body length, but the body is starting to catch up.'] },
-  12: { length: '~54 mm', weight: '~14 g', compare: 'A lime', text: ['The eyelids fuse together. Fingernails are developing. The fetus begins small random movements — too subtle for the mother to feel.', 'The fetal heartbeat can now be detected electronically. All major body organs have formed, though not yet functional outside the uterus.'], bullets: ['Eyelids fuse shut', 'Fingernails developing', 'Random movements begin', 'Heartbeat detectable electronically'] },
-  13: { length: '~73 mm', weight: '~23 g', compare: 'A peapod', text: ['The vocal cords are forming and the fetus is developing unique fingerprints. Miscarriage risk drops significantly.', 'Bone marrow is beginning to produce white blood cells. Intestines are migrating back into the abdomen.'] },
-  14: { length: '~87 mm', weight: '~43 g', compare: 'A lemon', text: ['The fetus can now swallow and the kidneys begin making urine. Blood starts to form in the bone marrow.', 'The fetus sleeps and awakens, moves its arms, legs, head and neck, and its mouth can open and close.'], bullets: ['Can swallow; kidneys making urine', 'Blood forming in bone marrow', 'Sleeps and wakes', 'Moves arms, legs, head and neck'] },
-  15: { length: '~101 mm', weight: '~70 g', compare: 'An apple', text: ['The ears are close to their final position and the fetus can begin sensing sounds from outside the womb.', 'The skeletal system is rapidly ossifying, and the fetus practices breathing movements by inhaling amniotic fluid.'] },
-  16: { length: '~116 mm', weight: '~100 g', compare: 'An avocado', text: ['Sex of the fetus can now be distinguished. The head is erect and the legs are developing rapidly.', 'Fine hair called lanugo has begun to grow on the head. Many mothers begin to feel the first faint flutters of movement.'], bullets: ['Sex now distinguishable', 'Head erect, legs developing', 'Lanugo hair appears', 'Eyes moving behind fused lids'] },
-  17: { length: '~130 mm', weight: '~140 g', compare: 'A turnip', text: ['Fat deposits are beginning to accumulate under the skin to help with temperature regulation.', 'The fetus can now hear the mother\'s heartbeat, breathing, and digestive sounds.'] },
-  18: { length: '~142 mm', weight: '~190 g', compare: 'A bell pepper', text: ['The body and facial features of the fetus are now recognizable. The fetus is able to respond to sound.', 'The nose, lips, and ears are clearly distinguishable. Scalp hair is present.'], bullets: ['Body and face recognizable', 'Responds to sound', 'Nose, lips, ears recognizable', 'Scalp hair present'] },
-  19: { length: '~153 mm', weight: '~240 g', compare: 'A mango', text: ['The fetus is covered in vernix caseosa, a waxy protective coating shielding skin from the amniotic fluid.', 'The sensory areas of the brain — for taste, smell, sight, touch, and hearing — are forming specialized regions.'] },
-  20: { length: '~165 mm', weight: '~300 g', compare: 'A banana', text: ['The halfway point of pregnancy. The mother can now feel the fetus move, kick, and punch — called quickening.', 'The fetus has been observed thumb-sucking on ultrasound. It has the reflex ability to suck and grasp, and may experience hiccups.'], bullets: ['Mother can feel movement (quickening)', 'Thumb-sucking observed', 'Sucking and grasping reflexes', 'Oil glands become active'] },
-  21: { length: '~267 mm', weight: '~360 g', compare: 'A carrot', text: ['The fetus can now swallow amniotic fluid, helping develop the digestive tract.', 'All five senses are forming. Bone marrow has taken over as the primary site of red blood cell production.'] },
-  22: { length: '~190 mm', weight: '~430 g', compare: 'A coconut', text: ['Toenails have begun to develop. By 22 weeks the lower limbs are fully formed.', 'Head and body are thickly covered with lanugo hair. The fetus has a sense of touch strong enough to feel its own face.'], bullets: ['Toenails developing', 'Lower limbs fully formed', 'Lanugo covers head and body', 'About 1 pound in weight'] },
-  23: { length: '~202 mm', weight: '~501 g', compare: 'A grapefruit', text: ['The lungs are producing surfactant, essential for breathing air after birth, though still far from ready.', 'The fetus has visible lips and functional taste buds that can sense different flavors in the amniotic fluid.'] },
-  24: { length: '~212 mm', weight: '~600–900 g', compare: 'An ear of corn', text: ['The fetus begins to gain weight steadily but still appears scrawny. The skin is typically wrinkled and red. Eyebrows and eyelashes are recognizable.', 'This marks the threshold of viability. With expert care, approximately 60% of infants born now will survive.'], bullets: ['Eyebrows and eyelashes visible', '~60% survival rate with NICU', 'About 12 inches long, 1½–2 lbs'] },
-  25: { length: '~222 mm', weight: '~660 g', compare: 'A rutabaga', text: ['The fetus is gaining more fat and its skin, previously translucent, is beginning to smooth out and become more opaque.', 'Capillaries are forming under the skin, giving it a pink hue. The nostrils are opening as breathing movements increase.'] },
-  26: { length: '~232 mm', weight: '~760 g', compare: 'A head of lettuce', text: ['The fetus can respond to sounds both inside the mother\'s body and from outside. The eyelids open and close for the first time.', '~85% of babies born alive now will survive in a hospital with high-risk experts.'], bullets: ['Responds to sounds inside and outside', 'Eyelids open and close', '~85% survival with NICU', 'About 13 inches long, 2 lbs'] },
-  27: { length: '~242 mm', weight: '~875 g', compare: 'A cauliflower head', text: ['The fetus can recognize the mother\'s voice and other familiar sounds.', 'The brain is continuing dramatic growth. The fetus spends significant time in REM sleep, associated with dreaming.'] },
-  28: { length: '~250 mm', weight: '~1 kg', compare: 'A large eggplant', text: ['Eyelashes and eyebrows are present. The fetus has a good head of hair. The wrinkled skin is covered with vernix caseosa.', '~91% of infants born at this age will survive with expert care, though some will have lengthy hospitalizations.'], bullets: ['Eyelashes and eyebrows present', 'Good head of hair', 'Skin covered in vernix caseosa', '~91% survival with NICU'] },
-  29: { length: '~259 mm', weight: '~1.15 kg', compare: 'A butternut squash', text: ['Muscles and lungs are maturing quickly, and the fetus is moving and kicking with increasing strength.', 'The head is growing to accommodate the rapidly expanding brain.'] },
-  30: { length: '~268 mm', weight: '~1.3 kg', compare: 'A large cabbage', text: ['The lungs become more mature each week in the uterus, but if born now the baby would still need expert medical help.', '~95% of infants born at 30 weeks will survive in a hospital with an ICN.'], bullets: ['Lungs maturing each week', 'Fat accumulating under skin', '~95% survival with NICU'] },
-  31: { length: '~276 mm', weight: '~1.5 kg', compare: 'A coconut', text: ['The fetus can process information, track light, and respond to familiar voices with movement. All five senses are operational.', 'Rapid weight gain continues as the body prepares for life outside the womb.'] },
-  32: { length: '~284 mm', weight: '~1.7 kg', compare: 'A jicama', text: ['Vernix caseosa continues to form a thick coat on the skin. Toenails are fully formed. The body is "fattening up."', '~97% of infants born at this time will survive with appropriate care.'], bullets: ['Toenails fully formed', 'Body filling out with fat', '~97% survival with NICU', 'About 16 inches, 3–4 lbs'] },
-  33: { length: '~292 mm', weight: '~1.9 kg', compare: 'A pineapple', text: ['The skull remains soft and flexible — unfused bone plates allow compression during birth.', 'The fetus is practicing coordinated sucking and swallowing movements essential for feeding after birth.'] },
-  34: { length: '~300 mm', weight: '~2.1 kg', compare: 'A butternut squash', text: ['The movements and kicks are much stronger — sometimes visible by watching the mother\'s abdomen. The skin is pink and smooth.', '>99% of babies born at this time will survive. Few will have permanent disabilities.'], bullets: ['Strong, visible kicks', 'Fingernails at fingertip ends', 'Skin pink and smooth', '>99% survival rate'] },
-  35: { length: '~307 mm', weight: '~2.4 kg', compare: 'A honeydew melon', text: ['The kidneys are fully developed and the liver can process some waste products. Major organ systems are largely ready.', 'The fetus is running out of room to move freely, so kicks and rolls become more deliberate.'] },
-  36: { length: '~314 mm', weight: '~2.6 kg', compare: 'A head of romaine', text: ['Lanugo disappears from the face but remains on the head. The fetus has fully-formed limbs with fingernails and toenails. Muscle tone is developed.', 'The fetus has soft earlobes with little cartilage. An infant born at this time has an excellent chance of survival.'], bullets: ['Lanugo gone from face', 'Fully-formed limbs, nails', 'Can turn and lift head', 'Excellent survival chance'] },
-  37: { length: '~319 mm', weight: '~2.9 kg', compare: 'A bunch of Swiss chard', text: ['The fetus is now classified as early term. The lungs are confirmed capable of breathing air.', 'Billions of brain connections are forming every day, and the baby is gaining about half an ounce of fat daily.'] },
-  38: { length: '~323 mm', weight: '~3 kg', compare: 'A leek', text: ['The fetus can grasp firmly. Skin on the face and body becomes smooth. The body appears plump. Lanugo is left only on the shoulders.', 'Toenails reach the toe tips. Almost all babies born now will live. The pregnancy is considered full term.'], bullets: ['Firm grasp reflex', 'Smooth, plump body', 'Lanugo only on shoulders', 'Almost all will survive'] },
-  39: { length: '~327 mm', weight: '~3.3 kg', compare: 'A mini watermelon', text: ['The brain and nervous system are still actively developing, a process that will continue for years after birth.', 'The placenta continues to pass antibodies to the baby, building immune defenses for the outside world.'] },
-  40: { length: '~330 mm (20+ in)', weight: '~3.4 kg (6½–9 lbs)', compare: 'A small pumpkin', text: ['In males, the testicles are fully descended. The chest is prominent. Fingernails extend beyond the fingertips.', 'All systems are ready for independent life. The baby is full term and ready to be born anytime.'], bullets: ['Full term — ready to be born', 'Fingernails beyond fingertips', 'About 20+ inches, 6½–9 lbs'] },
+  1:  { length: '< 0.1 mm', weight: '–', compare: 'a poppy seed', text: ['Fertilization occurs as one sperm penetrates the egg, forming a zygote with all 46 chromosomes.', 'The zygote immediately begins dividing as it travels down the fallopian tube toward the uterus.'] },
+  2:  { length: '< 0.1 mm', weight: '–', compare: 'a poppy seed', text: ['The blastocyst arrives in the uterus and begins implanting into the soft uterine lining.', 'You may notice a missed period this week. Avoiding alcohol, tobacco, and drugs is critical from this point.'] },
+  3:  { length: '~0.1 mm', weight: '–', compare: 'a sesame seed', text: ['The embryo is embedding into the uterine lining. The foundational cell layers that will form every tissue and organ are establishing themselves.', 'The neural tube — which will become the brain and spinal cord — begins to take shape.'] },
+  4:  { length: '~2 mm', weight: 'trace', compare: 'a sesame seed', text: ['The heart begins to form and blood circulation begins — remarkable at just four weeks.', 'Major body systems are already forming; proper nutrition is essential and exposure to alcohol, tobacco, and drugs should be avoided.'], bullets: ['Heart begins to form', 'Blood circulation begins', 'Most clinic pregnancy tests are positive'] },
+  5:  { length: '~4 mm', weight: 'trace', compare: 'an apple seed', text: ['The brain is dividing into five distinct regions, and the heart is beating around 100 times per minute.', 'Arm and leg buds are emerging, and the early structures of the nose and jaw begin their development.'] },
+  6:  { length: '~6 mm', weight: 'trace', compare: 'a pea', text: ['The head and upper body are now well developed. The eyes have begun to form, and limb buds are appearing.', 'The heart, now in tubular form, begins to beat. The neural tube has formed, giving rise to the brain and spinal cord.'], bullets: ['Head and upper body well developed', 'Eyes beginning to form', 'Limb buds appearing', 'Heart beginning to beat'] },
+  7:  { length: '~10 mm', weight: 'trace', compare: 'a blueberry', text: ['The brain is growing rapidly, producing around 100 new neurons every minute.', 'Distinct elbows are forming and the face is becoming more defined with visible nostrils and a mouth.'] },
+  8:  { length: '~13 mm', weight: 'trace', compare: 'a raspberry', text: ['The embryo now has a four-chambered heart. The vertebral column is developed but still composed of cartilage.', 'Electrical activity begins in the developing brain and nervous system. Fingers are beginning to develop.'], bullets: ['Four-chambered heart', 'Spinal column formed (cartilage)', 'Brain electrical activity begins', 'Fingers developing'] },
+  9:  { length: '~23 mm', weight: '<1 g', compare: 'an olive', text: ['The embryo has lost its tail-like structure and now looks distinctly human.', 'Muscles are developing, allowing for more coordinated early movement. Earlobes and eyelids are taking shape.'] },
+  10: { length: '~31 mm', weight: '~4 g', compare: 'a kumquat', text: ['The embryo officially becomes a fetus this week — Latin for "young one." Arms, legs, fingers and toes are distinctly visible.', 'The first real bone cells begin replacing cartilage. Eyelids have formed though they stay fused shut.'], bullets: ['Now called a fetus', 'Head is half body size', 'Arms, legs, fingers, toes visible', 'Bone cells beginning to form'] },
+  11: { length: '~41 mm', weight: '~7 g', compare: 'a fig', text: ['The fetus can open and close its fists and mouth. Tooth buds are forming under the gums.', 'The head still makes up about half the total body length, but the body is starting to catch up.'] },
+  12: { length: '~54 mm', weight: '~14 g', compare: 'a plum', text: ['The eyelids fuse together. Fingernails are developing. The fetus begins small random movements — too subtle for the mother to feel.', 'The fetal heartbeat can now be detected electronically. All major body organs have formed, though not yet functional outside the uterus.'], bullets: ['Eyelids fuse shut', 'Fingernails developing', 'Random movements begin', 'Heartbeat detectable electronically'] },
+  13: { length: '~73 mm', weight: '~23 g', compare: 'a lemon', text: ['The vocal cords are forming and the fetus is developing unique fingerprints. Miscarriage risk drops significantly.', 'Bone marrow is beginning to produce white blood cells. Intestines are migrating back into the abdomen.'] },
+  14: { length: '~87 mm', weight: '~43 g', compare: 'a peach', text: ['The fetus can now swallow and the kidneys begin making urine. Blood starts to form in the bone marrow.', 'The fetus sleeps and awakens, moves its arms, legs, head and neck, and its mouth can open and close.'], bullets: ['Can swallow; kidneys making urine', 'Blood forming in bone marrow', 'Sleeps and wakes', 'Moves arms, legs, head and neck'] },
+  15: { length: '~101 mm', weight: '~70 g', compare: 'an apple', text: ['The ears are close to their final position and the fetus can begin sensing sounds from outside the womb.', 'The skeletal system is rapidly ossifying, and the fetus practices breathing movements by inhaling amniotic fluid.'] },
+  16: { length: '~116 mm', weight: '~100 g', compare: 'an avocado', text: ['Sex of the fetus can now be distinguished. The head is erect and the legs are developing rapidly.', 'Fine hair called lanugo has begun to grow on the head. Many mothers begin to feel the first faint flutters of movement.'], bullets: ['Sex now distinguishable', 'Head erect, legs developing', 'Lanugo hair appears', 'Eyes moving behind fused lids'] },
+  17: { length: '~130 mm', weight: '~140 g', compare: 'a pear', text: ['Fat deposits are beginning to accumulate under the skin to help with temperature regulation.', 'The fetus can now hear the mother\'s heartbeat, breathing, and digestive sounds.'] },
+  18: { length: '~142 mm', weight: '~190 g', compare: 'a bell pepper', text: ['The body and facial features of the fetus are now recognizable. The fetus is able to respond to sound.', 'The nose, lips, and ears are clearly distinguishable. Scalp hair is present.'], bullets: ['Body and face recognizable', 'Responds to sound', 'Nose, lips, ears recognizable', 'Scalp hair present'] },
+  19: { length: '~153 mm', weight: '~240 g', compare: 'a mango', text: ['The fetus is covered in vernix caseosa, a waxy protective coating shielding skin from the amniotic fluid.', 'The sensory areas of the brain — for taste, smell, sight, touch, and hearing — are forming specialized regions.'] },
+  20: { length: '~165 mm', weight: '~300 g', compare: 'a banana', text: ['The halfway point of pregnancy. The mother can now feel the fetus move, kick, and punch — called quickening.', 'The fetus has been observed thumb-sucking on ultrasound. It has the reflex ability to suck and grasp, and may experience hiccups.'], bullets: ['Mother can feel movement (quickening)', 'Thumb-sucking observed', 'Sucking and grasping reflexes', 'Oil glands become active'] },
+  21: { length: '~267 mm', weight: '~360 g', compare: 'a carrot', text: ['The fetus can now swallow amniotic fluid, helping develop the digestive tract.', 'All five senses are forming. Bone marrow has taken over as the primary site of red blood cell production.'] },
+  22: { length: '~190 mm', weight: '~430 g', compare: 'a papaya', text: ['Toenails have begun to develop. By 22 weeks the lower limbs are fully formed.', 'Head and body are thickly covered with lanugo hair. The fetus has a sense of touch strong enough to feel its own face.'], bullets: ['Toenails developing', 'Lower limbs fully formed', 'Lanugo covers head and body', 'About 1 pound in weight'] },
+  23: { length: '~202 mm', weight: '~501 g', compare: 'a grapefruit', text: ['The lungs are producing surfactant, essential for breathing air after birth, though still far from ready.', 'The fetus has visible lips and functional taste buds that can sense different flavors in the amniotic fluid.'] },
+  24: { length: '~212 mm', weight: '~600–900 g', compare: 'corn', text: ['The fetus begins to gain weight steadily but still appears scrawny. The skin is typically wrinkled and red. Eyebrows and eyelashes are recognizable.', 'This marks the threshold of viability. With expert care, approximately 60% of infants born now will survive.'], bullets: ['Eyebrows and eyelashes visible', '~60% survival rate with NICU', 'About 12 inches long, 1½–2 lbs'] },
+  25: { length: '~222 mm', weight: '~660 g', compare: 'an acorn squash', text: ['The fetus is gaining more fat and its skin, previously translucent, is beginning to smooth out and become more opaque.', 'Capillaries are forming under the skin, giving it a pink hue. The nostrils are opening as breathing movements increase.'] },
+  26: { length: '~232 mm', weight: '~760 g', compare: 'a zucchini', text: ['The fetus can respond to sounds both inside the mother\'s body and from outside. The eyelids open and close for the first time.', '~85% of babies born alive now will survive in a hospital with high-risk experts.'], bullets: ['Responds to sounds inside and outside', 'Eyelids open and close', '~85% survival with NICU', 'About 13 inches long, 2 lbs'] },
+  27: { length: '~242 mm', weight: '~875 g', compare: 'a cauliflower', text: ['The fetus can recognize the mother\'s voice and other familiar sounds.', 'The brain is continuing dramatic growth. The fetus spends significant time in REM sleep, associated with dreaming.'] },
+  28: { length: '~250 mm', weight: '~1 kg', compare: 'a kabocha squash', text: ['Eyelashes and eyebrows are present. The fetus has a good head of hair. The wrinkled skin is covered with vernix caseosa.', '~91% of infants born at this age will survive with expert care, though some will have lengthy hospitalizations.'], bullets: ['Eyelashes and eyebrows present', 'Good head of hair', 'Skin covered in vernix caseosa', '~91% survival with NICU'] },
+  29: { length: '~259 mm', weight: '~1.15 kg', compare: 'a butternut squash', text: ['Muscles and lungs are maturing quickly, and the fetus is moving and kicking with increasing strength.', 'The head is growing to accommodate the rapidly expanding brain.'] },
+  30: { length: '~268 mm', weight: '~1.3 kg', compare: 'a green cabbage', text: ['The lungs become more mature each week in the uterus, but if born now the baby would still need expert medical help.', '~95% of infants born at 30 weeks will survive in a hospital with an ICN.'], bullets: ['Lungs maturing each week', 'Fat accumulating under skin', '~95% survival with NICU'] },
+  31: { length: '~276 mm', weight: '~1.5 kg', compare: 'a leek', text: ['The fetus can process information, track light, and respond to familiar voices with movement. All five senses are operational.', 'Rapid weight gain continues as the body prepares for life outside the womb.'] },
+  32: { length: '~284 mm', weight: '~1.7 kg', compare: 'napa cabbage', text: ['Vernix caseosa continues to form a thick coat on the skin. Toenails are fully formed. The body is "fattening up."', '~97% of infants born at this time will survive with appropriate care.'], bullets: ['Toenails fully formed', 'Body filling out with fat', '~97% survival with NICU', 'About 16 inches, 3–4 lbs'] },
+  33: { length: '~292 mm', weight: '~1.9 kg', compare: 'a pineapple', text: ['The skull remains soft and flexible — unfused bone plates allow compression during birth.', 'The fetus is practicing coordinated sucking and swallowing movements essential for feeding after birth.'] },
+  34: { length: '~300 mm', weight: '~2.1 kg', compare: 'a cantaloupe', text: ['The movements and kicks are much stronger — sometimes visible by watching the mother\'s abdomen. The skin is pink and smooth.', '>99% of babies born at this time will survive. Few will have permanent disabilities.'], bullets: ['Strong, visible kicks', 'Fingernails at fingertip ends', 'Skin pink and smooth', '>99% survival rate'] },
+  35: { length: '~307 mm', weight: '~2.4 kg', compare: 'a honeydew', text: ['The kidneys are fully developed and the liver can process some waste products. Major organ systems are largely ready.', 'The fetus is running out of room to move freely, so kicks and rolls become more deliberate.'] },
+  36: { length: '~314 mm', weight: '~2.6 kg', compare: 'romaine lettuce', text: ['Lanugo disappears from the face but remains on the head. The fetus has fully-formed limbs with fingernails and toenails. Muscle tone is developed.', 'The fetus has soft earlobes with little cartilage. An infant born at this time has an excellent chance of survival.'], bullets: ['Lanugo gone from face', 'Fully-formed limbs, nails', 'Can turn and lift head', 'Excellent survival chance'] },
+  37: { length: '~319 mm', weight: '~2.9 kg', compare: 'a wintermelon', text: ['The fetus is now classified as early term. The lungs are confirmed capable of breathing air.', 'Billions of brain connections are forming every day, and the baby is gaining about half an ounce of fat daily.'] },
+  38: { length: '~323 mm', weight: '~3 kg', compare: 'a pumpkin', text: ['The fetus can grasp firmly. Skin on the face and body becomes smooth. The body appears plump. Lanugo is left only on the shoulders.', 'Toenails reach the toe tips. Almost all babies born now will live. The pregnancy is considered full term.'], bullets: ['Firm grasp reflex', 'Smooth, plump body', 'Lanugo only on shoulders', 'Almost all will survive'] },
+  39: { length: '~327 mm', weight: '~3.3 kg', compare: 'a watermelon', text: ['The brain and nervous system are still actively developing, a process that will continue for years after birth.', 'The placenta continues to pass antibodies to the baby, building immune defenses for the outside world.'] },
+  40: { length: '~330 mm (20+ in)', weight: '~3.4 kg (6½–9 lbs)', compare: 'a jackfruit', text: ['In males, the testicles are fully descended. The chest is prominent. Fingernails extend beyond the fingertips.', 'All systems are ready for independent life. The baby is full term and ready to be born anytime.'], bullets: ['Full term — ready to be born', 'Fingernails beyond fingertips', 'About 20+ inches, 6½–9 lbs'] },
 };
 
 // ─── STATE & LOGIC ──────────────────────────────────────────────────────────
@@ -541,11 +286,23 @@ function startApp() {
   if (dd < lo || dd > hi) { showErr(); return; }
   dueDate = dd; currentPregnancyWeek = getWeekForDate(today);
   localStorage.setItem('pregnancy-due-date', input);
+  setUrlDate(input);
   launchApp();
+}
+function setUrlDate(iso) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('due', iso);
+  window.history.replaceState({}, '', url);
+}
+function clearUrlDate() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('due');
+  window.history.replaceState({}, '', url);
 }
 function showErr() { document.getElementById('setup-error').style.display='block'; }
 function resetApp() {
   localStorage.removeItem('pregnancy-due-date');
+  clearUrlDate();
   document.getElementById('setup-screen').style.display='flex';
   document.getElementById('app-screen').style.display='none';
 }
@@ -598,18 +355,9 @@ function goWeek(week) {
   else if (week <= 27) { ttag.textContent = 'Second Trimester'; ttag.className = 'trimester-tag trimester-2'; }
   else                 { ttag.textContent = 'Third Trimester';  ttag.className = 'trimester-tag trimester-3'; }
 
-  const imgUrl = WIKI_IMGS[week];
   const container = document.getElementById('fetus-svg-container');
-  if (imgUrl) {
-    const commonsPage = `https://commons.wikimedia.org/wiki/File:${week}_weeks_pregnant.jpg`;
-    container.innerHTML = `
-      <img src="${imgUrl}" referrerpolicy="no-referrer" alt="Fetus at week ${week}"
-           onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-      <div style="display:none">${fetusSVG(week)}</div>
-      <div class="fetus-img-credit"><a href="${commonsPage}" target="_blank">Wikimedia Commons</a> / 3DPregnancy.com (CC BY-SA 2.5)</div>`;
-  } else {
-    container.innerHTML = fetusSVG(week);
-  }
+  container.innerHTML = `<img src="${BC_IMGS[week]}" alt="Fetus at week ${week}" loading="lazy">
+    <div class="fetus-img-credit">Image © <a href="https://www.babycenter.com" target="_blank">BabyCenter</a></div>`;
   document.getElementById('size-row').innerHTML =
     `<div class="size-item"><span class="skey">Length</span><span class="sval">${d.length}</span></div>
      <div class="size-item"><span class="skey">Weight</span><span class="sval">${d.weight}</span></div>`;
@@ -625,14 +373,17 @@ function goWeek(week) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  const saved = localStorage.getItem('pregnancy-due-date');
+  const urlDue = new URL(window.location.href).searchParams.get('due');
+  const saved = urlDue || localStorage.getItem('pregnancy-due-date');
   if (saved) {
     const dd = new Date(saved), today = new Date(); today.setHours(0,0,0,0);
     const lo = new Date(today); lo.setDate(lo.getDate()-14);
     const hi = new Date(today); hi.setDate(hi.getDate()+280);
-    if (dd >= lo && dd <= hi) {
+    if (!isNaN(dd) && dd >= lo && dd <= hi) {
       document.getElementById('due-date').value = saved;
       dueDate = dd; currentPregnancyWeek = getWeekForDate(today);
+      localStorage.setItem('pregnancy-due-date', saved);
+      setUrlDate(saved);
       launchApp(); return;
     }
   }
