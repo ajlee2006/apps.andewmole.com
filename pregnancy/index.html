@@ -44,7 +44,7 @@
 
   #app-screen { display: none; }
 
-  header { background: white; border-bottom: 1px solid var(--blush); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  header { background: white; border-bottom: 1px solid var(--blush); padding: 1rem 2rem 1rem 3rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
   header .logo { font-family: 'Playfair Display', serif; font-size: 1.2rem; color: var(--deep-rose); font-style: italic; }
   header .due-info { font-size: 0.82rem; color: var(--mid-grey); text-align: right; font-weight: 300; }
   header .due-info strong { color: var(--charcoal); font-weight: 700; }
@@ -108,9 +108,17 @@
   .nav-btn:disabled { opacity: 0.3; cursor: default; }
   .jump-current-btn { background: var(--current-gold-light); border: 1.5px solid var(--current-gold); color: #8a6a20; border-radius: 10px; padding: 0.65rem 1.2rem; font-size: 0.82rem; font-family: 'Lato', sans-serif; font-weight: 700; cursor: pointer; transition: all 0.2s; letter-spacing: 0.03em; }
   .jump-current-btn:hover { background: #f0e0b8; }
-  .home-icon { position: fixed; top: 1.1rem; left: 1.2rem; width: 22px; height: 22px; color: var(--mid-grey); z-index: 200; transition: color 0.2s; display: inline-flex; }
+  .home-icon { position: fixed; top: 1.15rem; left: 1rem; width: 22px; height: 22px; color: var(--mid-grey); z-index: 200; transition: color 0.2s; display: inline-flex; align-items: center; }
   .home-icon:hover { color: var(--deep-rose); }
   .home-icon svg { width: 100%; height: 100%; }
+
+  .side-arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; background: white; border: 1.5px solid var(--light-grey); border-radius: 50%; font-size: 1.6rem; line-height: 1; color: var(--mid-grey); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; padding: 0 0 3px; font-family: 'Lato', sans-serif; z-index: 5; }
+  .side-arrow:hover:not(:disabled) { border-color: var(--dusty-rose); color: var(--deep-rose); }
+  .side-arrow:disabled { opacity: 0.25; cursor: default; }
+  .side-arrow-left { left: -4rem; }
+  .side-arrow-right { right: -4rem; }
+  .week-header-row { position: relative; margin-bottom: 0.4rem; }
+  @media (max-width: 900px) { .side-arrow { display: none; } }
 
   @media (max-width: 520px) {
     .fetus-card { flex-direction: column; align-items: center; text-align: center; }
@@ -120,6 +128,12 @@
 </style>
 </head>
 <body>
+
+<a href="/" class="home-icon" title="Back to home" aria-label="Back to home">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/>
+  </svg>
+</a>
 
 <div id="setup-screen">
   <h1>Pregnancy<br>Countdown</h1>
@@ -145,15 +159,14 @@
     <div class="week-strip" id="week-strip"></div>
   </div>
   <div class="main">
-    <a href="/" class="home-icon" title="Back to home" aria-label="Back to home">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/>
-      </svg>
-    </a>
-    <div class="week-header">
-      <span class="week-number" id="disp-week-num">–</span>
-      <span class="week-label">weeks pregnant</span>
-      <span class="current-badge" id="current-badge">Current week</span>
+    <div class="week-header-row">
+      <button class="side-arrow side-arrow-left" id="side-prev" onclick="goWeek(selectedWeek - 1)" aria-label="Previous week">‹</button>
+      <button class="side-arrow side-arrow-right" id="side-next" onclick="goWeek(selectedWeek + 1)" aria-label="Next week">›</button>
+      <div class="week-header">
+        <span class="week-number" id="disp-week-num">–</span>
+        <span class="week-label">weeks pregnant</span>
+        <span class="current-badge" id="current-badge">Current week</span>
+      </div>
     </div>
     <div class="week-dates" id="disp-week-dates"></div>
     <div class="trimester-tag" id="trimester-tag"></div>
@@ -270,9 +283,16 @@ const WEEK_DATA = {
 // ─── STATE & LOGIC ──────────────────────────────────────────────────────────
 let dueDate = null, currentPregnancyWeek = 1, selectedWeek = 1;
 
+// Parse YYYY-MM-DD as local midnight (avoids timezone-shift bug from new Date('YYYY-MM-DD') which treats it as UTC)
+function parseLocal(s) {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 function getWeekForDate(date) {
   const start = new Date(dueDate); start.setDate(start.getDate() - 279);
-  return Math.max(1, Math.min(40, Math.floor((date - start) / (7*24*60*60*1000)) + 1));
+  const days = Math.round((date - start) / (24*60*60*1000));
+  return Math.max(1, Math.min(40, Math.floor(days / 7) + 1));
 }
 function getWeekDateRange(week) {
   const start = new Date(dueDate); start.setDate(start.getDate() - 279);
@@ -285,7 +305,7 @@ function fmtDate(d) { return d.toLocaleDateString('en-GB', { day:'numeric', mont
 function startApp() {
   const input = document.getElementById('due-date').value;
   if (!input) { showErr(); return; }
-  const dd = new Date(input), today = new Date(); today.setHours(0,0,0,0);
+  const dd = parseLocal(input), today = new Date(); today.setHours(0,0,0,0);
   const lo = new Date(today); lo.setDate(lo.getDate()-14);
   const hi = new Date(today); hi.setDate(hi.getDate()+279);
   if (dd < lo || dd > hi) { showErr(); return; }
@@ -374,14 +394,16 @@ function goWeek(week) {
 
   document.getElementById('prev-btn').disabled = week <= 1;
   document.getElementById('next-btn').disabled = week >= 40;
+  document.getElementById('side-prev').disabled = week <= 1;
+  document.getElementById('side-next').disabled = week >= 40;
   document.getElementById('jump-btn').style.display = isCurrent ? 'none' : 'inline-block';
 }
 
 window.addEventListener('DOMContentLoaded', () => {
   const urlDue = new URL(window.location.href).searchParams.get('due');
   const saved = urlDue || localStorage.getItem('pregnancy-due-date');
-  if (saved) {
-    const dd = new Date(saved), today = new Date(); today.setHours(0,0,0,0);
+  if (saved && /^\d{4}-\d{2}-\d{2}$/.test(saved)) {
+    const dd = parseLocal(saved), today = new Date(); today.setHours(0,0,0,0);
     const lo = new Date(today); lo.setDate(lo.getDate()-14);
     const hi = new Date(today); hi.setDate(hi.getDate()+279);
     if (!isNaN(dd) && dd >= lo && dd <= hi) {
