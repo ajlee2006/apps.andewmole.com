@@ -108,8 +108,9 @@
   .nav-btn:disabled { opacity: 0.3; cursor: default; }
   .jump-current-btn { background: var(--current-gold-light); border: 1.5px solid var(--current-gold); color: #8a6a20; border-radius: 10px; padding: 0.65rem 1.2rem; font-size: 0.82rem; font-family: 'Lato', sans-serif; font-weight: 700; cursor: pointer; transition: all 0.2s; letter-spacing: 0.03em; }
   .jump-current-btn:hover { background: #f0e0b8; }
-  .back-link { display: inline-block; font-size: 0.8rem; color: var(--mid-grey); text-decoration: none; margin-bottom: 1.5rem; }
-  .back-link:hover { color: var(--deep-rose); }
+  .home-icon { position: fixed; top: 1.1rem; left: 1.2rem; width: 22px; height: 22px; color: var(--mid-grey); z-index: 200; transition: color 0.2s; display: inline-flex; }
+  .home-icon:hover { color: var(--deep-rose); }
+  .home-icon svg { width: 100%; height: 100%; }
 
   @media (max-width: 520px) {
     .fetus-card { flex-direction: column; align-items: center; text-align: center; }
@@ -122,7 +123,7 @@
 
 <div id="setup-screen">
   <h1>Pregnancy<br>Countdown</h1>
-  <p class="subtitle">Follow your baby's journey, week by week</p>
+  <p class="subtitle">A nine-month countdown to your due date</p>
   <div class="setup-card">
     <label for="due-date">Expected Due Date</label>
     <input type="date" id="due-date">
@@ -144,7 +145,11 @@
     <div class="week-strip" id="week-strip"></div>
   </div>
   <div class="main">
-    <a href="/" class="back-link">← Back to home</a>
+    <a href="/" class="home-icon" title="Back to home" aria-label="Back to home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/>
+      </svg>
+    </a>
     <div class="week-header">
       <span class="week-number" id="disp-week-num">–</span>
       <span class="week-label">weeks pregnant</span>
@@ -266,11 +271,11 @@ const WEEK_DATA = {
 let dueDate = null, currentPregnancyWeek = 1, selectedWeek = 1;
 
 function getWeekForDate(date) {
-  const start = new Date(dueDate); start.setDate(start.getDate() - 280);
+  const start = new Date(dueDate); start.setDate(start.getDate() - 279);
   return Math.max(1, Math.min(40, Math.floor((date - start) / (7*24*60*60*1000)) + 1));
 }
 function getWeekDateRange(week) {
-  const start = new Date(dueDate); start.setDate(start.getDate() - 280);
+  const start = new Date(dueDate); start.setDate(start.getDate() - 279);
   const wStart = new Date(start); wStart.setDate(wStart.getDate() + (week-1)*7);
   const wEnd = new Date(wStart); wEnd.setDate(wEnd.getDate() + 6);
   return { start: wStart, end: wEnd };
@@ -282,7 +287,7 @@ function startApp() {
   if (!input) { showErr(); return; }
   const dd = new Date(input), today = new Date(); today.setHours(0,0,0,0);
   const lo = new Date(today); lo.setDate(lo.getDate()-14);
-  const hi = new Date(today); hi.setDate(hi.getDate()+280);
+  const hi = new Date(today); hi.setDate(hi.getDate()+279);
   if (dd < lo || dd > hi) { showErr(); return; }
   dueDate = dd; currentPregnancyWeek = getWeekForDate(today);
   localStorage.setItem('pregnancy-due-date', input);
@@ -378,7 +383,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (saved) {
     const dd = new Date(saved), today = new Date(); today.setHours(0,0,0,0);
     const lo = new Date(today); lo.setDate(lo.getDate()-14);
-    const hi = new Date(today); hi.setDate(hi.getDate()+280);
+    const hi = new Date(today); hi.setDate(hi.getDate()+279);
     if (!isNaN(dd) && dd >= lo && dd <= hi) {
       document.getElementById('due-date').value = saved;
       dueDate = dd; currentPregnancyWeek = getWeekForDate(today);
