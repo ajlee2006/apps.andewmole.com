@@ -141,9 +141,8 @@
   <div class="setup-card">
     <label for="due-date">Expected Due Date</label>
     <input type="date" id="due-date">
-    <p class="hint">Enter a date within the next 9 months (or up to 2 weeks past today for overdue).</p>
     <button class="btn-primary" onclick="startApp()">Begin Tracking</button>
-    <p id="setup-error">Please enter a valid date within 9 months from today.</p>
+    <p id="setup-error">Please enter a valid date.</p>
   </div>
 </div>
 
@@ -281,35 +280,60 @@ const WEEK_DATA = {
 };
 
 // ─── STATE & LOGIC ──────────────────────────────────────────────────────────
-let dueDate = null, currentPregnancyWeek = 1, selectedWeek = 1;
+let dueDateStr = null;          // YYYY-MM-DD
+let rawCurrentWeek = 0;          // can be <1 (not yet pregnant) or >40 (already born)
+let currentPregnancyWeek = null; // = rawCurrentWeek if in [1,40], else null
+let selectedWeek = 1;
 
-// Parse YYYY-MM-DD as local midnight (avoids timezone-shift bug from new Date('YYYY-MM-DD') which treats it as UTC)
-function parseLocal(s) {
+const DAY_MS = 86400000;
+const START_OFFSET = 279;   // days before due date that week 1 starts (so week 40 ends ON due date)
+
+// Convert YYYY-MM-DD to days-since-epoch (timezone-independent)
+function dayNum(s) {
   const [y, m, d] = s.split('-').map(Number);
-  return new Date(y, m - 1, d);
+  return Math.floor(Date.UTC(y, m - 1, d) / DAY_MS);
 }
 
-function getWeekForDate(date) {
-  const start = new Date(dueDate); start.setDate(start.getDate() - 279);
-  const days = Math.round((date - start) / (24*60*60*1000));
-  return Math.max(1, Math.min(40, Math.floor(days / 7) + 1));
+// Today as YYYY-MM-DD (using local calendar date)
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-function getWeekDateRange(week) {
-  const start = new Date(dueDate); start.setDate(start.getDate() - 279);
-  const wStart = new Date(start); wStart.setDate(wStart.getDate() + (week-1)*7);
-  const wEnd = new Date(wStart); wEnd.setDate(wEnd.getDate() + 6);
-  return { start: wStart, end: wEnd };
+
+// Add N days to a YYYY-MM-DD string, return new YYYY-MM-DD
+function addDays(s, n) {
+  const d = new Date((dayNum(s) + n) * DAY_MS); // UTC
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
 }
-function fmtDate(d) { return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }); }
+
+// Pretty-format a YYYY-MM-DD string for display
+function fmtDate(s) {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(Date.UTC(y, m-1, d)).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric', timeZone: 'UTC' });
+}
+
+function getWeekRange(week) {
+  const startOfPregnancy = addDays(dueDateStr, -START_OFFSET);
+  const start = addDays(startOfPregnancy, (week - 1) * 7);
+  const end = addDays(start, 6);
+  return { start, end };
+}
+
+function computeCurrentWeek() {
+  const diff = dayNum(todayStr()) - dayNum(dueDateStr);
+  return Math.floor((diff + START_OFFSET) / 7) + 1;
+}
+
+function applyDueDate(input) {
+  dueDateStr = input;
+  rawCurrentWeek = computeCurrentWeek();
+  currentPregnancyWeek = (rawCurrentWeek >= 1 && rawCurrentWeek <= 40) ? rawCurrentWeek : null;
+}
 
 function startApp() {
   const input = document.getElementById('due-date').value;
-  if (!input) { showErr(); return; }
-  const dd = parseLocal(input), today = new Date(); today.setHours(0,0,0,0);
-  const lo = new Date(today); lo.setDate(lo.getDate()-14);
-  const hi = new Date(today); hi.setDate(hi.getDate()+279);
-  if (dd < lo || dd > hi) { showErr(); return; }
-  dueDate = dd; currentPregnancyWeek = getWeekForDate(today);
+  if (!input || !/^\d{4}-\d{2}-\d{2}$/.test(input)) { showErr(); return; }
+  applyDueDate(input);
   localStorage.setItem('pregnancy-due-date', input);
   setUrlDate(input);
   launchApp();
@@ -334,9 +358,11 @@ function resetApp() {
 function launchApp() {
   document.getElementById('setup-screen').style.display='none';
   document.getElementById('app-screen').style.display='block';
-  document.getElementById('header-due-date').textContent = fmtDate(dueDate);
+  document.getElementById('header-due-date').textContent = fmtDate(dueDateStr);
   buildWeekStrip();
-  goWeek(currentPregnancyWeek);
+  // Initial week to show: current week if in range, otherwise clamp to 1 or 40
+  const initialWeek = currentPregnancyWeek ?? (rawCurrentWeek < 1 ? 1 : 40);
+  goWeek(initialWeek);
 }
 
 function buildWeekStrip() {
@@ -344,7 +370,11 @@ function buildWeekStrip() {
   strip.innerHTML = '';
   for (let w = 1; w <= 40; w++) {
     const dot = document.createElement('div');
-    dot.className = 'week-dot ' + (w === currentPregnancyWeek ? 'current-week' : w < currentPregnancyWeek ? 'past' : 'future');
+    let cls;
+    if (w === currentPregnancyWeek) cls = 'current-week';
+    else if (w < rawCurrentWeek) cls = 'past';
+    else cls = 'future';
+    dot.className = 'week-dot ' + cls;
     dot.id = `wdot-${w}`;
     dot.innerHTML = `<div class="dot"></div><div class="wlabel">W${w}</div>`;
     dot.addEventListener('click', () => goWeek(w));
@@ -368,8 +398,8 @@ function goWeek(week) {
   updateStrip(week);
 
   const d = WEEK_DATA[week] || WEEK_DATA[40];
-  const { start, end } = getWeekDateRange(week);
-  const isCurrent = week === currentPregnancyWeek;
+  const { start, end } = getWeekRange(week);
+  const isCurrent = currentPregnancyWeek !== null && week === currentPregnancyWeek;
 
   document.getElementById('disp-week-num').textContent = week;
   document.getElementById('current-badge').style.display = isCurrent ? 'inline-block' : 'none';
@@ -396,26 +426,23 @@ function goWeek(week) {
   document.getElementById('next-btn').disabled = week >= 40;
   document.getElementById('side-prev').disabled = week <= 1;
   document.getElementById('side-next').disabled = week >= 40;
-  document.getElementById('jump-btn').style.display = isCurrent ? 'none' : 'inline-block';
+  // Jump button shows only when there IS a current week and we're not already on it
+  const showJump = currentPregnancyWeek !== null && !isCurrent;
+  document.getElementById('jump-btn').style.display = showJump ? 'inline-block' : 'none';
 }
 
 window.addEventListener('DOMContentLoaded', () => {
   const urlDue = new URL(window.location.href).searchParams.get('due');
   const saved = urlDue || localStorage.getItem('pregnancy-due-date');
   if (saved && /^\d{4}-\d{2}-\d{2}$/.test(saved)) {
-    const dd = parseLocal(saved), today = new Date(); today.setHours(0,0,0,0);
-    const lo = new Date(today); lo.setDate(lo.getDate()-14);
-    const hi = new Date(today); hi.setDate(hi.getDate()+279);
-    if (!isNaN(dd) && dd >= lo && dd <= hi) {
-      document.getElementById('due-date').value = saved;
-      dueDate = dd; currentPregnancyWeek = getWeekForDate(today);
-      localStorage.setItem('pregnancy-due-date', saved);
-      setUrlDate(saved);
-      launchApp(); return;
-    }
+    applyDueDate(saved);
+    document.getElementById('due-date').value = saved;
+    localStorage.setItem('pregnancy-due-date', saved);
+    setUrlDate(saved);
+    launchApp(); return;
   }
-  const hint = new Date(); hint.setDate(hint.getDate()+140);
-  document.getElementById('due-date').value = hint.toISOString().split('T')[0];
+  // Default suggestion: 140 days from today
+  document.getElementById('due-date').value = addDays(todayStr(), 140);
 });
 </script>
 </body>
