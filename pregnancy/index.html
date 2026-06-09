@@ -46,9 +46,9 @@
 
   header { background: white; border-bottom: 1px solid var(--blush); padding: 1rem 2rem 1rem 3rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
   header .logo { font-family: 'Playfair Display', serif; font-size: 1.2rem; color: var(--deep-rose); font-style: italic; }
-  header .due-info { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; font-weight: 300; }
-  header .due-info .due-label { font-size: 0.65rem; color: var(--mid-grey); text-transform: uppercase; letter-spacing: 0.1em; }
-  header .due-info strong { color: var(--charcoal); font-weight: 700; font-size: 0.9rem; white-space: nowrap; }
+  header .due-info { display: inline-flex; align-items: baseline; gap: 0.35rem; font-weight: 300; }
+  header .due-info .due-label { font-size: 0.82rem; color: var(--mid-grey); }
+  header .due-info strong { color: var(--charcoal); font-weight: 700; font-size: 0.82rem; white-space: nowrap; }
   .btn-reset { background: none; border: 1.5px solid var(--light-grey); border-radius: 8px; padding: 0.4rem 0.9rem; font-size: 0.78rem; color: var(--mid-grey); cursor: pointer; font-family: 'Lato', sans-serif; transition: all 0.2s; margin-left: 1rem; }
   .btn-reset:hover { border-color: var(--dusty-rose); color: var(--dusty-rose); }
 
@@ -121,14 +121,25 @@
   .week-header-row { position: relative; margin-bottom: 0.4rem; }
   @media (max-width: 900px) { .side-arrow { display: none; } }
 
+  /* Bottom Prev/Next hidden on desktop (side arrows take their place); shown on mobile */
+  .week-nav .nav-btn { display: none; }
+  .week-nav { justify-content: center; gap: 0.6rem; }
+
+  @media (max-width: 900px) {
+    .week-nav .nav-btn { display: inline-flex; }
+    .week-nav { justify-content: space-between; }
+  }
+
   @media (max-width: 520px) {
     .fetus-card { flex-direction: column; align-items: center; text-align: center; }
     header { padding: 0.7rem 0.9rem 0.7rem 2.6rem; gap: 0.6rem; }
     header .logo { font-size: 1rem; line-height: 1.15; }
     .home-icon { top: 0.95rem; left: 0.8rem; }
-    header .due-info .due-label { font-size: 0.6rem; }
+    header .due-info { flex-direction: column; align-items: flex-end; gap: 0; line-height: 1.2; }
+    header .due-info .due-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; }
     header .due-info strong { font-size: 0.82rem; }
     .btn-reset { margin-left: 0; padding: 0.35rem 0.65rem; font-size: 0.7rem; white-space: nowrap; }
+    .btn-reset .reset-extra { display: none; }
     .main { padding: 1.5rem 1rem 4rem; }
   }
 </style>
@@ -160,7 +171,7 @@
         <span class="due-label">Due</span>
         <strong id="header-due-date"></strong>
       </div>
-      <button class="btn-reset" onclick="resetApp()">Change date</button>
+      <button class="btn-reset" onclick="resetApp()">Change<span class="reset-extra"> date</span></button>
     </div>
   </header>
   <div class="week-strip-wrapper" id="week-strip-wrapper">
@@ -172,7 +183,7 @@
       <button class="side-arrow side-arrow-right" id="side-next" onclick="goWeek(selectedWeek + 1)" aria-label="Next week">›</button>
       <div class="week-header">
         <span class="week-number" id="disp-week-num">–</span>
-        <span class="week-label">weeks pregnant</span>
+        <span class="week-label" id="week-label">weeks pregnant</span>
         <span class="current-badge" id="current-badge">Current week</span>
       </div>
     </div>
@@ -411,6 +422,7 @@ function goWeek(week) {
   const isCurrent = currentPregnancyWeek !== null && week === currentPregnancyWeek;
 
   document.getElementById('disp-week-num').textContent = week;
+  document.getElementById('week-label').textContent = (week === 1 ? 'week' : 'weeks') + ' pregnant';
   document.getElementById('current-badge').style.display = isCurrent ? 'inline-block' : 'none';
   document.getElementById('disp-week-dates').textContent = `${fmtDate(start)} – ${fmtDate(end)}`;
 
