@@ -104,10 +104,11 @@
   .source-credit a:hover { text-decoration: underline; }
 
   .week-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; }
-  .nav-btn { display: flex; align-items: center; gap: 0.5rem; background: none; border: 1.5px solid var(--light-grey); border-radius: 10px; padding: 0.65rem 1.2rem; font-size: 0.88rem; font-family: 'Lato', sans-serif; color: var(--mid-grey); cursor: pointer; transition: all 0.2s; }
+  .nav-btn { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.4rem; background: none; border: 1.5px solid var(--light-grey); border-radius: 10px; padding: 0.65rem 1rem; font-size: 0.88rem; font-family: 'Lato', sans-serif; color: var(--mid-grey); cursor: pointer; transition: all 0.2s; line-height: 1.2; }
   .nav-btn:hover:not(:disabled) { border-color: var(--dusty-rose); color: var(--deep-rose); }
   .nav-btn:disabled { opacity: 0.3; cursor: default; }
-  .jump-current-btn { background: var(--current-gold-light); border: 1.5px solid var(--current-gold); color: #8a6a20; border-radius: 10px; padding: 0.65rem 1.2rem; font-size: 0.82rem; font-family: 'Lato', sans-serif; font-weight: 700; cursor: pointer; transition: all 0.2s; letter-spacing: 0.03em; }
+  #next-btn { flex-direction: row-reverse; }
+  .jump-current-btn { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.4rem; background: var(--current-gold-light); border: 1.5px solid var(--current-gold); color: #8a6a20; border-radius: 10px; padding: 0.65rem 1rem; font-size: 0.82rem; font-family: 'Lato', sans-serif; font-weight: 700; cursor: pointer; transition: all 0.2s; letter-spacing: 0.03em; line-height: 1.2; }
   .jump-current-btn:hover { background: #f0e0b8; }
   .home-icon { position: fixed; top: 1.15rem; left: 1rem; width: 22px; height: 22px; color: var(--mid-grey); z-index: 200; transition: color 0.2s; display: inline-flex; align-items: center; }
   .home-icon:hover { color: var(--deep-rose); }
@@ -141,11 +142,11 @@
     .btn-reset .reset-extra { display: none; }
     .main { padding: 1.5rem 1rem 4rem; }
 
-    /* Stack arrow above label on small screens */
-    .week-nav { gap: 0.6rem; }
-    .week-nav button { flex: 1; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.55rem 0.4rem; font-size: 0.82rem; }
+    /* Equal-width buttons so narrow widths force the label to wrap below the arrow */
+    .week-nav { gap: 0.5rem; align-items: stretch; }
+    .week-nav button { flex: 1 1 0; padding: 0.55rem 0.4rem; font-size: 0.82rem; min-width: 0; }
     .week-nav button .arrow { font-size: 1.05rem; line-height: 1; }
-    .week-nav button .label { line-height: 1.2; text-align: center; }
+    .week-nav button .label { text-align: center; }
   }
 </style>
 </head>
@@ -210,7 +211,7 @@
     <div class="week-nav">
       <button class="nav-btn" id="prev-btn" onclick="goWeek(selectedWeek - 1)"><span class="arrow">←</span><span class="label">Previous</span></button>
       <button class="jump-current-btn" id="jump-btn" onclick="goWeek(currentPregnancyWeek)"><span class="arrow">↩</span><span class="label">Current week</span></button>
-      <button class="nav-btn" id="next-btn" onclick="goWeek(selectedWeek + 1)"><span class="label">Next</span><span class="arrow">→</span></button>
+      <button class="nav-btn" id="next-btn" onclick="goWeek(selectedWeek + 1)"><span class="arrow">→</span><span class="label">Next</span></button>
     </div>
   </div>
 </div>
