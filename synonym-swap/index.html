@@ -10,19 +10,19 @@
 <body>
 <div class="container">
   <nav class="topnav">
-    <a href="/" class="back-link">← Back to home</a>
+    <a href="/" class="back-link translatable">← Back to home</a>
   </nav>
 
   <header class="page-header">
-    <h1 id="title">English Synonym Swapper</h1>
-    <p class="subtitle">
-      Every word in your text is replaced with a random synonym. Hover any word to find its partner.
+    <h1 id="title" class="translatable">English Synonym Swapper</h1>
+    <p class="subtitle translatable">
+      Every word in your text is replaced with its top synonym. Click any word to choose a different one.
     </p>
   </header>
 
   <div class="panels">
     <div class="panel input-panel">
-      <label class="field-label" for="input">English text</label>
+      <span class="field-label translatable">English text</span>
       <div class="textarea-wrap">
         <textarea id="input" placeholder="Type or paste English text."></textarea>
         <div class="input-overlay" id="input-overlay" aria-hidden="true"></div>
@@ -32,12 +32,19 @@
 
     <div class="panel output-panel">
       <div class="panel-header">
-        <span class="field-label">Swapped</span>
+        <span class="field-label translatable">Swapped</span>
+        <div class="header-controls">
+          <button class="btn btn-secondary translatable" id="use-as-input" type="button" title="Move the swapped output back into the input box">
+            <span aria-hidden="true">↩</span> Use as input
+          </button>
+        </div>
       </div>
       <div class="output-box empty" id="output">Output will appear here.</div>
     </div>
   </div>
 </div>
+
+<div class="word-bubble" id="word-bubble" hidden></div>
 
 <script type="module" src="app.js"></script>
 </body>
