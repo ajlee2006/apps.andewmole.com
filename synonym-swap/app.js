@@ -192,13 +192,46 @@ function setHover(index, on) {
     el.classList.toggle('word-link-hover', on);
   });
 }
+// Output side: native events work (pointer-events: auto by default).
 document.addEventListener('mouseover', e => {
   const w = e.target.closest && e.target.closest('.word[data-i]');
-  if (w) setHover(w.dataset.i, true);
+  if (w && output.contains(w)) setHover(w.dataset.i, true);
 });
 document.addEventListener('mouseout', e => {
   const w = e.target.closest && e.target.closest('.word[data-i]');
-  if (w) setHover(w.dataset.i, false);
+  if (w && output.contains(w)) setHover(w.dataset.i, false);
+});
+
+// Input side: input-overlay words are pointer-events:none, so detect hover
+// by checking which overlay word's bounding rect contains the cursor.
+const inputPanelEl = document.querySelector('.input-panel');
+let inputHoverIdx = null;
+let inputHoverRaf = null;
+let inputHoverCoords = null;
+
+function checkInputHover() {
+  inputHoverRaf = null;
+  if (!inputHoverCoords) return;
+  const { x, y } = inputHoverCoords;
+  let hit = null;
+  for (const span of inputOverlay.querySelectorAll('.word')) {
+    const r = span.getBoundingClientRect();
+    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) { hit = span; break; }
+  }
+  const newIdx = hit ? hit.dataset.i : null;
+  if (newIdx !== inputHoverIdx) {
+    if (inputHoverIdx != null) setHover(inputHoverIdx, false);
+    if (newIdx != null) setHover(newIdx, true);
+    inputHoverIdx = newIdx;
+  }
+}
+inputPanelEl.addEventListener('mousemove', e => {
+  inputHoverCoords = { x: e.clientX, y: e.clientY };
+  if (!inputHoverRaf) inputHoverRaf = requestAnimationFrame(checkInputHover);
+});
+inputPanelEl.addEventListener('mouseleave', () => {
+  inputHoverCoords = null;
+  if (inputHoverIdx != null) { setHover(inputHoverIdx, false); inputHoverIdx = null; }
 });
 
 // ============== Synonym chooser bubble ==============
@@ -332,10 +365,11 @@ function openBubbleForWord(wordEl) {
   }
 }
 
-// Click a word -> open bubble
+// Click a word in the OUTPUT panel -> open bubble.
+// Input overlay words are pointer-events:none so clicks pass through to the textarea natively.
 document.addEventListener('click', (e) => {
   const w = e.target.closest && e.target.closest('.word[data-i]');
-  if (w && (output.contains(w) || inputOverlay.contains(w))) {
+  if (w && output.contains(w)) {
     e.preventDefault();
     openBubbleForWord(w);
     return;
