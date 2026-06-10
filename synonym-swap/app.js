@@ -1,28 +1,28 @@
 // English Synonym Swapper
-// Uses Datamuse rel_syn endpoint. Output uses the first synonym.
-// Click a word to pick a different synonym from a paginated popup.
+// Datamuse rel_syn for primary swap; ml as a fallback/extension for the chooser popup.
 
 const $ = (id) => document.getElementById(id);
-const input = $('input');
+const input        = $('input');
 const inputOverlay = $('input-overlay');
-const output = $('output');
-const status = $('status');
-const useAsInputBtn = $('use-as-input');
-const bubble = $('word-bubble');
-const titleEl = $('title');
+const output       = $('output');
+const status       = $('status');
+const useAsInputBtn= $('use-as-input');
+const bubble       = $('word-bubble');
+const titleEl      = $('title');
 
-// lowercase word -> array of synonym strings, or null
+// lowercase word -> array of synonyms (rel_syn), or null
 const synonymCache = new Map();
-// in-flight fetches so we don't double-fire
+// lowercase word -> array of related words (ml), or null
+const mlCache = new Map();
+// in-flight fetches keyed by `${kind}:${word}`
 const pendingFetches = new Map();
 
-// Tokens for the current input. {type:'word', text, index} or {type:'gap', text}
-let tokens = [];
-// Per-word-index override (a chosen synonym, already case-matched). null/undefined = use first.
-let chosenOverride = [];
+let tokens = [];               // current input tokens
+let chosenOverride = [];       // per word-index: user-picked replacement (case-preserved). undefined = use default
 
 const TOKEN_RE = /([A-Za-z]+(?:['-][A-Za-z]+)*)|([^A-Za-z]+)/g;
 const BUBBLE_PAGE_SIZE = 5;
+const EMPTY_OUTPUT_TEXT = 'Output will appear here.';
 
 function tokenize(text) {
   const out = [];
@@ -51,45 +51,53 @@ function preserveCase(original, replacement) {
   return replacement;
 }
 
-async function fetchSynonyms(word) {
+function isUsableWord(w) {
+  return w && !w.includes(' ') && /^[A-Za-z][A-Za-z'-]*$/.test(w);
+}
+
+async function fetchKind(kind, word) {
   const key = word.toLowerCase();
-  if (synonymCache.has(key)) return synonymCache.get(key);
-  if (pendingFetches.has(key)) return pendingFetches.get(key);
+  const cache = kind === 'rel_syn' ? synonymCache : mlCache;
+  if (cache.has(key)) return cache.get(key);
+  const fkey = `${kind}:${key}`;
+  if (pendingFetches.has(fkey)) return pendingFetches.get(fkey);
 
   const p = (async () => {
     try {
       const r = await fetch(
-        `https://api.datamuse.com/words?rel_syn=${encodeURIComponent(key)}&max=100`
+        `https://api.datamuse.com/words?${kind}=${encodeURIComponent(key)}&max=100`
       );
       const data = await r.json();
-      const syns = data
+      const list = data
         .map(d => d.word)
-        .filter(w =>
-          w &&
-          !w.includes(' ') &&
-          /^[A-Za-z][A-Za-z'-]*$/.test(w) &&
-          w.toLowerCase() !== key
-        );
-      synonymCache.set(key, syns.length ? syns : null);
-      return synonymCache.get(key);
+        .filter(w => isUsableWord(w) && w.toLowerCase() !== key);
+      cache.set(key, list.length ? list : null);
+      return cache.get(key);
     } catch {
-      synonymCache.set(key, null);
+      cache.set(key, null);
       return null;
     } finally {
-      pendingFetches.delete(key);
+      pendingFetches.delete(fkey);
     }
   })();
-  pendingFetches.set(key, p);
+  pendingFetches.set(fkey, p);
   return p;
 }
+const fetchRelSyn = (w) => fetchKind('rel_syn', w);
+const fetchMl     = (w) => fetchKind('ml', w);
 
-function chosenFor(token) {
-  // returns case-matched synonym string, or null if none
-  const ov = chosenOverride[token.index];
-  if (ov) return ov;
-  const list = synonymCache.get(token.text.toLowerCase());
-  if (!list || !list.length) return null;
-  return preserveCase(token.text, list[0]);
+// ============== Output ==============
+function effectiveFor(token) {
+  if (chosenOverride[token.index] !== undefined) {
+    return { state: 'ok', text: chosenOverride[token.index] };
+  }
+  const key = token.text.toLowerCase();
+  if (!synonymCache.has(key)) return { state: 'pending', text: '…' };
+  const list = synonymCache.get(key);
+  if (list && list.length) {
+    return { state: 'ok', text: preserveCase(token.text, list[0]) };
+  }
+  return { state: 'none', text: token.text };
 }
 
 function renderOverlay() {
@@ -108,17 +116,20 @@ function renderOutput() {
   const hasWord = tokens.some(t => t.type === 'word');
   if (!hasWord) {
     output.classList.add('empty');
-    output.textContent = 'Output will appear here.';
+    output.textContent = eggActive ? outputEmptySwapped : EMPTY_OUTPUT_TEXT;
     return;
   }
   let html = '';
   for (const t of tokens) {
     if (t.type === 'word') {
-      const c = chosenFor(t);
-      if (c) {
-        html += `<span class="word swapped" data-i="${t.index}">${escapeHtml(c)}</span>`;
-      } else {
+      const e = effectiveFor(t);
+      if (e.state === 'pending') {
+        html += `<span class="word pending" data-i="${t.index}">…</span>`;
+      } else if (e.state === 'none') {
         html += `<span class="word unchanged" data-i="${t.index}" title="No synonyms found">${escapeHtml(t.text)}</span>`;
+      } else {
+        const cls = e.text === t.text ? 'word kept' : 'word swapped';
+        html += `<span class="${cls}" data-i="${t.index}">${escapeHtml(e.text)}</span>`;
       }
     } else {
       html += escapeHtml(t.text);
@@ -154,25 +165,25 @@ async function update({ resetOverrides = true } = {}) {
 
   renderOverlay();
   autosize();
+  status.textContent = '';
+  renderOutput(); // immediate render — pending words show "…"
 
   const words = tokens.filter(t => t.type === 'word');
-  if (!words.length) {
-    renderOutput();
-    status.textContent = '';
-    return;
-  }
+  if (!words.length) return;
 
   const uniques = [...new Set(words.map(t => t.text.toLowerCase()))];
-  const needed = uniques.filter(w => !synonymCache.has(w));
 
-  if (needed.length) {
-    status.textContent = `Looking up synonyms (${needed.length})…`;
-    await Promise.all(needed.map(fetchSynonyms));
-    if (myToken !== updateToken) return;
+  // Fire both endpoints. rel_syn drives the output, so each completion re-renders.
+  for (const w of uniques) {
+    if (!synonymCache.has(w)) {
+      fetchRelSyn(w).then(() => {
+        if (myToken === updateToken) renderOutput();
+      });
+    }
+    if (!mlCache.has(w)) {
+      fetchMl(w); // background, popup-only
+    }
   }
-
-  status.textContent = '';
-  renderOutput();
 }
 
 // ============== Cross-panel hover ==============
@@ -191,8 +202,7 @@ document.addEventListener('mouseout', e => {
 });
 
 // ============== Synonym chooser bubble ==============
-let bubbleState = null;
-// { wordIndex, originalText, list, page }
+let bubbleState = null;  // { wordIndex, originalText, page }
 
 function closeBubble() {
   bubble.hidden = true;
@@ -201,36 +211,82 @@ function closeBubble() {
 }
 
 function positionBubble(wordEl) {
-  // First, append to body so we can measure (also so it's not clipped by panel overflow).
   if (bubble.parentNode !== document.body) document.body.appendChild(bubble);
   const rect = wordEl.getBoundingClientRect();
   bubble.style.left = (rect.left + rect.width / 2 + window.scrollX) + 'px';
-  bubble.style.top = (rect.top + window.scrollY) + 'px';
+  bubble.style.top  = (rect.top + window.scrollY) + 'px';
+}
+
+// Combine rel_syn + ml, deduped against each other and against the original.
+function getOptionsForWord(originalText) {
+  const key = originalText.toLowerCase();
+  const syns = synonymCache.get(key) || [];
+  const ml   = mlCache.get(key) || [];
+  const seen = new Set([key]);
+  const out = [];
+  for (const w of syns) {
+    const k = w.toLowerCase();
+    if (!seen.has(k)) { out.push(w); seen.add(k); }
+  }
+  for (const w of ml) {
+    const k = w.toLowerCase();
+    if (!seen.has(k)) { out.push(w); seen.add(k); }
+  }
+  return out;
 }
 
 function renderBubble() {
   if (!bubbleState) return;
-  const { list, page, originalText, wordIndex } = bubbleState;
-  const currentChosen = chosenFor({ type: 'word', text: originalText, index: wordIndex });
+  const { wordIndex, originalText, page } = bubbleState;
+
+  // What's currently shown in the output for this word?
+  const eff = effectiveFor({ type: 'word', text: originalText, index: wordIndex });
+  const effText = (eff.state === 'ok' || eff.state === 'none') ? eff.text : null;
 
   bubble.innerHTML = '';
-  if (!list || !list.length) {
+
+  // Original (always first)
+  const origBtn = document.createElement('button');
+  origBtn.type = 'button';
+  origBtn.className = 'syn-btn original';
+  origBtn.textContent = originalText;
+  if (effText === originalText) origBtn.classList.add('current');
+  origBtn.addEventListener('click', () => {
+    chosenOverride[wordIndex] = originalText;
+    renderOutput();
+    closeBubble();
+  });
+  bubble.appendChild(origBtn);
+
+  // Divider after original
+  const options = getOptionsForWord(originalText);
+  if (options.length) {
+    const div = document.createElement('span');
+    div.className = 'divider';
+    bubble.appendChild(div);
+  }
+
+  // Pending state (data still loading)?
+  const key = originalText.toLowerCase();
+  const stillLoading = !synonymCache.has(key) || !mlCache.has(key);
+
+  if (!options.length) {
     const msg = document.createElement('span');
     msg.className = 'bubble-msg';
-    msg.textContent = 'No synonyms found';
+    msg.textContent = stillLoading ? 'Loading…' : 'No alternatives';
     bubble.appendChild(msg);
     return;
   }
 
-  const start = page * BUBBLE_PAGE_SIZE;
-  const slice = list.slice(0, start + BUBBLE_PAGE_SIZE);
-  for (const syn of slice) {
-    const cased = preserveCase(originalText, syn);
+  const visibleCount = (page + 1) * BUBBLE_PAGE_SIZE;
+  const visible = options.slice(0, visibleCount);
+  for (const opt of visible) {
+    const cased = preserveCase(originalText, opt);
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'syn-btn';
     btn.textContent = cased;
-    if (cased === currentChosen) btn.classList.add('current');
+    if (cased === effText) btn.classList.add('current');
     btn.addEventListener('click', () => {
       chosenOverride[wordIndex] = cased;
       renderOutput();
@@ -238,12 +294,13 @@ function renderBubble() {
     });
     bubble.appendChild(btn);
   }
-  if (list.length > slice.length) {
+
+  if (options.length > visible.length || stillLoading) {
     const more = document.createElement('button');
     more.type = 'button';
     more.className = 'more-btn';
     more.textContent = '+';
-    more.title = 'Show more synonyms';
+    more.title = 'Show more';
     more.addEventListener('click', (e) => {
       e.stopPropagation();
       bubbleState.page += 1;
@@ -253,22 +310,26 @@ function renderBubble() {
   }
 }
 
-async function openBubbleForWord(wordEl) {
+function openBubbleForWord(wordEl) {
   const idx = parseInt(wordEl.dataset.i, 10);
   const token = tokens.find(t => t.type === 'word' && t.index === idx);
   if (!token) return;
-  const originalText = token.text;
 
-  // Ensure we have synonyms cached (usually we already do).
-  if (!synonymCache.has(originalText.toLowerCase())) {
-    await fetchSynonyms(originalText);
-  }
-  const list = synonymCache.get(originalText.toLowerCase());
-
-  bubbleState = { wordIndex: idx, originalText, list, page: 0 };
+  bubbleState = { wordIndex: idx, originalText: token.text, page: 0 };
   positionBubble(wordEl);
   bubble.hidden = false;
   renderBubble();
+
+  const key = token.text.toLowerCase();
+  const tasks = [];
+  if (!synonymCache.has(key)) tasks.push(fetchRelSyn(key));
+  if (!mlCache.has(key))      tasks.push(fetchMl(key));
+  if (tasks.length) {
+    Promise.all(tasks).then(() => {
+      if (bubbleState && bubbleState.wordIndex === idx) renderBubble();
+      renderOutput();
+    });
+  }
 }
 
 // Click a word -> open bubble
@@ -279,26 +340,20 @@ document.addEventListener('click', (e) => {
     openBubbleForWord(w);
     return;
   }
-  // Click outside bubble (and not on a word) closes it
-  if (!bubble.hidden && !bubble.contains(e.target)) {
-    closeBubble();
-  }
+  if (!bubble.hidden && !bubble.contains(e.target)) closeBubble();
 });
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeBubble();
-});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeBubble(); });
 window.addEventListener('resize', closeBubble);
 window.addEventListener('scroll', closeBubble, true);
 
 // ============== Use-as-input button ==============
 useAsInputBtn.addEventListener('click', () => {
-  // Build the swapped text from current tokens + choices
   if (!tokens.length) return;
   let out = '';
   for (const t of tokens) {
     if (t.type === 'word') {
-      const c = chosenFor(t);
-      out += c || t.text;
+      const e = effectiveFor(t);
+      out += (e.state === 'ok' || e.state === 'none') ? e.text : t.text;
     } else {
       out += t.text;
     }
@@ -316,60 +371,74 @@ input.addEventListener('input', () => {
   debounceTimer = setTimeout(update, 250);
 });
 
-// ============== Easter egg: hover title to swap all on-page English text ==============
-const eggElements = []; // [{el, original, swapped}]
+// ============== Easter egg ==============
+let eggActive = false;
+let eggReady  = false;
+let outputEmptySwapped = EMPTY_OUTPUT_TEXT;
+const eggTexts = [];   // {el, original, swapped}
+const eggAttrs = [];   // {el, attr, original, swapped}
+
+function swapStringWithFirstSyn(text) {
+  let result = '';
+  for (const t of tokenize(text)) {
+    if (t.type === 'word') {
+      const list = synonymCache.get(t.text.toLowerCase());
+      const first = list && list[0];
+      result += first ? preserveCase(t.text, first) : t.text;
+    } else {
+      result += t.text;
+    }
+  }
+  return result;
+}
 
 async function preloadEasterEgg() {
-  const els = document.querySelectorAll('.translatable');
-  // Collect unique words across all targeted elements (use innerText to get rendered text only).
+  const els = [...document.querySelectorAll('.translatable')];
+  const texts = els.map(el => el.textContent);
+  texts.push(input.placeholder);
+  texts.push(EMPTY_OUTPUT_TEXT);
+
   const allWords = new Set();
-  els.forEach(el => {
-    for (const t of tokenize(el.textContent)) {
+  for (const text of texts) {
+    for (const t of tokenize(text)) {
       if (t.type === 'word') allWords.add(t.text.toLowerCase());
     }
-  });
-  await Promise.all([...allWords].map(fetchSynonyms));
+  }
+  await Promise.all([...allWords].map(fetchRelSyn));
 
-  // Build swapped strings.
-  els.forEach(el => {
+  for (const el of els) {
     const original = el.textContent;
-    const toks = tokenize(original);
-    let swapped = '';
-    for (const t of toks) {
-      if (t.type === 'word') {
-        const list = synonymCache.get(t.text.toLowerCase());
-        const first = list && list[0];
-        swapped += first ? preserveCase(t.text, first) : t.text;
-      } else {
-        swapped += t.text;
-      }
-    }
-    eggElements.push({ el, original, swapped });
+    eggTexts.push({ el, original, swapped: swapStringWithFirstSyn(original) });
+  }
+  eggAttrs.push({
+    el: input, attr: 'placeholder',
+    original: input.placeholder,
+    swapped: swapStringWithFirstSyn(input.placeholder)
   });
+  outputEmptySwapped = swapStringWithFirstSyn(EMPTY_OUTPUT_TEXT);
 
-  titleEl.classList.add('easter-ready');
-  titleEl.title = 'Hover to swap';
+  eggReady = true;
 }
 
 function applyEgg(on) {
-  for (const { el, original, swapped } of eggElements) {
-    el.textContent = on ? swapped : original;
+  if (!eggReady) return;
+  eggActive = on;
+  for (const it of eggTexts) it.el.textContent = on ? it.swapped : it.original;
+  for (const it of eggAttrs) it.el.setAttribute(it.attr, on ? it.swapped : it.original);
+  if (output.classList.contains('empty')) {
+    output.textContent = on ? outputEmptySwapped : EMPTY_OUTPUT_TEXT;
   }
 }
 
-titleEl.addEventListener('mouseenter', () => { if (titleEl.classList.contains('easter-ready')) applyEgg(true); });
-titleEl.addEventListener('mouseleave', () => { if (titleEl.classList.contains('easter-ready')) applyEgg(false); });
+titleEl.addEventListener('mouseenter', () => applyEgg(true));
+titleEl.addEventListener('mouseleave', () => applyEgg(false));
 
 // ============== Init ==============
 function init() {
-  // Read URL ?text=
   const urlText = new URLSearchParams(window.location.search).get('text');
   if (urlText) input.value = urlText;
-
   autosize();
-  // Kick off main update (synonyms + render)
   update();
-  // Pre-load easter egg in the background
   preloadEasterEgg();
 }
 init();
