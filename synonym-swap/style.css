@@ -38,6 +38,7 @@ html, body {
   font-weight: 600;
   margin: 0 0 4px;
   letter-spacing: -0.01em;
+  cursor: default;
   width: fit-content;
   max-width: 100%;
 }
@@ -47,6 +48,11 @@ html, body {
   margin: 0;
   line-height: 1.6;
 }
+
+/* Easter egg: brief tint so the swap is noticeable */
+.translatable.swapped-egg { transition: color 0.2s; }
+#title.easter-ready { cursor: help; }
+#title.easter-ready:hover { color: var(--accent); }
 
 .btn {
   display: inline-flex;
@@ -184,8 +190,58 @@ html, body {
 }
 
 .word { border-radius: 2px; }
+.word.swapped { cursor: pointer; }
+.output-box .word.swapped:hover,
+.textarea-wrap .word:hover { background: rgba(37, 99, 235, 0.10); }
 .word.unchanged {
   border-bottom: 1px dashed var(--muted);
   cursor: help;
 }
 .word.word-link-hover { background: rgba(37, 99, 235, 0.22); }
+
+/* Synonym chooser bubble */
+.word-bubble {
+  position: absolute;
+  z-index: 10000;
+  background: #1f2937;
+  color: #fff;
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+  transform: translate(-50%, -100%);
+  margin-top: -10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  max-width: min(360px, 90vw);
+}
+.word-bubble[hidden] { display: none; }
+.word-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #1f2937;
+}
+.word-bubble .syn-btn,
+.word-bubble .more-btn {
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: #fff;
+  padding: 4px 9px;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  line-height: 1.3;
+}
+.word-bubble .syn-btn:hover,
+.word-bubble .more-btn:hover { background: rgba(255,255,255,0.22); }
+.word-bubble .syn-btn.current { border-color: var(--accent); background: rgba(37,99,235,0.35); }
+.word-bubble .more-btn { font-weight: 700; padding: 4px 8px; }
+.word-bubble .bubble-msg { font-size: 13px; color: #cbd5e1; padding: 2px 4px; }
