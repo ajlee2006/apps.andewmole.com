@@ -54,18 +54,31 @@
 
   .week-strip-wrapper { background: white; border-bottom: 1px solid var(--blush); padding: 0.8rem 1rem 0.6rem; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--blush) transparent; }
   .week-strip { display: flex; gap: 6px; width: max-content; align-items: flex-end; }
-  .week-dot { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; padding: 4px 3px; border-radius: 8px; transition: background 0.15s; min-width: 38px; }
+  .week-dot { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; padding: 4px 3px; border-radius: 8px; transition: background 0.15s; min-width: 38px; --dot-color: var(--light-grey); --label-color: var(--mid-grey); }
   .week-dot:hover { background: var(--cream); }
-  .week-dot .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--light-grey); transition: all 0.2s; flex-shrink: 0; }
-  .week-dot.past .dot { background: var(--blush); }
-  .week-dot.current-week .dot { background: var(--current-gold); width: 14px; height: 14px; box-shadow: 0 0 0 3px var(--current-gold-light); }
-  .week-dot.future .dot { background: #e0e0e0; }
-  .week-dot.selected .dot { background: var(--deep-rose); width: 14px; height: 14px; }
-  .week-dot.selected.current-week .dot { background: var(--current-gold); }
-  .week-dot .wlabel { font-size: 0.62rem; color: var(--mid-grey); font-weight: 400; white-space: nowrap; }
-  .week-dot.current-week .wlabel { color: var(--current-gold); font-weight: 700; }
-  .week-dot.selected .wlabel { color: var(--deep-rose); font-weight: 700; }
-  .week-dot.selected.current-week .wlabel { color: var(--current-gold); }
+  .week-dot .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--dot-color); transition: all 0.2s; flex-shrink: 0; }
+  .week-dot .wlabel { font-size: 0.62rem; color: var(--label-color); font-weight: 400; white-space: nowrap; }
+
+  /* Subtle trimester tinting (future dots) */
+  .week-dot.t1 { --dot-color: #d5e5d8; --label-color: #6a8a78; }
+  .week-dot.t2 { --dot-color: #d2dceb; --label-color: #5a7099; }
+  .week-dot.t3 { --dot-color: #ebd5cf; --label-color: #a06860; }
+
+  /* Past = stronger trimester color */
+  .week-dot.past.t1 { --dot-color: #7a9e8a; }
+  .week-dot.past.t2 { --dot-color: #6b8db2; }
+  .week-dot.past.t3 { --dot-color: #c9847a; }
+
+  /* Selected (overrides trimester) */
+  .week-dot.selected.t1, .week-dot.selected.t2, .week-dot.selected.t3 { --dot-color: var(--deep-rose); --label-color: var(--deep-rose); }
+  .week-dot.selected .dot { width: 14px; height: 14px; }
+  .week-dot.selected .wlabel { font-weight: 700; }
+
+  /* Current week (highest priority) */
+  .week-dot.current-week.t1, .week-dot.current-week.t2, .week-dot.current-week.t3,
+  .week-dot.selected.current-week.t1, .week-dot.selected.current-week.t2, .week-dot.selected.current-week.t3 { --dot-color: var(--current-gold); --label-color: var(--current-gold); }
+  .week-dot.current-week .dot { width: 14px; height: 14px; box-shadow: 0 0 0 3px var(--current-gold-light); }
+  .week-dot.current-week .wlabel { font-weight: 700; }
 
   .main { max-width: 800px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
 
@@ -446,7 +459,8 @@ function buildWeekStrip() {
     if (w === currentPregnancyWeek) cls = 'current-week';
     else if (w < rawCurrentWeek) cls = 'past';
     else cls = 'future';
-    dot.className = 'week-dot ' + cls;
+    const trimester = w <= 12 ? 't1' : w <= 27 ? 't2' : 't3';
+    dot.className = 'week-dot ' + cls + ' ' + trimester;
     dot.id = `wdot-${w}`;
     dot.innerHTML = `<div class="dot"></div><div class="wlabel">W${w}</div>`;
     dot.addEventListener('click', () => goWeek(w));
