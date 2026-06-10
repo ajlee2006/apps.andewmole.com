@@ -93,16 +93,20 @@
   .comparator { margin-top: 0.8rem; font-size: 0.88rem; color: var(--deep-sage); font-style: italic; }
 
   .milestones { background: white; border-radius: 20px; padding: 2rem; margin-bottom: 2rem; box-shadow: 0 2px 20px rgba(0,0,0,0.05); }
-  .milestones h2 { font-family: 'Playfair Display', serif; font-size: 1.3rem; color: var(--charcoal); margin-bottom: 1.2rem; }
+  .milestones h2 { font-family: 'Playfair Display', serif; font-size: 1.3rem; color: var(--charcoal); margin-bottom: 0; }
+  .milestones-header { display: flex; align-items: center; gap: 0.5rem; position: relative; margin-bottom: 1.2rem; }
+  .info-btn { background: none; border: none; cursor: pointer; padding: 0; color: var(--light-grey); transition: color 0.2s; display: inline-flex; align-items: center; }
+  .info-btn:hover, .info-btn.active { color: var(--dusty-rose); }
+  .info-btn svg { width: 18px; height: 18px; }
+  .info-popup { display: none; position: absolute; top: calc(100% + 0.4rem); left: 0; right: 0; background: var(--charcoal); color: white; border-radius: 10px; padding: 0.8rem 1rem; font-size: 0.8rem; line-height: 1.55; max-width: 360px; z-index: 50; box-shadow: 0 8px 30px rgba(0,0,0,0.15); }
+  .info-popup.show { display: block; }
+  .info-popup a { color: var(--blush); text-decoration: underline; }
+  .info-popup a:hover { color: white; }
   .milestones p { font-size: 0.95rem; line-height: 1.75; color: #444; margin-bottom: 1rem; }
   .milestones p:last-child { margin-bottom: 0; }
   .milestone-list { list-style: none; display: flex; flex-direction: column; gap: 0.65rem; margin-top: 1rem; }
   .milestone-list li { display: flex; gap: 0.7rem; align-items: flex-start; font-size: 0.92rem; line-height: 1.6; color: #444; }
   .milestone-list li::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--dusty-rose); flex-shrink: 0; margin-top: 0.45em; }
-  .source-credit { font-size: 0.75rem; color: var(--mid-grey); text-align: right; margin-top: 1rem; font-style: italic; }
-  .source-credit a { color: var(--dusty-rose); text-decoration: none; }
-  .source-credit a:hover { text-decoration: underline; }
-
   .week-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; }
   .nav-btn { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.4rem; background: none; border: 1.5px solid var(--light-grey); border-radius: 10px; padding: 0.65rem 1rem; font-size: 0.88rem; font-family: 'Lato', sans-serif; color: var(--mid-grey); cursor: pointer; transition: all 0.2s; line-height: 1.2; }
   .nav-btn:hover:not(:disabled) { border-color: var(--dusty-rose); color: var(--deep-rose); }
@@ -206,9 +210,18 @@
       </div>
     </div>
     <div class="milestones">
-      <h2>Development this week</h2>
+      <div class="milestones-header">
+        <h2>Development this week</h2>
+        <button class="info-btn" id="info-btn" aria-label="Sources" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+        </button>
+        <div class="info-popup" id="info-popup">
+          Text adapted from <a href="https://doh.sd.gov/media/bnemplje/fetal.pdf" target="_blank">SD Dept of Health: Fetal Growth and Development</a> and <a href="https://my.clevelandclinic.org/health/articles/7247-fetal-development-stages-of-growth" target="_blank">Cleveland Clinic</a>.
+        </div>
+      </div>
       <div id="milestone-content"></div>
-      <p class="source-credit">Text adapted from <a href="https://doh.sd.gov/media/bnemplje/fetal.pdf" target="_blank">SD Dept of Health: Fetal Growth and Development</a>; <a href="https://my.clevelandclinic.org/health/articles/7247-fetal-development-stages-of-growth" target="_blank">Cleveland Clinic</a>.</p>
     </div>
     <div class="week-nav">
       <button class="nav-btn" id="prev-btn" onclick="goWeek(selectedWeek - 1)"><span class="arrow">←</span><span class="label">Previous</span></button>
@@ -340,6 +353,23 @@ function fmtDate(s) {
   return new Date(Date.UTC(y, m-1, d)).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric', timeZone: 'UTC' });
 }
 
+function dayName(s) {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(Date.UTC(y, m-1, d)).toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' });
+}
+
+// Tooltip text: "Monday (in 108 days)", "Tuesday (today)", "Wednesday (7 days ago)"
+function dayTooltip(s) {
+  const diff = dayNum(s) - dayNum(todayStr());
+  let suffix;
+  if (diff === 0) suffix = 'today';
+  else if (diff === 1) suffix = 'tomorrow';
+  else if (diff === -1) suffix = 'yesterday';
+  else if (diff > 0) suffix = `in ${diff} days`;
+  else suffix = `${-diff} days ago`;
+  return `${dayName(s)} (${suffix})`;
+}
+
 function getWeekRange(week) {
   const startOfPregnancy = addDays(dueDateStr, -START_OFFSET);
   const start = addDays(startOfPregnancy, (week - 1) * 7);
@@ -396,7 +426,9 @@ function resetApp() {
 function launchApp() {
   document.getElementById('setup-screen').style.display='none';
   document.getElementById('app-screen').style.display='block';
-  document.getElementById('header-due-date').textContent = fmtDate(dueDateStr);
+  const hdrDue = document.getElementById('header-due-date');
+  hdrDue.textContent = fmtDate(dueDateStr);
+  hdrDue.title = dayTooltip(dueDateStr);
   buildWeekStrip();
   // Initial week to show: from URL ?w= if valid, else current week if in range, else clamp to 1 or 40
   const urlW = parseInt(new URL(window.location.href).searchParams.get('w'), 10);
@@ -445,7 +477,8 @@ function goWeek(week) {
   document.getElementById('disp-week-num').textContent = week;
   document.getElementById('week-label').textContent = (week === 1 ? 'week' : 'weeks') + ' pregnant';
   document.getElementById('current-badge').style.display = isCurrent ? 'inline-block' : 'none';
-  document.getElementById('disp-week-dates').textContent = `${fmtDate(start)} – ${fmtDate(end)}`;
+  document.getElementById('disp-week-dates').innerHTML =
+    `<span title="${dayTooltip(start)}">${fmtDate(start)}</span> – <span title="${dayTooltip(end)}">${fmtDate(end)}</span>`;
 
   const ttag = document.getElementById('trimester-tag');
   if (week <= 12)      { ttag.textContent = 'First Trimester';  ttag.className = 'trimester-tag trimester-1'; }
@@ -473,6 +506,21 @@ function goWeek(week) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  // Info popup toggle
+  const infoBtn = document.getElementById('info-btn');
+  const infoPopup = document.getElementById('info-popup');
+  infoBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const showing = infoPopup.classList.toggle('show');
+    infoBtn.classList.toggle('active', showing);
+  });
+  document.addEventListener('click', (e) => {
+    if (!infoPopup.contains(e.target) && !infoBtn.contains(e.target)) {
+      infoPopup.classList.remove('show');
+      infoBtn.classList.remove('active');
+    }
+  });
+
   const urlDue = new URL(window.location.href).searchParams.get('due');
   const saved = urlDue || localStorage.getItem('pregnancy-due-date');
   if (saved && /^\d{4}-\d{2}-\d{2}$/.test(saved)) {
