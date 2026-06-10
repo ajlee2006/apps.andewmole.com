@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>English Synonym Swapper</title>
+<link rel="icon" href="/andewmole.png" type="image/png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+  <nav class="topnav">
+    <a href="/" class="back-link">← Back to home</a>
+  </nav>
+
+  <header class="page-header">
+    <h1 id="title">English Synonym Swapper</h1>
+    <p class="subtitle">
+      Every word in your text is replaced with a random synonym. Hover any word to find its partner.
+    </p>
+  </header>
+
+  <div class="panels">
+    <div class="panel input-panel">
+      <label class="field-label" for="input">English text</label>
+      <div class="textarea-wrap">
+        <textarea id="input" placeholder="Type or paste English text."></textarea>
+        <div class="input-overlay" id="input-overlay" aria-hidden="true"></div>
+      </div>
+      <div class="status-line"><span class="status" id="status"></span></div>
+    </div>
+
+    <div class="panel output-panel">
+      <div class="panel-header">
+        <span class="field-label">Swapped</span>
+      </div>
+      <div class="output-box empty" id="output">Output will appear here.</div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
