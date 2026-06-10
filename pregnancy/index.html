@@ -142,11 +142,12 @@
     .btn-reset .reset-extra { display: none; }
     .main { padding: 1.5rem 1rem 4rem; }
 
-    /* Equal-width buttons so narrow widths force the label to wrap below the arrow */
-    .week-nav { gap: 0.5rem; align-items: stretch; }
-    .week-nav button { flex: 1 1 0; padding: 0.55rem 0.4rem; font-size: 0.82rem; min-width: 0; }
+    /* Always stack arrow above label on mobile — equal-width buttons with even spacing */
+    .week-nav { gap: 0.5rem; align-items: stretch; justify-content: space-between; }
+    .week-nav button { flex: 1 1 0; flex-direction: column; gap: 0.2rem; padding: 0.6rem 0.4rem; font-size: 0.82rem; min-width: 0; }
+    #next-btn { flex-direction: column; }
     .week-nav button .arrow { font-size: 1.05rem; line-height: 1; }
-    .week-nav button .label { text-align: center; white-space: nowrap; }
+    .week-nav button .label { text-align: center; white-space: normal; }
   }
 </style>
 </head>
@@ -369,9 +370,19 @@ function setUrlDate(iso) {
   url.searchParams.set('due', iso);
   window.history.replaceState({}, '', url);
 }
+function setUrlWeek(week) {
+  const url = new URL(window.location.href);
+  if (currentPregnancyWeek !== null && week === currentPregnancyWeek) {
+    url.searchParams.delete('w');
+  } else {
+    url.searchParams.set('w', week);
+  }
+  window.history.replaceState({}, '', url);
+}
 function clearUrlDate() {
   const url = new URL(window.location.href);
   url.searchParams.delete('due');
+  url.searchParams.delete('w');
   window.history.replaceState({}, '', url);
 }
 function showErr() { document.getElementById('setup-error').style.display='block'; }
@@ -386,8 +397,10 @@ function launchApp() {
   document.getElementById('app-screen').style.display='block';
   document.getElementById('header-due-date').textContent = fmtDate(dueDateStr);
   buildWeekStrip();
-  // Initial week to show: current week if in range, otherwise clamp to 1 or 40
-  const initialWeek = currentPregnancyWeek ?? (rawCurrentWeek < 1 ? 1 : 40);
+  // Initial week to show: from URL ?w= if valid, else current week if in range, else clamp to 1 or 40
+  const urlW = parseInt(new URL(window.location.href).searchParams.get('w'), 10);
+  const fallback = currentPregnancyWeek ?? (rawCurrentWeek < 1 ? 1 : 40);
+  const initialWeek = (urlW >= 1 && urlW <= 40) ? urlW : fallback;
   goWeek(initialWeek);
 }
 
@@ -422,6 +435,7 @@ function goWeek(week) {
   week = Math.max(1, Math.min(40, week));
   selectedWeek = week;
   updateStrip(week);
+  setUrlWeek(week);
 
   const d = WEEK_DATA[week] || WEEK_DATA[40];
   const { start, end } = getWeekRange(week);
