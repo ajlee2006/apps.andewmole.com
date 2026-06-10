@@ -148,6 +148,7 @@
     #next-btn { flex-direction: column; }
     .week-nav button .arrow { font-size: 1.05rem; line-height: 1; }
     .week-nav button .label { text-align: center; white-space: normal; }
+    .hide-mobile { display: none; }
   }
 </style>
 </head>
@@ -211,7 +212,7 @@
     </div>
     <div class="week-nav">
       <button class="nav-btn" id="prev-btn" onclick="goWeek(selectedWeek - 1)"><span class="arrow">←</span><span class="label">Previous</span></button>
-      <button class="jump-current-btn" id="jump-btn" onclick="goWeek(currentPregnancyWeek)"><span class="arrow">↩</span><span class="label">Current week</span></button>
+      <button class="jump-current-btn" id="jump-btn" onclick="goWeek(currentPregnancyWeek)"><span class="arrow">↩</span><span class="label">Current<span class="hide-mobile"> week</span></span></button>
       <button class="nav-btn" id="next-btn" onclick="goWeek(selectedWeek + 1)"><span class="arrow">→</span><span class="label">Next</span></button>
     </div>
   </div>
