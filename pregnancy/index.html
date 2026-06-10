@@ -469,7 +469,7 @@ function goWeek(week) {
   document.getElementById('side-next').disabled = week >= 40;
   // Jump button shows only when there IS a current week and we're not already on it
   const showJump = currentPregnancyWeek !== null && !isCurrent;
-  document.getElementById('jump-btn').style.display = showJump ? 'inline-block' : 'none';
+  document.getElementById('jump-btn').style.display = showJump ? 'flex' : 'none';
 }
 
 window.addEventListener('DOMContentLoaded', () => {
