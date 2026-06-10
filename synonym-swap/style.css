@@ -151,7 +151,9 @@ html, body {
   overflow: hidden;
 }
 .textarea-wrap .input-overlay .word {
-  pointer-events: auto;
+  /* clicks must fall through to the textarea so the caret positions normally;
+     hover linking is handled in JS via mousemove + bounding rects */
+  pointer-events: none;
   border-radius: 2px;
 }
 @media (min-width: 900px) {
