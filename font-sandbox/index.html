@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>font sandbox</title>
+<link rel="icon" href="/andewmole.png">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --fg: #fafafa;
+    --panel: #18181b;
+    --panel-2: #27272a;
+    --border: #3f3f46;
+    --accent: #60a5fa;
+    --muted: #a1a1aa;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    flex: 0 0 auto;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--fg);
+    padding: 8px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    align-items: center;
+    font-size: 13px;
+  }
+  header.collapsed .controls { display: none; }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .controls { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; flex: 1; }
+
+  .field {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .field .val {
+    color: var(--fg);
+    font-variant-numeric: tabular-nums;
+    min-width: 30px;
+    text-align: right;
+  }
+
+  input[type="text"], input[type="url"], select {
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+  input[type="url"] { width: 280px; }
+  input[type="range"] { width: 110px; accent-color: var(--accent); }
+  input[type="color"] {
+    width: 28px; height: 24px; padding: 0;
+    border: 1px solid var(--border); border-radius: 4px;
+    background: none; cursor: pointer;
+  }
+  input[type="checkbox"] { accent-color: var(--accent); }
+
+  button {
+    background: var(--panel-2);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); color: #0a0a0a; border-color: var(--accent); font-weight: 500; }
+  button.primary:hover { opacity: 0.9; color: #0a0a0a; }
+
+  button.reset {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  button.reset:hover { color: var(--accent); border-color: var(--accent); }
+
+  .home { color: var(--muted); text-decoration: none; }
+  .home:hover { color: var(--accent); }
+
+  /* Custom URL input + suggestions */
+  .url-wrap { position: relative; display: inline-block; }
+  .suggestions {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    z-index: 100;
+    max-height: 260px;
+    overflow-y: auto;
+    display: none;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  }
+  .suggestions.open { display: block; }
+  .suggestion {
+    padding: 7px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .suggestion b {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .suggestion:hover, .suggestion.active {
+    background: var(--panel-2);
+  }
+  .suggestion .remove {
+    float: right;
+    color: var(--muted);
+    margin-left: 8px;
+    padding: 0 4px;
+    border-radius: 3px;
+  }
+  .suggestion .remove:hover { color: #f87171; background: var(--bg); }
+
+  textarea {
+    flex: 1 1 auto;
+    width: 100%;
+    border: none;
+    outline: none;
+    resize: none;
+    padding: 24px;
+    background: #0a0a0a;
+    color: #fafafa;
+    font-family: "sandboxFont", serif;
+    font-size: 48px;
+    line-height: 1.3;
+  }
+
+  .file-label {
+    display: inline-block;
+    background: var(--panel-2);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .file-label:hover { border-color: var(--accent); color: var(--accent); }
+  .file-label input { display: none; }
+  .status { color: var(--muted); font-size: 12px; }
+  .status.error { color: #f87171; }
+
+  @media (max-width: 700px) {
+    .url-wrap, input[type="url"] { width: 100%; }
+    header { font-size: 12px; }
+    textarea { font-size: 32px; padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<header id="header">
+  <div class="row" style="width:100%;">
+    <a class="home" href="/" title="Back to home">←</a>
+    <strong>font sandbox</strong>
+    <span class="url-wrap">
+      <input type="url" id="fontUrl" placeholder="Paste .otf / .ttf / .woff / .woff2 URL…" autocomplete="off">
+      <div class="suggestions" id="suggestions" role="listbox"></div>
+    </span>
+    <button id="loadBtn" class="primary">Load</button>
+    <label class="file-label">Upload<input type="file" id="fontFile" accept=".otf,.ttf,.woff,.woff2,font/*"></label>
+    <span class="status" id="status">No font loaded — using fallback.</span>
+    <button id="toggleControls" style="margin-left:auto;" title="Hide/show controls">⚙</button>
+  </div>
+  <div class="controls" id="controls">
+    <div class="field">Size
+      <input type="range" id="size" min="8" max="400" value="48">
+      <span class="val" id="sizeVal">48</span>
+      <button class="reset" data-reset="size" title="Reset">⟳</button>
+    </div>
+    <div class="field">Weight
+      <input type="range" id="weight" min="100" max="900" step="50" value="400">
+      <span class="val" id="weightVal">400</span>
+      <button class="reset" data-reset="weight" title="Reset">⟳</button>
+    </div>
+    <div class="field">Line
+      <input type="range" id="line" min="0.8" max="3" step="0.05" value="1.3">
+      <span class="val" id="lineVal">1.30</span>
+      <button class="reset" data-reset="line" title="Reset">⟳</button>
+    </div>
+    <div class="field">Spacing
+      <input type="range" id="spacing" min="-10" max="30" step="0.5" value="0">
+      <span class="val" id="spacingVal">0</span>
+      <button class="reset" data-reset="spacing" title="Reset">⟳</button>
+    </div>
+    <div class="field">Align
+      <select id="align">
+        <option value="left">Left</option>
+        <option value="center">Center</option>
+        <option value="right">Right</option>
+        <option value="justify">Justify</option>
+      </select>
+      <button class="reset" data-reset="align" title="Reset">⟳</button>
+    </div>
+    <div class="field"><label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="italic"> Italic</label>
+      <button class="reset" data-reset="italic" title="Reset">⟳</button>
+    </div>
+    <div class="field">Text
+      <input type="color" id="fg" value="#fafafa">
+      <button class="reset" data-reset="fg" title="Reset">⟳</button>
+    </div>
+    <div class="field">BG
+      <input type="color" id="bg" value="#0a0a0a">
+      <button class="reset" data-reset="bg" title="Reset">⟳</button>
+    </div>
+  </div>
+</header>
+
+<textarea id="sandbox" spellcheck="false" autocapitalize="off" autocorrect="off">The quick brown fox jumps over the lazy dog.
+ABCDEFGHIJKLMNOPQRSTUVWXYZ
+abcdefghijklmnopqrstuvwxyz
+0123456789 !?.,;:'"()[]{}—–-
+
+Type or paste anything here to test the font.</textarea>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const sandbox = $('sandbox');
+  const status = $('status');
+  const urlInput = $('fontUrl');
+  const suggestionsEl = $('suggestions');
+
+  const DAVIDAR_URL = 'https://davidar.github.io/linja-pona/linja-pona-4.1.otf';
+  const LINJA_PONA_SAMPLE = `musi-lili linja-pona
+a kasi loje ni seli tu monsuta oko
+pilin-ike telo-lete kala-lili toki-pona
+ma [_kasi_alasa_nasin_awen_telo_a] li suli.`;
+
+  const SAVED_URLS_KEY = 'fs-saved-urls';
+  const HIDDEN_DEFAULTS_KEY = 'fs-hidden-defaults';
+
+  const defaults = {
+    size: 48, weight: 400, line: 1.3, spacing: 0,
+    align: 'left', italic: false, fg: '#fafafa', bg: '#0a0a0a'
+  };
+
+  const ranges = {
+    size:    { val: $('sizeVal'),    apply: v => sandbox.style.fontSize = v + 'px',       fmt: v => v },
+    weight:  { val: $('weightVal'),  apply: v => sandbox.style.fontWeight = v,            fmt: v => v },
+    line:    { val: $('lineVal'),    apply: v => sandbox.style.lineHeight = v,            fmt: v => (+v).toFixed(2) },
+    spacing: { val: $('spacingVal'), apply: v => sandbox.style.letterSpacing = v + 'px',  fmt: v => v },
+  };
+
+  function updateRange(key) {
+    const el = $(key);
+    const v = el.value;
+    ranges[key].val.textContent = ranges[key].fmt(v);
+    ranges[key].apply(v);
+  }
+  Object.keys(ranges).forEach(k => {
+    $(k).addEventListener('input', () => updateRange(k));
+    updateRange(k);
+  });
+
+  $('align').addEventListener('change', e => sandbox.style.textAlign = e.target.value);
+  $('italic').addEventListener('change', e => sandbox.style.fontStyle = e.target.checked ? 'italic' : 'normal');
+  $('fg').addEventListener('input', e => sandbox.style.color = e.target.value);
+  $('bg').addEventListener('input', e => sandbox.style.backgroundColor = e.target.value);
+
+  function resetField(key) {
+    const el = $(key);
+    const def = defaults[key];
+    if (el.type === 'checkbox') {
+      el.checked = def;
+      el.dispatchEvent(new Event('change'));
+    } else if (el.tagName === 'SELECT') {
+      el.value = def;
+      el.dispatchEvent(new Event('change'));
+    } else {
+      el.value = def;
+      el.dispatchEvent(new Event('input'));
+    }
+  }
+  document.querySelectorAll('button.reset').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      resetField(btn.dataset.reset);
+    });
+  });
+
+  $('toggleControls').addEventListener('click', () => {
+    $('header').classList.toggle('collapsed');
+  });
+
+  // ---- URL hash state ----
+  let currentFontURL = '';
+  let textDirty = false;
+  let hashTimer = null;
+
+  function parseHash() {
+    const h = location.hash.startsWith('#') ? location.hash.slice(1) : location.hash;
+    const params = new URLSearchParams(h);
+    return { font: params.get('font') || '', text: params.get('text') };
+  }
+  function buildHash() {
+    const params = new URLSearchParams();
+    if (currentFontURL) params.set('font', currentFontURL);
+    if (textDirty && sandbox.value) params.set('text', sandbox.value);
+    const s = params.toString();
+    return s ? '#' + s : '';
+  }
+  function updateHashNow() {
+    history.replaceState(null, '', location.pathname + location.search + buildHash());
+  }
+  function scheduleHashUpdate() {
+    clearTimeout(hashTimer);
+    hashTimer = setTimeout(updateHashNow, 400);
+  }
+  sandbox.addEventListener('input', () => {
+    textDirty = true;
+    scheduleHashUpdate();
+  });
+
+  // ---- Saved URLs / suggestions ----
+  const DEFAULT_URLS = [DAVIDAR_URL];
+
+  function getSavedUrls() {
+    try { return JSON.parse(localStorage.getItem(SAVED_URLS_KEY) || '[]'); }
+    catch (_) { return []; }
+  }
+  function saveSavedUrls(list) {
+    try { localStorage.setItem(SAVED_URLS_KEY, JSON.stringify(list.slice(0, 20))); } catch (_) {}
+  }
+  function getHiddenDefaults() {
+    try { return JSON.parse(localStorage.getItem(HIDDEN_DEFAULTS_KEY) || '[]'); }
+    catch (_) { return []; }
+  }
+  function setHiddenDefaults(list) {
+    try { localStorage.setItem(HIDDEN_DEFAULTS_KEY, JSON.stringify(list)); } catch (_) {}
+  }
+  function addSavedUrl(url) {
+    if (DEFAULT_URLS.includes(url)) {
+      // If a default was previously hidden and user loads it again, un-hide it.
+      const hidden = getHiddenDefaults().filter(u => u !== url);
+      setHiddenDefaults(hidden);
+      return;
+    }
+    const list = getSavedUrls().filter(u => u !== url);
+    list.unshift(url);
+    saveSavedUrls(list);
+  }
+  function removeSuggestion(url) {
+    if (DEFAULT_URLS.includes(url)) {
+      const hidden = getHiddenDefaults();
+      if (!hidden.includes(url)) hidden.push(url);
+      setHiddenDefaults(hidden);
+    } else {
+      saveSavedUrls(getSavedUrls().filter(u => u !== url));
+    }
+  }
+  function allSuggestions() {
+    const hidden = getHiddenDefaults();
+    const defaults = DEFAULT_URLS.filter(u => !hidden.includes(u));
+    const saved = getSavedUrls().filter(u => !DEFAULT_URLS.includes(u));
+    return [...defaults, ...saved];
+  }
+
+  // ---- Custom suggestion dropdown ----
+  let activeIndex = -1;
+  let visibleItems = [];
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+  function highlight(text, query) {
+    if (!query) return escapeHtml(text);
+    const lower = text.toLowerCase();
+    const q = query.toLowerCase();
+    const idx = lower.indexOf(q);
+    if (idx === -1) return escapeHtml(text);
+    return escapeHtml(text.slice(0, idx))
+         + '<b>' + escapeHtml(text.slice(idx, idx + query.length)) + '</b>'
+         + escapeHtml(text.slice(idx + query.length));
+  }
+
+  function renderSuggestions() {
+    const query = urlInput.value.trim();
+    const all = allSuggestions();
+    visibleItems = query
+      ? all.filter(u => u.toLowerCase().includes(query.toLowerCase()))
+      : all;
+
+    if (visibleItems.length === 0) {
+      suggestionsEl.classList.remove('open');
+      return;
+    }
+
+    suggestionsEl.innerHTML = visibleItems.map((u, i) => {
+      const removeBtn = `<span class="remove" data-url="${escapeHtml(u)}" title="Remove">×</span>`;
+      return `<div class="suggestion" role="option" data-index="${i}">${removeBtn}${highlight(u, query)}</div>`;
+    }).join('');
+
+    activeIndex = -1;
+    suggestionsEl.classList.add('open');
+  }
+
+  function closeSuggestions() {
+    suggestionsEl.classList.remove('open');
+    activeIndex = -1;
+  }
+
+  function setActive(i) {
+    const nodes = suggestionsEl.querySelectorAll('.suggestion');
+    nodes.forEach(n => n.classList.remove('active'));
+    if (i >= 0 && i < nodes.length) {
+      activeIndex = i;
+      nodes[i].classList.add('active');
+      nodes[i].scrollIntoView({ block: 'nearest' });
+    } else {
+      activeIndex = -1;
+    }
+  }
+
+  function pickSuggestion(i) {
+    if (i < 0 || i >= visibleItems.length) return;
+    urlInput.value = visibleItems[i];
+    closeSuggestions();
+    loadFontFromURL(urlInput.value.trim());
+  }
+
+  urlInput.addEventListener('focus', renderSuggestions);
+  urlInput.addEventListener('input', renderSuggestions);
+  urlInput.addEventListener('blur', () => {
+    // Delay so clicks on suggestions register first
+    setTimeout(closeSuggestions, 150);
+  });
+  urlInput.addEventListener('keydown', e => {
+    const open = suggestionsEl.classList.contains('open');
+    if (e.key === 'ArrowDown') {
+      if (!open) { renderSuggestions(); return; }
+      e.preventDefault();
+      setActive(Math.min(activeIndex + 1, visibleItems.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      if (!open) return;
+      e.preventDefault();
+      setActive(Math.max(activeIndex - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (open && activeIndex >= 0) {
+        pickSuggestion(activeIndex);
+      } else {
+        closeSuggestions();
+        loadFontFromURL(urlInput.value.trim());
+      }
+    } else if (e.key === 'Escape') {
+      closeSuggestions();
+    }
+  });
+
+  suggestionsEl.addEventListener('mousedown', e => {
+    // mousedown beats blur, so the input keeps focus until we close manually
+    const removeEl = e.target.closest('.remove');
+    if (removeEl) {
+      e.preventDefault();
+      e.stopPropagation();
+      removeSuggestion(removeEl.dataset.url);
+      renderSuggestions();
+      return;
+    }
+    const item = e.target.closest('.suggestion');
+    if (item) {
+      e.preventDefault();
+      pickSuggestion(parseInt(item.dataset.index, 10));
+    }
+  });
+
+  // ---- Font loading ----
+  let currentFontFace = null;
+
+  function loadFontFromURL(url) {
+    if (!url) return;
+    status.textContent = 'Loading…';
+    status.classList.remove('error');
+    const ff = new FontFace('sandboxFont', `url("${url}")`);
+    ff.load().then(loaded => {
+      if (currentFontFace) document.fonts.delete(currentFontFace);
+      document.fonts.add(loaded);
+      currentFontFace = loaded;
+      sandbox.style.fontFamily = 'serif';
+      requestAnimationFrame(() => { sandbox.style.fontFamily = 'sandboxFont, serif'; });
+      const name = url.split('/').pop().split('?')[0];
+      status.textContent = 'Loaded: ' + name;
+
+      currentFontURL = url;
+      addSavedUrl(url);
+
+      if (url === DAVIDAR_URL && !textDirty) {
+        sandbox.value = LINJA_PONA_SAMPLE;
+      }
+
+      updateHashNow();
+    }).catch(err => {
+      status.textContent = 'Failed to load font (CORS or invalid file?)';
+      status.classList.add('error');
+      console.error(err);
+    });
+  }
+
+  function loadFontFromFile(file) {
+    if (!file) return;
+    status.textContent = 'Loading file…';
+    status.classList.remove('error');
+    const reader = new FileReader();
+    reader.onload = e => {
+      const ff = new FontFace('sandboxFont', e.target.result);
+      ff.load().then(loaded => {
+        if (currentFontFace) document.fonts.delete(currentFontFace);
+        document.fonts.add(loaded);
+        currentFontFace = loaded;
+        sandbox.style.fontFamily = 'serif';
+        requestAnimationFrame(() => { sandbox.style.fontFamily = 'sandboxFont, serif'; });
+        status.textContent = 'Loaded: ' + file.name;
+        currentFontURL = '';
+        urlInput.value = '';
+        updateHashNow();
+      }).catch(err => {
+        status.textContent = 'Failed to parse font file.';
+        status.classList.add('error');
+        console.error(err);
+      });
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  $('loadBtn').addEventListener('click', () => loadFontFromURL(urlInput.value.trim()));
+  $('fontFile').addEventListener('change', e => loadFontFromFile(e.target.files[0]));
+
+  // ---- Init from URL hash ----
+  const { font: hashFont, text: hashText } = parseHash();
+  if (hashText !== null) {
+    sandbox.value = hashText;
+    textDirty = true;
+  }
+  if (hashFont) {
+    urlInput.value = hashFont;
+    loadFontFromURL(hashFont);
+  }
+})();
+</script>
+</body>
+</html>
