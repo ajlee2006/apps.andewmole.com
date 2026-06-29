@@ -195,6 +195,17 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && creditsBackdrop.classList.contains('visible')) closeCredits();
 });
 
+// Server-error modal — same dismissal patterns as credits.
+const errorBackdrop = document.getElementById('error-backdrop');
+function closeError() { errorBackdrop.classList.remove('visible'); }
+document.getElementById('error-close').addEventListener('click', closeError);
+errorBackdrop.addEventListener('click', e => {
+  if (e.target === errorBackdrop) closeError();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && errorBackdrop.classList.contains('visible')) closeError();
+});
+
 const layerGroup = L.featureGroup().addTo(map);
 const polygonsByName = {};   // name -> array of polygon layers (for live restyling)
 
@@ -394,11 +405,19 @@ async function refreshColours() {
     // Calls the local proxy (proxy.js), which forwards to SafeGuardian
     // server-side with the bearer token. See proxy.js for setup.
     const res = await fetch("https://api.andewmole.com/cat1/getWeatherInfo", { cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (!res.ok) {
+      const status = res.status;
+      const err = new Error('HTTP ' + status);
+      err.status = status;
+      throw err;
+    }
     const data = await res.json();
     parseApiResponse(data);
     
     applyColours();
+
+    // Successful fetch — hide the server-error modal if it was open.
+    document.getElementById('error-backdrop').classList.remove('visible');
 
     // Reveal the colour legend on the first successful refresh.
     const loadingEl = document.getElementById('colours-loading');
@@ -415,6 +434,10 @@ async function refreshColours() {
     }
   } catch (err) {
     console.warn('Colour refresh failed:', err);
+    // Show the server-error modal only for 5xx responses (server-side failure).
+    if (err.status >= 500 && err.status < 600) {
+      document.getElementById('error-backdrop').classList.add('visible');
+    }
   }
 }
 
