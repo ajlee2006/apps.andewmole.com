@@ -254,3 +254,46 @@ body.banner-visible .leaflet-top { margin-top: 56px; }
   border-radius: 4px;
 }
 #credits-close:hover { background: #eee; }
+/* Server error modal — uses the same backdrop / modal frame as credits, with a red accent */
+#error-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 2600;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+#error-backdrop.visible { display: flex; }
+#error-modal {
+  background: #fff;
+  border-top: 6px solid #b03020;
+  border-radius: 8px;
+  max-width: 420px;
+  width: 100%;
+  padding: 18px 22px 20px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  font-size: 14px;
+  line-height: 1.55;
+  position: relative;
+}
+#error-modal h2 {
+  margin: 0 0 10px;
+  font-size: 17px;
+  color: #b03020;
+}
+#error-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  color: #555;
+  cursor: pointer;
+  border-radius: 4px;
+}
+#error-close:hover { background: #eee; }
