@@ -111,7 +111,7 @@ const BASEMAPS = [
     key: 'onemap-default',
     label: 'OneMap',
     layer: L.tileLayer('https://www.onemap.gov.sg/maps/tiles/Default_HD/{z}/{x}/{y}.png', {
-      minNativeZoom: 11,
+      minNativeZoom: 12,
       maxNativeZoom: 19,
       maxZoom: 19,
       attribution: '<a href="https://www.onemap.gov.sg" target="_blank" rel="noopener">OneMap</a> &copy; contributors | <a href="https://www.sla.gov.sg" target="_blank" rel="noopener">Singapore Land Authority</a>'
@@ -122,12 +122,21 @@ const BASEMAPS = [
     key: 'onemap-original',
     label: 'OneMap',
     layer: L.tileLayer('https://www.onemap.gov.sg/maps/tiles/Original_HD/{z}/{x}/{y}.png', {
-      minNativeZoom: 11,
+      minNativeZoom: 12,
       maxNativeZoom: 19,
       maxZoom: 19,
       attribution: '<a href="https://www.onemap.gov.sg" target="_blank" rel="noopener">OneMap</a> &copy; contributors | <a href="https://www.sla.gov.sg" target="_blank" rel="noopener">Singapore Land Authority</a>'
     }),
     thumb: 'https://www.onemap.gov.sg/maps/tiles/Original_HD/11/1614/1016.png'
+  },
+  {
+    key: 'satellite',
+    label: 'Satellite',
+    layer: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      attribution: 'Tiles &copy; <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a> | Source: Esri, <a href="https://www.maxar.com/" target="_blank" rel="noopener">Maxar</a>, <a href="https://www.earthstar-geographics.com/" target="_blank" rel="noopener">Earthstar Geographics</a>'
+    }),
+    thumb: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/12/2033/3229'
   }
 ];
 
