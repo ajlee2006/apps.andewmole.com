@@ -82,6 +82,35 @@
     color: var(--muted);
     font-size: 0.85em;
   }
+  .success-box { margin-top: 1.5em; }
+  .success-box .label { font-size: 0.85em; color: var(--muted); margin-bottom: 0.3em; }
+  .success-box .row2 { display: flex; gap: 0.4em; margin-bottom: 0.8em; }
+  .success-box input {
+    flex: 1;
+    padding: 0.5em 0.7em;
+    font-size: 0.9em;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--fg);
+  }
+  .success-box .copy-btn {
+    padding: 0.5em 0.9em;
+    font-size: 0.9em;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .success-box .copy-btn:hover { background: rgba(0,0,0,0.05); }
+  .success-box .dest {
+    font-size: 0.9em;
+    color: var(--muted);
+    word-break: break-all;
+  }
+  .success-box .dest a { color: var(--muted); }
 </style>
 </head>
 <body>
@@ -180,8 +209,34 @@ if (id !== null) {
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Failed");
       const shortUrl = `${location.origin}/bad_url_shortener/?id=${data.id}`;
-      out.className = "show";
-      out.innerHTML = `→ <a href="${shortUrl}">${shortUrl}</a>`;
+      out.className = "success-box";
+      out.style.background = "transparent";
+      out.style.padding = "0";
+      out.innerHTML = `
+        <div class="label">Your shortened URL is:</div>
+        <div class="row2">
+          <input type="text" id="short-url" value="${shortUrl}" readonly>
+          <button type="button" class="copy-btn" id="copy-btn">Copy</button>
+        </div>
+        <div class="dest">Your shortened URL goes to: <a href="${data.url}">${data.url}</a></div>
+      `;
+      out.style.display = "block";
+      
+      const copyBtn = document.getElementById("copy-btn");
+      copyBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(shortUrl);
+          copyBtn.textContent = "Copied!";
+          setTimeout(() => { copyBtn.textContent = "Copy"; }, 2000);
+        } catch {
+          // Fallback for older browsers or blocked clipboard
+          const input = document.getElementById("short-url");
+          input.select();
+          document.execCommand("copy");
+          copyBtn.textContent = "Copied!";
+          setTimeout(() => { copyBtn.textContent = "Copy"; }, 2000);
+        }
+      };
       if (window.turnstile) window.turnstile.reset();
       turnstileToken = null;
     } catch (err) {
