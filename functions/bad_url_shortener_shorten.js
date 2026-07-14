@@ -77,7 +77,7 @@ function gh(path, env, opts = {}) {
   return fetch(`https://api.github.com${path}`, {
     ...opts,
     headers: {
-      "Authorization": `Bearer ${env.GITHUB_TOKEN}`,
+      "Authorization": `Bearer ${env.BAD_URL_SHORTENER_GITHUB_TOKEN}`,
       "Accept": "application/vnd.github+json",
       "User-Agent": "bad-url-shortener",
       ...(opts.headers || {}),
