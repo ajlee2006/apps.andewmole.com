@@ -116,12 +116,12 @@
 <body>
 
 <h1>Bad URL Shortener</h1>
-<p class="subtitle">A very lousy, extremely insecure link shortener. All URLs are stored publicly on <a href="https://github.com/ajlee2006/bad_url_shortener_data/blob/main/data.json">GitHub</a>. Use at your own risk.</p>
+<p class="subtitle">A very lousy, extremely insecure link "shortener". All URLs are stored publicly on <a href="https://github.com/ajlee2006/bad_url_shortener_data/blob/main/data.json">GitHub</a>. Use at your own risk.</p>
 
 <form id="form">
   <div class="row">
     <input type="text" id="url" placeholder="example.com" autofocus autocomplete="off" autocapitalize="off" spellcheck="false">
-    <button id="go" type="submit" disabled>Shorten</button>
+    <button id="go" type="submit" disabled>"Shorten"</button>
   </div>
   <div class="cf-turnstile"
        data-sitekey="0x4AAAAAAD1inzJXZFemFpaL"
@@ -213,12 +213,12 @@ if (id !== null) {
       out.style.background = "transparent";
       out.style.padding = "0";
       out.innerHTML = `
-        <div class="label">Your shortened URL is:</div>
+        <div class="label">Your "shortened" URL is:</div>
         <div class="row2">
           <input type="text" id="short-url" value="${shortUrl}" readonly>
           <button type="button" class="copy-btn" id="copy-btn">Copy</button>
         </div>
-        <div class="dest">Your shortened URL goes to: <a href="${data.url}">${data.url}</a></div>
+        <div class="dest">Your "shortened" URL goes to: <a href="${data.url}">${data.url}</a></div>
         <div class="dest" style="margin-top: 0.4em;">⏱ Your link may take up to 5 minutes to start working. (It's not called Fast URL Shortener.)</div>
       `;
       out.style.display = "block";
@@ -243,7 +243,7 @@ if (id !== null) {
     } catch (err) {
       showError(err.message);
     } finally {
-      goBtn.textContent = "Shorten";
+      goBtn.textContent = `"Shorten"`;
       // stays disabled until Turnstile refreshes
     }
   };
