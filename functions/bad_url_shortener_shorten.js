@@ -39,7 +39,7 @@ export async function onRequestPost({ request, env }) {
 
     // Dedup
     const existing = list.findIndex(e => e && e.url === url);
-    if (existing !== -1) return json({ id: existing });
+    if (existing !== -1) return json({ id: existing, url });
 
     // Append
     const newList = [...list, { url, added: new Date().toISOString().slice(0, 10) }];
@@ -56,7 +56,7 @@ export async function onRequestPost({ request, env }) {
       }),
     });
 
-    if (put.ok) return json({ id: newId });
+    if (put.ok) return json({ id: newId, url });
     if (put.status === 409) continue; // race, retry
     return json({ error: `GitHub write failed (${put.status})` }, 500);
   }
