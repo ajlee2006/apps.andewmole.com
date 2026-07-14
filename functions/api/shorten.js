@@ -1,5 +1,5 @@
-const REPO = "ajlee2006/flaskurlshortener";
-const FILE = "list.json";
+const REPO = "ajlee2006/bad_url_shortener_data";
+const FILE = "data.json";
 const BRANCH = "main";
 
 export async function onRequestPost({ request, env }) {
