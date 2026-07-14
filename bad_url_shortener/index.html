@@ -134,7 +134,7 @@ if (id !== null) {
     out.textContent = "Submitting…";
 
     try {
-      const r = await fetch("/api/shorten", {
+      const r = await fetch("/bad_url_shortener_shorten", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url, turnstileToken }),
