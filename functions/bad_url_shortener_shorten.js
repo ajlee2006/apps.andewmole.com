@@ -6,32 +6,39 @@ export async function onRequestPost({ request, env }) {
   // 1. Parse + validate
   let body;
   try { body = await request.json(); } catch { return json({ error: "Bad JSON" }, 400); }
+
+  // 2. Verify Turnstile
+  const token = body.turnstileToken;
+  if (!token) return json({ error: "Missing Turnstile token" }, 400);
+  const ip = request.headers.get("CF-Connecting-IP") || "";
+  const verify = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      secret: env.TURNSTILE_SECRET,
+      response: token,
+      remoteip: ip,
+    }),
+  });
+  const verifyData = await verify.json();
+  if (!verifyData.success) return json({ error: "Turnstile check failed" }, 403);
+
+  // 3. Validate URL
   const url = normalizeUrl(body.url);
   if (!url) return json({ error: "Invalid URL" }, 400);
 
-  // 2. Rate limit: 1 submission per IP per 60s, via Cache API
-  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-  const rlKey = new Request(`https://ratelimit.local/${ip}`);
-  const cache = caches.default;
-  if (await cache.match(rlKey)) {
-    return json({ error: "Slow down — 1 request per minute." }, 429);
-  }
-  await cache.put(rlKey, new Response("1", {
-    headers: { "Cache-Control": "public, max-age=60" }
-  }));
-
-  // 3. Fetch current list, with retry on race
+  // 4. Fetch current list, append, write back (retry on race)
   for (let attempt = 0; attempt < 3; attempt++) {
     const meta = await gh(`/repos/${REPO}/contents/${FILE}?ref=${BRANCH}`, env);
     if (!meta.ok) return json({ error: "Can't read list" }, 500);
     const info = await meta.json();
     const list = JSON.parse(atob(info.content.replace(/\n/g, "")));
 
-    // 4. Dedup
+    // Dedup
     const existing = list.findIndex(e => e && e.url === url);
     if (existing !== -1) return json({ id: existing });
 
-    // 5. Append
+    // Append
     const newList = [...list, { url, added: new Date().toISOString().slice(0, 10) }];
     const newId = newList.length - 1;
     const encoded = btoa(JSON.stringify(newList, null, 2));
