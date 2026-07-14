@@ -30,7 +30,10 @@ export async function onRequestPost({ request, env }) {
   // 4. Fetch current list, append, write back (retry on race)
   for (let attempt = 0; attempt < 3; attempt++) {
     const meta = await gh(`/repos/${REPO}/contents/${FILE}?ref=${BRANCH}`, env);
-    if (!meta.ok) return json({ error: "Can't read list" }, 500);
+    if (!meta.ok) {
+      const errText = await meta.text();
+      return json({ error: `Can't read list: ${meta.status} ${errText}` }, 500);
+    }
     const info = await meta.json();
     const list = JSON.parse(atob(info.content.replace(/\n/g, "")));
 
