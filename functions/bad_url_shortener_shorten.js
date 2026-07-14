@@ -15,7 +15,7 @@ export async function onRequestPost({ request, env }) {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      secret: env.TURNSTILE_SECRET,
+      secret: env.BAD_URL_SHORTENER_TURNSTILE_SECRET,
       response: token,
       remoteip: ip,
     }),
