@@ -261,6 +261,28 @@ function stopPolling() {
   if (fetchTimer) { clearInterval(fetchTimer); fetchTimer = null; }
 }
 
+// Manual per-stop refresh (fired when the user taps an arrival cell).
+// Rate-limited so mashing doesn't spam the API.
+const REFRESH_DEBOUNCE_MS = 1000;
+const lastManualRefresh = new Map();
+async function refreshStop(code) {
+  const now = Date.now();
+  const last = lastManualRefresh.get(code) || 0;
+  if (now - last < REFRESH_DEBOUNCE_MS) return;
+  lastManualRefresh.set(code, now);
+
+  try {
+    const r = await fetch(`${API_BASE}/arrivals/${encodeURIComponent(code)}`, { cache: 'no-store' });
+    if (!r.ok) return;
+    const data = await r.json();
+    const prev = stopState.get(code) || { data: null, error: null };
+    const changed = diffArrivalChanges(prev.data, data);
+    stopState.set(code, { data, error: null, changed });
+  } catch (_) {
+    // Silent — the periodic poll will surface persistent issues
+  }
+}
+
 // ----- Add / remove / reorder stops -----
 async function addStop(code) {
   if (stops.includes(code)) {
@@ -344,7 +366,7 @@ function buildStopCard(code) {
   const card = document.createElement('div');
   card.className = 'stop-card';
   card.dataset.code = code;
-  card.draggable = true;
+  card.draggable = false;
 
   card.innerHTML = `
     <div class="stop-info">
@@ -366,12 +388,12 @@ function buildStopCard(code) {
   // Wire up the X button
   card.querySelector('.stop-close').addEventListener('click', () => removeStop(code));
 
-  // Drag handle: only allow drag from the grip (so users don't accidentally drag while clicking)
-  const grip = card.querySelector('.stop-grip');
+  // Drag handle: card is only draggable while the user is pressing on the grip.
+  // Otherwise draggable=true swallows normal clicks (e.g. tap-to-refresh).
   card.addEventListener('mousedown', (e) => {
     card.draggable = !!e.target.closest('.stop-grip');
   });
-  card.addEventListener('mouseup', () => { card.draggable = true; });
+  card.addEventListener('mouseup', () => { card.draggable = false; });
 
   // DnD handlers
   card.addEventListener('dragstart', (e) => {
@@ -385,6 +407,7 @@ function buildStopCard(code) {
   });
   card.addEventListener('dragend', () => {
     card.classList.remove('dragging');
+    card.draggable = false;
     document.querySelectorAll('.stop-card.drag-over-top, .stop-card.drag-over-bottom')
       .forEach(el => el.classList.remove('drag-over-top', 'drag-over-bottom'));
   });
@@ -494,6 +517,7 @@ function renderBoardForStop(board, services, now, changed) {
   }
 
   const nextNodes = [];
+  const nowMs = Date.now();
 
   for (const svc of sorted) {
     let row = existing.get(svc.ServiceNo);
@@ -519,26 +543,42 @@ function renderBoardForStop(board, services, now, changed) {
       `<span class="op">${escapeHTML(svc.Operator || '')}</span>${escapeHTML(origin)} <span class="arrow">→</span> ${escapeHTML(dest)}`;
 
     const arrivalsBox = row.querySelector('.arrivals');
-    arrivalsBox.innerHTML = '';
-    const nowMs = Date.now();
-    for (const key of ['NextBus', 'NextBus2', 'NextBus3']) {
-      const arrivalCell = buildArrivalCell(svc[key], now);
+    for (let i = 0; i < 3; i++) {
+      const key = ['NextBus', 'NextBus2', 'NextBus3'][i];
+      const bus = svc[key];
+      let cell = arrivalsBox.children[i];
+      // Rebuild the cell only when the identity or slot metadata actually changes.
+      // Otherwise reuse the existing DOM node — this keeps the click target stable
+      // across per-frame ticks so mousedown+mouseup can land on the same node.
+      const sig = arrivalSignature(bus);
+      if (!cell || cell.dataset.sig !== sig) {
+        const newCell = buildArrivalCell(bus, now);
+        newCell.dataset.sig = sig;
+        if (cell) arrivalsBox.replaceChild(newCell, cell);
+        else arrivalsBox.appendChild(newCell);
+        cell = newCell;
+      } else {
+        // Just refresh the ticking time text on the existing cell
+        updateArrivalCellTick(cell, bus, now);
+      }
+
+      // Apply/update the flash tint (independent of whether the cell is new)
       if (changed) {
         const slotKey = svc.ServiceNo + '|' + key;
         const flashEnd = changed.get(slotKey);
         if (flashEnd) {
           if (nowMs < flashEnd) {
-            // Linearly fade from full tint to transparent over the flash duration.
-            const t = (flashEnd - nowMs) / FLASH_MS; // 1 → 0
-            const alpha = (0.35 * t).toFixed(3);
-            arrivalCell.style.backgroundColor = `rgba(240, 168, 48, ${alpha})`;
+            const t = (flashEnd - nowMs) / FLASH_MS;
+            cell.style.backgroundColor = `rgba(240, 168, 48, ${(0.35 * t).toFixed(3)})`;
           } else {
             changed.delete(slotKey);
+            cell.style.backgroundColor = '';
           }
         }
       }
-      arrivalsBox.appendChild(arrivalCell);
     }
+    // Drop any extra cells (shouldn't happen since there are always 3 slots)
+    while (arrivalsBox.children.length > 3) arrivalsBox.lastChild.remove();
 
     nextNodes.push(row);
     existing.delete(svc.ServiceNo);
@@ -554,6 +594,35 @@ function renderBoardForStop(board, services, now, changed) {
   if (sorted.length === 0 && !board.querySelector('.empty-state')) {
     board.innerHTML = '<div class="empty-state">No services reporting at this stop.</div>';
   }
+}
+
+// Signature of everything about a bus that requires rebuilding the DOM.
+// The ticking min/sec text is NOT part of this — it's updated separately per frame.
+function arrivalSignature(bus) {
+  if (!bus || !bus.EstimatedArrival) return 'empty';
+  return [
+    bus.EstimatedArrival,
+    bus.Load || '',
+    bus.Type || '',
+    bus.Feature || '',
+    bus.Monitored ? '1' : '0'
+  ].join('|');
+}
+
+// Update just the ticking min/sec (and the "gone" class) on an existing cell,
+// without touching the surrounding DOM. Called every animation frame.
+function updateArrivalCellTick(cell, bus, now) {
+  if (!bus || !bus.EstimatedArrival) return;
+  const arrival = new Date(bus.EstimatedArrival);
+  const { minutes, seconds, past } = etaParts(arrival, now);
+  const sign = past ? '-' : '';
+  const etaEl = cell.querySelector('.eta-time');
+  if (!etaEl) return;
+  etaEl.classList.toggle('gone', past);
+  const minEl = etaEl.querySelector('.eta-min-num');
+  const secEl = etaEl.querySelector('.eta-sec-num');
+  if (minEl) minEl.textContent = sign + minutes;
+  if (secEl) secEl.textContent = pad2(seconds);
 }
 
 function buildArrivalCell(bus, now) {
@@ -606,6 +675,7 @@ function buildArrivalCell(bus, now) {
         <span class="sched-icon ${isScheduled ? 'show' : ''}" title="Scheduled (not GPS-tracked)">${isScheduled ? clockSVG() : ''}</span>
       </span>
     </div>`;
+  cell.title = 'Tap to check for an update';
   return cell;
 }
 
@@ -627,6 +697,15 @@ $('search-form').addEventListener('submit', async (ev) => {
   await addStop(code);
   $('stop-input').value = '';
   $('stop-input').focus();
+});
+
+// Tap an arrival cell to force a fresh check for that stop.
+$('stops-container').addEventListener('click', (ev) => {
+  const cell = ev.target.closest('.arrival');
+  if (!cell || cell.classList.contains('empty')) return;
+  const card = cell.closest('.stop-card[data-code]');
+  if (!card) return;
+  refreshStop(card.dataset.code);
 });
 
 // ----- About modal -----
