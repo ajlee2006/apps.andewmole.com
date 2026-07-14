@@ -32,7 +32,7 @@
   .subtitle a { color: var(--muted); }
   form { margin-top: 2em; }
   .row { display: flex; gap: 0.5em; margin-bottom: 1em; }
-  input[type=url] {
+  input[type=text] {
     flex: 1;
     padding: 0.6em 0.8em;
     font-size: 1em;
@@ -42,7 +42,7 @@
     color: var(--fg);
     font-family: inherit;
   }
-  input[type=url]:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+  input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
   button {
     padding: 0.6em 1.2em;
     font-size: 1em;
@@ -68,6 +68,12 @@
   #result.show { display: block; }
   #result.error { background: rgba(176,0,32,0.08); color: var(--err); }
   #result a { color: inherit; }
+  #ts-help {
+    display: none;
+    margin-top: 0.8em;
+    font-size: 0.9em;
+    color: var(--err);
+  }
   footer {
     margin-top: 3em;
     padding-top: 1.5em;
@@ -84,10 +90,17 @@
 
 <form id="form">
   <div class="row">
-    <input type="text" id="url" placeholder="example.com" autofocus>
+    <input type="text" id="url" placeholder="example.com" autofocus autocomplete="off" autocapitalize="off" spellcheck="false">
     <button id="go" type="submit" disabled>Shorten</button>
   </div>
-  <div class="cf-turnstile" data-sitekey="0x4AAAAAAD1inzJXZFemFpaL" data-callback="onTurnstile"></div>
+  <div class="cf-turnstile"
+       data-sitekey="0x4AAAAAAD1inzJXZFemFpaL"
+       data-callback="onTurnstile"
+       data-error-callback="onTurnstileError"
+       data-expired-callback="onTurnstileExpired"></div>
+  <div id="ts-help">
+    Verification failed to load. Please disable ad blockers or privacy extensions for this site, or try a different browser.
+  </div>
 </form>
 
 <div id="result"></div>
@@ -116,20 +129,44 @@ if (id !== null) {
 } else {
   // Submit mode
   let turnstileToken = null;
+  const tsHelp = document.getElementById("ts-help");
+  const goBtn = document.getElementById("go");
+
   window.onTurnstile = (token) => {
     turnstileToken = token;
-    document.getElementById("go").disabled = false;
+    goBtn.disabled = false;
+    tsHelp.style.display = "none";
   };
+  window.onTurnstileError = () => {
+    tsHelp.style.display = "block";
+  };
+  window.onTurnstileExpired = () => {
+    turnstileToken = null;
+    goBtn.disabled = true;
+  };
+
+  // If the Turnstile script itself was blocked, no callback ever fires
+  setTimeout(() => {
+    if (!window.turnstile) tsHelp.style.display = "block";
+  }, 5000);
 
   const form = document.getElementById("form");
   const out = document.getElementById("result");
 
+  function showError(msg) {
+    out.className = "show error";
+    out.textContent = msg;
+  }
+
   form.onsubmit = async (e) => {
     e.preventDefault();
-    const url = document.getElementById("url").value.trim();
-    const btn = document.getElementById("go");
-    btn.disabled = true;
-    btn.textContent = "Working…";
+    let url = document.getElementById("url").value.trim();
+    if (!url) { showError("Please enter a URL."); return; }
+    if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+    try { new URL(url); } catch { showError("Doesn't look like a valid URL."); return; }
+
+    goBtn.disabled = true;
+    goBtn.textContent = "Working…";
     out.className = "show";
     out.textContent = "Submitting…";
 
@@ -144,15 +181,13 @@ if (id !== null) {
       const shortUrl = `${location.origin}/bad_url_shortener/?id=${data.id}`;
       out.className = "show";
       out.innerHTML = `→ <a href="${shortUrl}">${shortUrl}</a>`;
-      // Reset turnstile so a second submission works
       if (window.turnstile) window.turnstile.reset();
       turnstileToken = null;
     } catch (err) {
-      out.className = "show error";
-      out.textContent = err.message;
+      showError(err.message);
     } finally {
-      btn.textContent = "Shorten";
-      // Button stays disabled until Turnstile refreshes
+      goBtn.textContent = "Shorten";
+      // stays disabled until Turnstile refreshes
     }
   };
 }
