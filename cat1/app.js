@@ -57,7 +57,9 @@ const COLOUR_PALETTE = {
   "yellow":    { fill: "#fff200", stroke: "#b8a800" },
   "orange":    { fill: "#ff8c00", stroke: "#a35a00" },
   "red":       { fill: "#b03020", stroke: "#5c1810" },
-  "faded-red": { fill: "#b03020", stroke: "#5c1810", fillOpacity: 0.2, opacity: 0.5 }
+  "faded-red": { fill: "#b03020", stroke: "#5c1810", fillOpacity: 0.2, opacity: 0.5 },
+  "light-blue":{ fill: "#5dade2", stroke: "#2874a6" },
+  "blue":      { fill: "#2874a6", stroke: "#154360" }
 };
 
 // Default style options applied to every polygon.
@@ -215,6 +217,25 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && errorBackdrop.classList.contains('visible')) closeError();
 });
 
+// CAT 4/5 help popup — click the (?) button in the legend to open.
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.cat-help');
+  if (!btn) return;
+  e.stopPropagation();
+  const cat = btn.dataset.cat;
+  document.getElementById('cat-help-title').textContent = 'CAT ' + cat;
+  document.getElementById('cat-help-backdrop').classList.add('visible');
+});
+const catHelpBackdrop = document.getElementById('cat-help-backdrop');
+function closeCatHelp() { catHelpBackdrop.classList.remove('visible'); }
+document.getElementById('cat-help-close').addEventListener('click', closeCatHelp);
+catHelpBackdrop.addEventListener('click', e => {
+  if (e.target === catHelpBackdrop) closeCatHelp();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && catHelpBackdrop.classList.contains('visible')) closeCatHelp();
+});
+
 const layerGroup = L.featureGroup().addTo(map);
 const polygonsByName = {};   // name -> array of polygon layers (for live restyling)
 
@@ -269,6 +290,8 @@ legend.onAdd = function () {
   div.innerHTML =
     '<div id="colours-loading">Loading&hellip;</div>' +
     '<div id="colours-body" style="display:none;">' +
+      '<div id="legend-cat5" style="display:none;"><span class="swatch" style="background:#2874a6"></span>CAT 5 <button class="cat-help" data-cat="5" aria-label="What is CAT 5?">?</button></div>' +
+      '<div id="legend-cat4" style="display:none;"><span class="swatch" style="background:#5dade2"></span>CAT 4 <button class="cat-help" data-cat="4" aria-label="What is CAT 4?">?</button></div>' +
       '<div><span class="swatch" style="background:#2ecc71"></span>CAT 3</div>' +
       '<div><span class="swatch" style="background:#fff200"></span>CAT 2</div>' +
       '<div><span class="swatch" style="background:#ff8c00"></span>CAT 1 incoming</div>' +
@@ -366,6 +389,17 @@ function applyColours() {
       }
     });
   }
+
+  // Show CAT 4 / CAT 5 rows in the legend only when at least one sector has them.
+  const hasCat = { '4': false, '5': false };
+  for (const name in CAT_INFO) {
+    const raw = String(CAT_INFO[name][0]);
+    if (raw === '4' || raw === '5') hasCat[raw] = true;
+  }
+  const cat4El = document.getElementById('legend-cat4');
+  const cat5El = document.getElementById('legend-cat5');
+  if (cat4El) cat4El.style.display = hasCat['4'] ? '' : 'none';
+  if (cat5El) cat5El.style.display = hasCat['5'] ? '' : 'none';
 }
 
 // -------------------------------------------------------------
@@ -376,6 +410,8 @@ function applyColours() {
 // than colour names, map them here. Leave as identity if the API
 // already returns "green" / "yellow" / "orange" / "red" / "faded-red".
 const STATUS_TO_COLOUR = {
+  '5':  'blue',
+  '4':  'light-blue',
   '3':  'green',
   '2':  'yellow',
   '1':  'orange',
