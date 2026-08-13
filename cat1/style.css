@@ -297,3 +297,64 @@ body.banner-visible .leaflet-top { margin-top: 56px; }
   border-radius: 4px;
 }
 #error-close:hover { background: #eee; }
+/* (?) help button in the legend */
+.cat-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  border: 1px solid #888;
+  background: #fff;
+  color: #555;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  vertical-align: middle;
+}
+.cat-help:hover { background: #eee; color: #000; }
+
+/* CAT help modal — same frame as error modal, without the red accent */
+#cat-help-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 2600;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+#cat-help-backdrop.visible { display: flex; }
+#cat-help-modal {
+  background: #fff;
+  border-top: 6px solid #2874a6;
+  border-radius: 8px;
+  max-width: 420px;
+  width: 100%;
+  padding: 18px 22px 20px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  font-size: 14px;
+  line-height: 1.55;
+  position: relative;
+}
+#cat-help-modal h2 { margin: 0 0 10px; font-size: 17px; color: #2874a6; }
+#cat-help-modal a { color: #1a73e8; }
+#cat-help-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  color: #555;
+  cursor: pointer;
+  border-radius: 4px;
+}
+#cat-help-close:hover { background: #eee; }
