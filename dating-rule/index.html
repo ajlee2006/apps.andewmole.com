@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Can they date?</title>
+<link rel="icon" href="/andewmole.png" type="image/png">
+<style>
+  :root{
+    color-scheme:light;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    --bg:#f4f5f7; --card:#ffffff; --text:#1c1e21; --muted:#6b7280;
+    --border:#dfe1e6; --field:#fbfbfc; --accent:#4f46e5;
+    --btn:#f3f4f6; --btn-border:#d1d5db;
+    --green:#15803d; --green-bg:#dcfce7; --red:#b91c1c; --red-bg:#fee2e2;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --bg:#0f1115; --card:#181b21; --text:#e8eaed; --muted:#9aa0aa;
+      --border:#2a2e37; --field:#12151a; --accent:#818cf8;
+      --btn:#1f232b; --btn-border:#333a44;
+      --green:#4ade80; --green-bg:#0f2e1c; --red:#f87171; --red-bg:#3a1414;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#0f1115; --card:#181b21; --text:#e8eaed; --muted:#9aa0aa;
+    --border:#2a2e37; --field:#12151a; --accent:#818cf8;
+    --btn:#1f232b; --btn-border:#333a44;
+    --green:#4ade80; --green-bg:#0f2e1c; --red:#f87171; --red-bg:#3a1414;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100%; display:flex; align-items:center; justify-content:center;
+    padding:24px;
+  }
+  .stage{position:relative; width:100%; max-width:460px}
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:16px;
+    padding:28px 26px; width:100%;
+    box-shadow:0 10px 30px rgba(0,0,0,.06);
+  }
+  h1{font-size:1.25rem; margin:0 0 4px}
+  .rule{color:var(--muted); font-size:.85rem; margin:0 0 22px}
+  .rule code{background:var(--field); padding:2px 6px; border-radius:5px; border:1px solid var(--border)}
+  label{display:block; font-size:.8rem; font-weight:600; margin:0 0 6px; color:var(--muted)}
+  .field{margin-bottom:16px}
+  .row{display:flex; gap:8px; align-items:stretch}
+  input[type=date]{
+    flex:1; min-width:0; padding:11px 12px; font-size:1rem; color:var(--text);
+    background:var(--field); border:1px solid var(--border); border-radius:10px;
+    font-family:inherit;
+  }
+  input[type=date]:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}
+  .btns{display:flex; flex-direction:column; gap:6px}
+  .btns button{
+    font-family:inherit; font-size:.72rem; font-weight:600; white-space:nowrap;
+    padding:0 10px; min-height:22px; color:var(--text);
+    background:var(--btn); border:1px solid var(--btn-border); border-radius:7px;
+    cursor:pointer; line-height:1;
+  }
+  .btns button:hover:not(:disabled){border-color:var(--accent); color:var(--accent)}
+  .btns button:disabled{opacity:.4; cursor:not-allowed}
+  #result{margin-top:20px; padding:16px 18px; border-radius:12px; display:none}
+  #result.show{display:block}
+  #result.ok{background:var(--green-bg); color:var(--green)}
+  #result.no{background:var(--red-bg); color:var(--red)}
+  .headline{font-size:1.05rem; font-weight:700; margin:0 0 4px}
+  .sub{font-size:.85rem; opacity:.9; margin:0}
+  .ages{font-size:.72rem; opacity:.75; margin:7px 0 0}
+  .age-note{font-size:.72rem; color:var(--muted); margin:6px 2px 0; min-height:1em}
+  .hint{color:var(--muted); font-size:.8rem; margin-top:18px; text-align:center}
+
+  .card{position:relative}
+  .gear{
+    position:absolute; top:16px; right:16px; width:32px; height:32px;
+    display:flex; align-items:center; justify-content:center;
+    background:transparent; border:none; border-radius:8px; cursor:pointer;
+    color:var(--muted); font-size:1.15rem; line-height:1;
+  }
+  .gear:hover{background:var(--field); color:var(--text)}
+  .back{
+    position:absolute; top:6px; right:calc(100% + 8px);
+    width:32px; height:32px; display:flex; align-items:center; justify-content:center;
+    background:transparent; border:none; border-radius:8px;
+    color:var(--muted); text-decoration:none;
+  }
+  .back svg{width:19px; height:19px; display:block}
+  .back:hover{background:var(--field); color:var(--text)}
+  @media (max-width:600px){
+    .back{right:auto; left:0; top:-46px}
+  }
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.5);
+    display:flex; align-items:center; justify-content:center; padding:24px; z-index:10;
+  }
+  .overlay[hidden]{display:none}
+  .modal{
+    position:relative; background:var(--card); border:1px solid var(--border);
+    border-radius:16px; padding:26px 24px; width:100%; max-width:420px;
+    box-shadow:0 20px 50px rgba(0,0,0,.25);
+  }
+  .modal h2{font-size:1.05rem; margin:0 0 12px}
+  .modal h2 + *{margin-top:0}
+  .close{
+    position:absolute; top:14px; right:16px; background:transparent; border:none;
+    color:var(--muted); font-size:1.4rem; line-height:1; cursor:pointer;
+  }
+  .close:hover{color:var(--text)}
+  .chk{display:flex; align-items:center; gap:9px; font-size:.9rem; font-weight:500;
+    color:var(--text); margin:0 0 14px; cursor:pointer}
+  .chk input{width:16px; height:16px; accent-color:var(--accent); cursor:pointer}
+  .customRow{display:flex; align-items:center; gap:10px; margin:0 0 22px; transition:opacity .15s}
+  .customRow.disabled{opacity:.4; pointer-events:none}
+  .customRow label{font-size:.85rem; font-weight:600; color:var(--muted); margin:0; white-space:nowrap}
+  .customRow input[type=date]{
+    flex:1; min-width:0; padding:9px 11px; font-size:.95rem; color:var(--text);
+    background:var(--field); border:1px solid var(--border); border-radius:9px; font-family:inherit;
+  }
+  .info{font-size:.82rem; line-height:1.5; color:var(--muted); margin:0}
+</style>
+</head>
+<body>
+  <div class="stage">
+    <a class="back" href="/" title="Back" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 5 4 12l7 7"/>
+        <path d="M4 12h16"/>
+      </svg>
+    </a>
+    <main class="card">
+      <button id="gear" class="gear" title="Settings" aria-label="Settings">⚙</button>
+      <h1>Can they date? 🧮</h1>
+    <p class="rule">Standard rule: youngest you may date = <code>age / 2 + 7</code><br>Enter both birthdays.</p>
+
+    <div class="field">
+      <label for="b1">Person 1's birthday</label>
+      <div class="row">
+        <input type="date" id="b1">
+        <div class="btns">
+          <button data-target="1" data-mode="earliest" title="Oldest Person 1 can be and still legally date Person 2 today">Earliest</button>
+          <button data-target="1" data-mode="latest" title="Youngest Person 1 can be and still legally date Person 2 today">Latest</button>
+        </div>
+      </div>
+      <p class="age-note" id="age1"></p>
+    </div>
+
+    <div class="field">
+      <label for="b2">Person 2's birthday</label>
+      <div class="row">
+        <input type="date" id="b2">
+        <div class="btns">
+          <button data-target="2" data-mode="earliest" title="Oldest Person 2 can be and still legally date Person 1 today">Earliest</button>
+          <button data-target="2" data-mode="latest" title="Youngest Person 2 can be and still legally date Person 1 today">Latest</button>
+        </div>
+      </div>
+      <p class="age-note" id="age2"></p>
+    </div>
+
+    <div id="result" role="status" aria-live="polite">
+      <p class="headline" id="headline"></p>
+      <p class="sub" id="sub"></p>
+      <p class="ages" id="ages"></p>
+    </div>
+
+    <p class="hint" id="hint">Pick both dates to calculate.</p>
+    </main>
+  </div>
+
+  <div id="overlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+      <button id="closeModal" class="close" aria-label="Close">×</button>
+      <h2 id="setTitle">Settings</h2>
+      <label class="chk"><input type="checkbox" id="useToday" checked> Calculate for today's date</label>
+      <div class="customRow disabled" id="customRow">
+        <label for="refDate">Calculate for</label>
+        <input type="date" id="refDate">
+      </div>
+      <h2>Info</h2>
+      <p class="info">This app applies the "half your age plus seven" rule: the youngest person you may date is <em>age / 2 + 7</em>. Enter both birthdays and it shows the earliest date the pair is allowed to date &mdash; green once that date has passed, red while it's still ahead.<br><br>The maths simplifies nicely. Both people age at the same rate, so their age gap <em>D</em> (in years) never changes. Writing the older age as <em>younger + D</em> and plugging into <em>younger &ge; older/2 + 7</em> gives <em>younger &ge; (younger + D)/2 + 7</em>, which reduces all the way down to <strong>younger &ge; D + 14</strong>. So the pair becomes legal exactly when the younger person turns <em>D + 14</em> &mdash; that's the single moment the app solves for.<br><br>The <strong>Earliest</strong> / <strong>Latest</strong> buttons set one person's birthday to the oldest / youngest they could be while still legal, given the other person's date. A year is 365.2425 days; the older person counts as born at 12:00am and the younger at 11:59pm, and any partial day rounds up. By default everything is judged against today &mdash; untick the box above to test against any other date instead.</p>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const MS_DAY = 24*60*60*1000;
+  const MS_YEAR = 365.2425 * MS_DAY;          // consistent year length
+
+  const b = {1:document.getElementById('b1'), 2:document.getElementById('b2')};
+  const result = document.getElementById('result');
+  const headline = document.getElementById('headline');
+  const sub = document.getElementById('sub');
+  const ages = document.getElementById('ages');
+  const ageNote = {1:document.getElementById('age1'), 2:document.getElementById('age2')};
+  const hint = document.getElementById('hint');
+
+  const fmt = new Intl.DateTimeFormat('en-GB',
+    {weekday:'long', day:'numeric', month:'long', year:'numeric', timeZone:'UTC'});
+
+  const parts = s => { const [y,m,d]=s.split('-').map(Number); return {y,m:m-1,d}; };
+  const floorDay = ms => { const d=new Date(ms); return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()); };
+  const ceilDay  = ms => { const s=floorDay(ms); return ms===s ? s : s+MS_DAY; };
+  const toStr = ms => { const d=new Date(ms);
+    return d.getUTCFullYear().toString().padStart(4,'0')+'-'+
+           (d.getUTCMonth()+1).toString().padStart(2,'0')+'-'+
+           d.getUTCDate().toString().padStart(2,'0'); };
+  let refOverride = null;   // null = use today; otherwise a UTC-midnight ms
+  const todayStart = () => {
+    if(refOverride!==null) return refOverride;
+    const n=new Date(); return Date.UTC(n.getFullYear(),n.getMonth(),n.getDate());
+  };
+
+  // Earliest calendar day the two given birthdays may start dating (matches display logic).
+  function earliestDating(sA, sB){
+    const pA=parts(sA), pB=parts(sB);
+    const tA=Date.UTC(pA.y,pA.m,pA.d), tB=Date.UTC(pB.y,pB.m,pB.d);
+    const older   = tA<=tB ? pA : pB;   // earlier birthday = older person
+    const younger = tA<=tB ? pB : pA;
+    const bO=Date.UTC(older.y,older.m,older.d,0,0,0);    // older born 12:00am
+    const bY=Date.UTC(younger.y,younger.m,younger.d,23,59,0); // younger born 11:59pm
+    const D=(bY-bO)/MS_YEAR;                              // age gap in years
+    return ceilDay(bY + (D+14)*MS_YEAR);                 // younger must reach age D+14
+  }
+
+  const isLegal = (sX, sO) => earliestDating(sX, sO) <= todayStart();
+
+  // Calendar age (years/months/days) from a birthday to a target UTC-midnight day.
+  function ageYMD(sBirth, toMs){
+    const p=parts(sBirth);
+    const t=new Date(toMs);
+    let ty=t.getUTCFullYear(), tm=t.getUTCMonth(), td=t.getUTCDate();
+    let years=ty-p.y, months=tm-p.m, days=td-p.d;
+    if(days<0){ months--; days += new Date(Date.UTC(ty,tm,0)).getUTCDate(); }
+    if(months<0){ years--; months+=12; }
+    return {years,months,days};
+  }
+  const plural=(n,w)=>n+' '+w+(n===1?'':'s');
+  function fmtAge(sBirth, toMs){
+    if(Date.UTC(parts(sBirth).y,parts(sBirth).m,parts(sBirth).d) > toMs) return 'not born yet';
+    const a=ageYMD(sBirth,toMs);
+    return plural(a.years,'year')+', '+plural(a.months,'month')+', '+plural(a.days,'day');
+  }
+
+  // Age of the "other" person today, in years.
+  const ageToday = sO => { const p=parts(sO); return (todayStart()-Date.UTC(p.y,p.m,p.d))/MS_YEAR; };
+
+  // Find the extreme legal birthday for the target person, other person fixed.
+  // mode 'latest' = youngest legal (latest date); 'earliest' = oldest legal (earliest date).
+  function legalBound(sO, mode){
+    const a = ageToday(sO);
+    if (2*a-14 < a/2+7) return null;                     // no legal window (other < 14)
+    const latest = mode==='latest';
+    const startAge = latest ? (a/2+7) : (2*a-14);
+    let day = floorDay(todayStart() - startAge*MS_YEAR);
+    let steps=0;
+    if(!isLegal(toStr(day), sO)){                        // step toward the legal region
+      const dir = latest ? -1 : 1;
+      while(!isLegal(toStr(day), sO) && steps++<800) day += dir*MS_DAY;
+      if(!isLegal(toStr(day), sO)) return null;
+    }
+    const dir = latest ? 1 : -1;                         // push to the extreme legal day
+    while(isLegal(toStr(day+dir*MS_DAY), sO) && steps++<1600) day += dir*MS_DAY;
+    return day;
+  }
+
+  function calc(){
+    if(!b[1].value || !b[2].value){
+      result.classList.remove('show','ok','no');
+      hint.textContent = 'Pick both dates to calculate.';
+      return;
+    }
+    const earliestDay = earliestDating(b[1].value, b[2].value);
+    const when = fmt.format(new Date(earliestDay));
+    hint.textContent='';
+    result.classList.add('show');
+    if(earliestDay <= todayStart()){
+      result.classList.add('ok'); result.classList.remove('no');
+      headline.textContent = "✅ Congratulations, you're in the clear!";
+      sub.textContent = 'You could start dating from ' + when + '.';
+    } else {
+      result.classList.add('no'); result.classList.remove('ok');
+      headline.textContent = "⛔ Sorry, you shouldn't date yet.";
+      sub.textContent = 'You should wait until ' + when + '.';
+    }
+    ages.textContent = 'Their ages that day — Person 1: ' + fmtAge(b[1].value, earliestDay) +
+                       '; Person 2: ' + fmtAge(b[2].value, earliestDay) + '.';
+  }
+
+  // "Current age" line under each input (relative to the reference date).
+  function renderAges(){
+    [1,2].forEach(i=>{
+      ageNote[i].textContent = b[i].value ? 'Current age: ' + fmtAge(b[i].value, todayStart()) : '';
+    });
+  }
+
+  // Enable/disable the buttons based on the OTHER input.
+  function refreshButtons(){
+    document.querySelectorAll('.btns button').forEach(btn=>{
+      const t = btn.dataset.target;
+      const other = t==='1' ? b[2].value : b[1].value;
+      btn.disabled = !other || legalBound(other, btn.dataset.mode)===null;
+    });
+  }
+
+  document.querySelectorAll('.btns button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const t = btn.dataset.target;
+      const other = t==='1' ? b[2].value : b[1].value;
+      if(!other) return;
+      const day = legalBound(other, btn.dataset.mode);
+      if(day===null) return;
+      b[t].value = toStr(day);
+      update();
+    });
+  });
+
+  function update(){ renderAges(); refreshButtons(); calc(); }
+  b[1].addEventListener('input', update);
+  b[2].addEventListener('input', update);
+
+  // --- Settings modal ---
+  const gear=document.getElementById('gear');
+  const overlay=document.getElementById('overlay');
+  const closeModal=document.getElementById('closeModal');
+  const useToday=document.getElementById('useToday');
+  const customRow=document.getElementById('customRow');
+  const refDate=document.getElementById('refDate');
+
+  refDate.value = toStr(todayStart());   // sensible default
+
+  function applyRef(){
+    if(useToday.checked){
+      refOverride = null;
+      customRow.classList.add('disabled');
+      refDate.disabled = true;
+    } else {
+      customRow.classList.remove('disabled');
+      refDate.disabled = false;
+      if(!refDate.value) refDate.value = toStr(Date.UTC(new Date().getFullYear(),new Date().getMonth(),new Date().getDate()));
+      const p=parts(refDate.value); refOverride = Date.UTC(p.y,p.m,p.d);
+    }
+    update();
+  }
+
+  const openM=()=>overlay.hidden=false;
+  const closeM=()=>overlay.hidden=true;
+  gear.addEventListener('click', openM);
+  closeModal.addEventListener('click', closeM);
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) closeM(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeM(); });
+  useToday.addEventListener('change', applyRef);
+  refDate.addEventListener('input', applyRef);
+
+  applyRef();
+  refreshButtons();
+})();
+</script>
+</body>
+</html>
